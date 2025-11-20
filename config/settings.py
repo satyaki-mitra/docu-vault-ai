@@ -1,0 +1,237 @@
+# DEPENDENCIES
+import os
+from pathlib import Path
+from pydantic import Field
+from typing import Literal
+from typing import Optional
+from pydantic import field_validator
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """
+    Application configuration with environment variable support
+    
+    Environment variables take precedence over defaults
+    """
+    # Application Settings
+    APP_NAME                      : str                                                      = "AI Universal Knowledge Ingestion System"
+    APP_VERSION                   : str                                                      = "1.0.0"
+    DEBUG                         : bool                                                     = Field(default = False, description = "Enable debug mode")
+    HOST                          : str                                                      = Field(default = "0.0.0.0", description = "API host")
+    PORT                          : int                                                      = Field(default = 8000, description = "API port")
+    
+    # File Upload Settings
+    MAX_FILE_SIZE_MB              : int                                                      = Field(default = 100, description = "Max file size in MB")
+    MAX_BATCH_FILES               : int                                                      = Field(default = 10, description = "Max files per upload")
+    ALLOWED_EXTENSIONS            : list[str]                                                = Field(default = ["pdf", "docx", "txt"], description = "Allowed file extensions")
+    UPLOAD_DIR                    : Path                                                     = Field(default = Path("data/uploads"), description = "Directory for uploaded files")
+    
+    # Ollama LLM Settings
+    OLLAMA_BASE_URL               : str                                                      = Field(default = "http://localhost:11434", description = "Ollama API endpoint")
+    OLLAMA_MODEL                  : str                                                      = Field(default = "mistral:7b-instruct",description = "Ollama model name")
+    OLLAMA_TIMEOUT                : int                                                      = Field(default = 120, description = "Ollama request timeout (seconds)")
+    
+    # Generation parameters
+    DEFAULT_TEMPERATURE           : float                                                    = Field(default = 0.1, ge = 0.0, le = 1.0, description = "LLM temperature (0=deterministic, 1=creative)")
+    DEFAULT_TOP_P                 : float                                                    = Field(default = 0.9, ge = 0.0, le = 1.0, description = "Nucleus sampling threshold")
+    MAX_TOKENS                    : int                                                      = Field(default = 1000, description = "Max output tokens")
+    CONTEXT_WINDOW                : int                                                      = Field(default = 8192, description = "Model context window size")
+    
+    # Embedding Settings
+    EMBEDDING_MODEL               : str                                                      = Field(default = "BAAI/bge-small-en-v1.5", description = "HuggingFace embedding model")
+    EMBEDDING_DIMENSION           : int                                                      = Field(default = 384, description = "Embedding vector dimension")
+    EMBEDDING_DEVICE              : Literal["cpu", "cuda", "mps"]                            = Field(default = "cpu", description = "Device for embedding generation")
+    EMBEDDING_BATCH_SIZE          : int                                                      = Field(default = 32, description = "Batch size for embedding generation")
+    
+    # Chunking Settings
+    # Fixed chunking
+    FIXED_CHUNK_SIZE              : int                                                      = Field(default = 512, description = "Fixed chunk size in tokens")
+    FIXED_CHUNK_OVERLAP           : int                                                      = Field(default = 50, description = "Overlap between chunks")
+    
+    # Semantic chunking
+    SEMANTIC_BREAKPOINT_THRESHOLD : float                                                    = Field(default=0.95, description="Percentile for semantic breakpoints")
+    
+    # Hierarchical chunking
+    PARENT_CHUNK_SIZE             : int                                                      = Field(default = 2048, description = "Parent chunk size")
+    CHILD_CHUNK_SIZE              : int                                                      = Field(default = 512, description = "Child chunk size")
+    
+    # Adaptive thresholds
+    SMALL_DOC_THRESHOLD           : int                                                      = Field(default = 50_000, description = "Token threshold for fixed chunking")
+    LARGE_DOC_THRESHOLD           : int                                                      = Field(default = 500_000, description = "Token threshold for hierarchical chunking")
+    
+    # Retrieval Settings
+    # Vector search
+    TOP_K_RETRIEVE                : int                                                      = Field(default = 10, description = "Top chunks to retrieve")
+    TOP_K_FINAL                   : int                                                      = Field(default = 5, description = "Final chunks after reranking")
+    FAISS_NPROBE                  : int                                                      = Field(default = 10, description = "FAISS search probes")
+    
+    # Hybrid search weights
+    VECTOR_WEIGHT                 : float                                                    = Field(default = 0.6, description = "Vector search weight")
+    BM25_WEIGHT                   : float                                                    = Field(default = 0.4, description = "BM25 search weight")
+    
+    # BM25 parameters
+    BM25_K1                       : float                                                    = Field(default = 1.5, description = "BM25 term saturation")
+    BM25_B                        : float                                                    = Field(default = 0.75, description = "BM25 length normalization")
+    
+    # Reranking
+    ENABLE_RERANKING              : bool                                                     = Field(default = False, description = "Enable cross-encoder reranking")
+    RERANKER_MODEL                : str                                                      = Field(default = "cross-encoder/ms-marco-MiniLM-L-6-v2", description = "Reranker model")
+    
+    # Storage Settings
+    VECTOR_STORE_DIR              : Path                                                     = Field(default = Path("data/vector_store"), description = "FAISS index storage")
+    METADATA_DB_PATH              : Path                                                     = Field(default = Path("data/metadata.db"), description = "SQLite metadata database")
+    
+    # Backup
+    AUTO_BACKUP                   : bool                                                     = Field(default = True, description = "Enable auto-backup")
+    BACKUP_INTERVAL               : int                                                      = Field(default = 1000, description = "Backup every N documents")
+    BACKUP_DIR                    : Path                                                     = Field(default = Path("data/backups"), description = "Backup directory")
+    
+    # Cache Settings
+    ENABLE_CACHE                  : bool                                                     = Field(default = True, description = "Enable embedding cache")
+    CACHE_TYPE                    : Literal["memory", "redis"]                               = Field(default = "memory", description = "Cache backend")
+    CACHE_TTL                     : int                                                      = Field(default = 3600, description = "Cache TTL in seconds")
+    CACHE_MAX_SIZE                : int                                                      = Field(default = 1000, description = "Max cached items")
+    
+    # Redis (if used)
+    REDIS_HOST                    : str                                                      = Field(default = "localhost", description = "Redis host")
+    REDIS_PORT                    : int                                                      = Field(default = 6379, description = "Redis port")
+    REDIS_DB                      : int                                                      = Field(default = 0, description = "Redis database number")
+    
+    # Logging Settings
+    LOG_LEVEL                     : Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(default = "INFO", description = "Logging level")
+    LOG_DIR                       : Path                                                     = Field(default = Path("logs"), description = "Log file directory")
+    LOG_FORMAT                    : str                                                      = Field(default = "%(asctime)s - %(name)s - %(levelname)s - %(message)s", description = "Log format string")
+    LOG_ROTATION                  : str                                                      = Field(default = "500 MB", description = "Log rotation size")
+    LOG_RETENTION                 : str                                                      = Field(default = "30 days", description = "Log retention period")
+    
+    # Evaluation Settings
+    ENABLE_RAGAS                  : bool                                                     = Field(default = False, description = "Enable Ragas evaluation")
+    RAGAS_METRICS                 : list[str]                                                = Field(default = ["answer_relevancy", "faithfulness", "context_precision"], description = "Ragas metrics to compute")
+    
+    ENABLE_LANGSMITH              : bool                                                     = Field(default = False, description = "Enable LangSmith logging")
+    LANGSMITH_API_KEY             : Optional[str]                                            = Field(default = None, description = "LangSmith API key")
+    LANGSMITH_PROJECT             : str                                                      = Field(default = "universal-rag", description = "LangSmith project name")
+    
+    # Web Scraping Settings (for future)
+    SCRAPING_ENABLED              : bool                                                     = Field(default = False, description = "Enable web scraping")
+    USER_AGENT                    : str                                                      = Field(default = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", description = "User agent for scraping")
+    REQUEST_DELAY                 : float                                                    = Field(default = 2.0, description = "Delay between requests (seconds)")
+    MAX_RETRIES                   : int                                                      = Field(default = 3, description = "Max scraping retries")
+    
+    # Performance Settings
+    MAX_WORKERS                   : int                                                      = Field(default = 4, description = "Max parallel workers")
+    ASYNC_BATCH_SIZE              : int                                                      = Field(default = 10, description = "Async batch size")
+    
+    # Security Settings
+    ENABLE_AUTH                   : bool                                                     = Field(default = False, description = "Enable authentication")
+    SECRET_KEY                    : str                                                      = Field(default = "change-this-in-production-use-env-var", description = "Secret key for sessions")
+    
+
+    class Config:
+        env_file          = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive    = True
+    
+
+    @field_validator("UPLOAD_DIR", "VECTOR_STORE_DIR", "LOG_DIR", "BACKUP_DIR", "METADATA_DB_PATH")
+    @classmethod
+    def create_directories(cls, v: Path) -> Path:
+        """
+        Ensure directories exist
+        """
+        if v.suffix:  # It's a file path (like metadata.db)
+            v.parent.mkdir(parents = True, exist_ok = True)
+
+        else:  # It's a directory
+            v.mkdir(parents=True, exist_ok=True)
+        return v
+
+    
+    @field_validator("VECTOR_WEIGHT", "BM25_WEIGHT")
+    @classmethod
+    def validate_weights_sum(cls, v: float, info) -> float:
+        """
+        Ensure vector and BM25 weights are valid
+        """
+        if ((info.field_name == "BM25_WEIGHT") and ("VECTOR_WEIGHT" in info.data)):
+            vector_weight = info.data["VECTOR_WEIGHT"]
+            
+            if (abs(vector_weight + v - 1.0) > 0.01):
+                raise ValueError(f"VECTOR_WEIGHT ({vector_weight}) + BM25_WEIGHT ({v}) must sum to 1.0")
+        
+        return v
+    
+
+    @property
+    def max_file_size_bytes(self) -> int:
+        """
+        Convert MB to bytes
+        """
+        return self.MAX_FILE_SIZE_MB * 1024 * 1024
+    
+
+    @property
+    def is_cuda_available(self) -> bool:
+        """
+        Check if CUDA device is requested and available
+        """
+        if self.EMBEDDING_DEVICE == "cuda":
+            try:
+                import torch
+                return torch.cuda.is_available()
+
+            except ImportError:
+                return False
+
+        return False
+    
+
+    def get_ollama_url(self, endpoint: str) -> str:
+        """
+        Construct full Ollama API URL
+        """
+        return f"{self.OLLAMA_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
+    
+
+    def summary(self) -> dict:
+        """
+        Get configuration summary (excluding sensitive data)
+        """
+        return {"app_name"           : self.APP_NAME,
+                "version"            : self.APP_VERSION,
+                "ollama_model"       : self.OLLAMA_MODEL,
+                "embedding_model"    : self.EMBEDDING_MODEL,
+                "embedding_device"   : self.EMBEDDING_DEVICE,
+                "max_file_size_mb"   : self.MAX_FILE_SIZE_MB,
+                "allowed_extensions" : self.ALLOWED_EXTENSIONS,
+                "chunking_strategy"  : {"small_threshold" : self.SMALL_DOC_THRESHOLD, "large_threshold" : self.LARGE_DOC_THRESHOLD},
+                "retrieval"          : {"top_k" : self.TOP_K_RETRIEVE, "hybrid_weights" : {"vector" : self.VECTOR_WEIGHT, "bm25" : self.BM25_WEIGHT}},
+                "evaluation"         : {"ragas_enabled" : self.ENABLE_RAGAS, "langsmith_enabled" : self.ENABLE_LANGSMITH},
+               }
+
+
+# Global settings instance
+settings = Settings()
+
+
+# Convenience function for getting settings
+def get_settings() -> Settings:
+    """
+    Get global settings instance
+    """
+    return settings
+
+
+if __name__ == "__main__":
+    # Test configuration
+    print("=== Configuration Summary ===")
+    import json
+    print(json.dumps(settings.summary(), indent=2))
+    
+    print("\n=== Validation Tests ===")
+    print(f"Max file size (bytes): {settings.max_file_size_bytes:,}")
+    print(f"CUDA available: {settings.is_cuda_available}")
+    print(f"Ollama generate URL: {settings.get_ollama_url('/api/generate')}")
+    print(f"Upload directory exists: {settings.UPLOAD_DIR.exists()}")
+    print(f"Vector store directory exists: {settings.VECTOR_STORE_DIR.exists()}")
