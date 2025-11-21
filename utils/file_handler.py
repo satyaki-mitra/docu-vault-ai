@@ -282,16 +282,19 @@ class FileHandler:
         """
         Move file with safety checks
         
-        Args:
-            source: Source file path
-            destination: Destination file path
-            overwrite: Whether to overwrite existing file
+        Arguments:
+        ----------
+            source      { Path } : Source file path
+
+            destination { Path } : Destination file path
+            
+            overwrite   { bool } : Whether to overwrite existing file
         
         Returns:
         --------
-            Destination path
+                { Path }         : Destination path
         """
-        source = Path(source)
+        source      = Path(source)
         destination = Path(destination)
         
         if not source.exists():
@@ -301,62 +304,71 @@ class FileHandler:
             raise FileExistsError(f"Destination already exists: {destination}")
         
         # Ensure destination directory exists
-        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.parent.mkdir(parents = True, exist_ok = True)
         
         shutil.move(str(source), str(destination))
         logger.info(f"Moved file: {source} -> {destination}")
         
         return destination
     
+
     @staticmethod
     def delete_file(file_path: Path, missing_ok: bool = True) -> bool:
         """
-        Delete file safely.
+        Delete file safely
         
-        Args:
-            file_path: Path to file
-            missing_ok: Don't raise error if file doesn't exist
+        Arguments:
+        ----------
+            file_path  { Path } : Path to file
+
+            missing_ok { bool } : Don't raise error if file doesn't exist
         
         Returns:
-            True if deleted, False if not found
+        --------
+                { bool }        : True if deleted, False if not found
         """
         file_path = Path(file_path)
         
         if not file_path.exists():
             if missing_ok:
                 return False
+
             raise FileNotFoundError(f"File not found: {file_path}")
         
         file_path.unlink()
+
         logger.info(f"Deleted file: {file_path}")
         return True
     
+
     @staticmethod
-    def delete_directory(
-        directory: Path,
-        missing_ok: bool = True,
-        recursive: bool = True
-    ) -> bool:
+    def delete_directory(directory: Path, missing_ok: bool = True, recursive: bool = True) -> bool:
         """
-        Delete directory safely.
+        Delete directory safely
         
-        Args:
-            directory: Path to directory
-            missing_ok: Don't raise error if directory doesn't exist
-            recursive: Delete contents recursively
+        Arguments:
+        ----------
+            directory  { Path } : Path to directory
+
+            missing_ok { bool } : Don't raise error if directory doesn't exist
+            
+            recursive  { bool } : Delete contents recursively
         
         Returns:
-            True if deleted, False if not found
+        --------
+                { bool }        : True if deleted, False if not found
         """
         directory = Path(directory)
         
         if not directory.exists():
             if missing_ok:
                 return False
+        
             raise FileNotFoundError(f"Directory not found: {directory}")
         
         if recursive:
             shutil.rmtree(directory)
+        
         else:
             directory.rmdir()
         
@@ -367,7 +379,7 @@ class FileHandler:
     @staticmethod
     async def read_file_async(file_path: Path, encoding: str = "utf-8") -> str:
         """
-        Read file asynchronously.
+        Read file asynchronously
         
         Arguments:
         ----------
@@ -379,15 +391,16 @@ class FileHandler:
         --------
                 { str }        : File content as string
         """
-        async with aiofiles.open(file_path, mode='r', encoding=encoding) as f:
+        async with aiofiles.open(file_path, mode = 'r', encoding = encoding) as f:
             content = await f.read()
+        
         return content
     
 
     @staticmethod
     async def read_file_binary_async(file_path: Path) -> bytes:
         """
-        Read file as binary asynchronously.
+        Read file as binary asynchronously
         
         Arguments:
         ----------
@@ -426,7 +439,7 @@ class FileHandler:
     @staticmethod
     def list_files(directory: Path, pattern: str = "*", recursive: bool = False) -> List[Path]:
         """
-        List files in directory.
+        List files in directory
         
         Arguments:
         ----------

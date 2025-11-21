@@ -389,6 +389,7 @@ class PromptTemplates:
         - Rough estimate: 1 token ≈ 4 characters
         """
         estimated_tokens = len(prompt) // 4
+        
         return estimated_tokens <= max_tokens
 
 
@@ -444,6 +445,7 @@ class PromptBuilder:
         self.task_type     = task_type
         self.extract_type  = kwargs.get("extract_type")
         self.summary_focus = kwargs.get("summary_focus", "general")
+        
         return self
     
 
@@ -455,28 +457,43 @@ class PromptBuilder:
         --------
             { tuple }    : (system_prompt, user_prompt)
         """
-        system_prompt = PromptTemplates.get_system_prompt(self.style)
+        system_prompt = PromptTemplates.get_system_prompt(style = self.style)
         
         if (self.task_type == "qa"):
-            user_prompt = PromptTemplates.build_qa_prompt(self.query, self.context_chunks, self.style)
+            user_prompt = PromptTemplates.build_qa_prompt(query          = self.query, 
+                                                          context_chunks = self.context_chunks, 
+                                                          style          = self.style,
+                                                         )
 
         elif (self.task_type == "comparison"):
-            user_prompt = PromptTemplates.build_comparison_prompt(self.query, self.context_chunks)
+            user_prompt = PromptTemplates.build_comparison_prompt(query          = self.query, 
+                                                                  context_chunks = self.context_chunks,
+                                                                 )
 
         elif (self.task_type == "summary"):
-            user_prompt = PromptTemplates.build_summary_prompt(self.context_chunks, self.summary_focus)
+            user_prompt = PromptTemplates.build_summary_prompt(context_chunks = self.context_chunks, 
+                                                               focus          = self.summary_focus,
+                                                              )
 
         elif (self.task_type == "extraction"):
-            user_prompt = PromptTemplates.build_extraction_prompt(self.context_chunks, self.extract_type)
+            user_prompt = PromptTemplates.build_extraction_prompt(context_chunks = self.context_chunks, 
+                                                                  extract_type   = self.extract_type,
+                                                                 )
 
         elif (self.task_type == "legal"):
-            user_prompt = PromptTemplates.build_legal_analysis_prompt(self.query, self.context_chunks)
+            user_prompt = PromptTemplates.build_legal_analysis_prompt(query          = self.query, 
+                                                                      context_chunks = self.context_chunks,
+                                                                     )
 
         elif (self.task_type == "technical"):
-            user_prompt = PromptTemplates.build_technical_doc_prompt(self.query, self.context_chunks)
+            user_prompt = PromptTemplates.build_technical_doc_prompt(query          = self.query, 
+                                                                     context_chunks = self.context_chunks,
+                                                                    )
         
         else:
-            user_prompt = PromptTemplates.build_qa_prompt(self.query, self.context_chunks)
+            user_prompt = PromptTemplates.build_qa_prompt(query          = self.query, 
+                                                          context_chunks = self.context_chunks,
+                                                         )
         
         return system_prompt, user_prompt
 
@@ -484,39 +501,40 @@ class PromptBuilder:
 
 if __name__ == "__main__":
     # Test prompt templates
-    from config.models import DocumentChunk, ChunkWithScore
-    
+    from config.models import DocumentChunk
+    from config.models import ChunkWithScore
+
     # Create test chunks
-    chunk1 = DocumentChunk(
-        chunk_id="chunk_doc_123_0",
-        document_id="doc_123",
-        text="The Q3 revenue was $5.2M, up 23% year-over-year.",
-        chunk_index=0,
-        start_char=0,
-        end_char=100,
-        page_number=1,
-        token_count=20
-    )
+    chunk1             = DocumentChunk(chunk_id    = "chunk_doc_123_0",
+                                       document_id = "doc_123",
+                                       text        = "The Q3 revenue was $5.2M, up 23% year-over-year.",
+                                       chunk_index = 0,
+                                       start_char  = 0,
+                                       end_char    = 100,
+                                       page_number = 1,
+                                       token_count = 20,
+                                      )
     
-    chunk2 = DocumentChunk(
-        chunk_id="chunk_doc_123_1",
-        document_id="doc_123",
-        text="The company projects Q4 revenue of $6M based on current pipeline.",
-        chunk_index=1,
-        start_char=100,
-        end_char=200,
-        page_number=2,
-        token_count=18
-    )
+    chunk2             = DocumentChunk(chunk_id    = "chunk_doc_123_1",
+                                       document_id = "doc_123",
+                                       text        = "The company projects Q4 revenue of $6M based on current pipeline.",
+                                       chunk_index = 1,
+                                       start_char  = 100,
+                                       end_char    = 200,
+                                       page_number = 2,
+                                       token_count = 18,
+                                      )
     
-    chunks_with_scores = [
-        ChunkWithScore(chunk=chunk1, score=0.95, rank=1, retrieval_method="hybrid"),
-        ChunkWithScore(chunk=chunk2, score=0.87, rank=2, retrieval_method="hybrid")
-    ]
+    chunks_with_scores = [ChunkWithScore(chunk = chunk1, score = 0.95, rank = 1, retrieval_method = "hybrid"),
+                          ChunkWithScore(chunk = chunk2, score = 0.87, rank = 2, retrieval_method = "hybrid"),
+                         ]
     
     # Test basic QA prompt
     print("=== Basic QA Prompt ===")
-    prompt = PromptTemplates.build_qa_prompt("What was the Q3 revenue?", chunks_with_scores)
+    prompt = PromptTemplates.build_qa_prompt(query          = "What was the Q3 revenue?", 
+                                             context_chunks = chunks_with_scores,
+                                            )
+
     print(prompt[:500] + "...\n")
     
     # Test fluent interface
