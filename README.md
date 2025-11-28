@@ -103,7 +103,7 @@ graph LR
 ```mermaid
 graph TB
     subgraph "Frontend Layer"
-        A[Web UI<br/>HTML/CSS/JS + Alpine.js]
+        A[Web UI<br/>HTML/CSS/JS]
     end
     
     subgraph "API Layer"
