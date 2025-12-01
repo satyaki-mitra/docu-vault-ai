@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Universal Knowledge Ingestion System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+        }
+        .nav-tab.active {
+            background: white;
+            color: #4f46e5;
+            font-weight: 600;
+        }
+        .chat-message {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        .loading-spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Landing Page -->
+    <div id="landing-page" class="min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 flex items-center">
+                            <div class="relative">
+                                <i class="fas fa-brain text-2xl text-indigo-600 mr-2"></i>
+                                <div class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></div>
+                            </div>
+                            <span class="text-xl font-bold text-gray-900">AI Knowledge Base</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <section class="gradient-bg text-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-20">
+                <div class="text-center">
+                    <h1 class="text-5xl font-bold mb-6">AI Universal Knowledge Ingestion System</h1>
+                    <p class="text-xl mb-4 max-w-4xl mx-auto">
+                        Break down information silos and unlock the full potential of your organizational knowledge.
+                    </p>
+                    <p class="text-xl mb-8 max-w-5xl mx-auto">
+                        Our enterprise RAG platform transforms how you access and utilize information across multiple sources.
+                    </p>
+                    <div class="flex justify-center">
+                        <button onclick="startApp()" class="bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-200 text-lg">
+                            Start Building Your Knowledge Base
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Content Tabs -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <!-- Tab Navigation -->
+            <div class="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-8 max-w-2xl mx-auto">
+                <button id="tab-features" onclick="showTab('features')" class="nav-tab active flex-1 py-3 px-4 rounded-md text-center">Features & Capabilities</button>
+                <button id="tab-how-to-use" onclick="showTab('how-to-use')" class="nav-tab flex-1 py-3 px-4 rounded-md text-center">How to Use</button>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="tab-content">
+                <!-- Features Tab -->
+                <div id="features-content" class="tab-panel active">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <!-- Feature 1 -->
+                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                            <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                                <i class="fas fa-file-upload text-indigo-600 text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold mb-3">Multi-Format Document Support</h3>
+                            <p class="text-gray-600">Upload PDFs, Word documents, text files, and even ZIP archives with automatic extraction and processing.</p>
+                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>PDF, DOCX, TXT support</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>ZIP archive extraction</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>OCR for scanned documents</li>
+                            </ul>
+                        </div>
+
+                        <!-- Feature 2 -->
+                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                                <i class="fas fa-robot text-green-600 text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold mb-3">Intelligent Chunking</h3>
+                            <p class="text-gray-600">Adaptive chunking strategies that automatically select the optimal method based on content size and type.</p>
+                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Fixed size chunking</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Semantic chunking</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Hierarchical chunking</li>
+                            </ul>
+                        </div>
+
+                        <!-- Feature 3 -->
+                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                                <i class="fas fa-search text-blue-600 text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold mb-3">Hybrid Retrieval</h3>
+                            <p class="text-gray-600">Combines vector similarity search with BM25 keyword matching for superior retrieval accuracy.</p>
+                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Vector similarity search</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>BM25 keyword matching</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Configurable weights</li>
+                            </ul>
+                        </div>
+
+                        <!-- Feature 4 -->
+                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                                <i class="fas fa-comments text-purple-600 text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold mb-3">Natural Language Q&A</h3>
+                            <p class="text-gray-600">Ask questions in natural language and get precise, context-aware answers with source citations.</p>
+                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Source citation tracking</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Multi-document queries</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Conversation history</li>
+                            </ul>
+                        </div>
+
+                        <!-- Feature 5 -->
+                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                            <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+                                <i class="fas fa-chart-bar text-orange-600 text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold mb-3">Quality Analytics</h3>
+                            <p class="text-gray-600">Comprehensive evaluation using Ragas metrics to monitor and improve response quality.</p>
+                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Answer relevancy scoring</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Faithfulness evaluation</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Context precision metrics</li>
+                            </ul>
+                        </div>
+
+                        <!-- Feature 6 -->
+                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                            <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+                                <i class="fas fa-cog text-red-600 text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold mb-3">Flexible Configuration</h3>
+                            <p class="text-gray-600">Customize every aspect of the pipeline from chunking strategies to generation parameters.</p>
+                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Multiple LLM providers</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Adjustable parameters</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Real-time configuration</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- How to Use Tab -->
+                <div id="how-to-use-content" class="tab-panel hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto">
+                        <div class="space-y-8">
+                            <!-- Step 1 -->
+                            <div class="flex items-start space-x-6">
+                                <div class="flex-shrink-0 w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                                    <span class="text-indigo-600 font-bold text-lg">1</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-semibold mb-3">Upload Your Documents</h3>
+                                    <p class="text-gray-600 mb-3">Start by uploading your documents in various formats. The system supports:</p>
+                                    <ul class="text-gray-600 space-y-1 mb-4">
+                                        <li><i class="fas fa-file-pdf text-red-500 mr-2"></i>PDF documents (including scanned with OCR)</li>
+                                        <li><i class="fas fa-file-word text-blue-500 mr-2"></i>Microsoft Word documents (.docx)</li>
+                                        <li><i class="fas fa-file-alt text-gray-500 mr-2"></i>Text files (.txt, .md, .csv)</li>
+                                        <li><i class="fas fa-file-archive text-orange-500 mr-2"></i>ZIP archives (automatic extraction)</li>
+                                    </ul>
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <p class="text-sm text-gray-600"><i class="fas fa-lightbulb text-yellow-500 mr-2"></i><strong>Tip:</strong> You can upload multiple files at once or entire ZIP archives containing multiple documents.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 2 -->
+                            <div class="flex items-start space-x-6">
+                                <div class="flex-shrink-0 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                    <span class="text-green-600 font-bold text-lg">2</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-semibold mb-3">Build Your Knowledge Base</h3>
+                                    <p class="text-gray-600 mb-3">Click "Start Building" to process your documents through the complete pipeline:</p>
+                                    <ul class="text-gray-600 space-y-2 mb-4">
+                                        <li><i class="fas fa-paragraph text-purple-500 mr-2"></i><strong>Parsing:</strong> Extract text and metadata from all documents</li>
+                                        <li><i class="fas fa-puzzle-piece text-blue-500 mr-2"></i><strong>Chunking:</strong> Split content into optimal chunks using adaptive strategies</li>
+                                        <li><i class="fas fa-brain text-indigo-500 mr-2"></i><strong>Embedding:</strong> Generate vector embeddings for semantic search</li>
+                                        <li><i class="fas fa-database text-green-500 mr-2"></i><strong>Indexing:</strong> Build vector store and keyword search indices</li>
+                                    </ul>
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <p class="text-sm text-gray-600"><i class="fas fa-lightbulb text-yellow-500 mr-2"></i><strong>Tip:</strong> Monitor the real-time progress bar to track each processing step.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 3 -->
+                            <div class="flex items-start space-x-6">
+                                <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <span class="text-blue-600 font-bold text-lg">3</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-semibold mb-3">Chat with Your Documents</h3>
+                                    <p class="text-gray-600 mb-3">Once processing is complete, start asking questions in natural language:</p>
+                                    <ul class="text-gray-600 space-y-2 mb-4">
+                                        <li><i class="fas fa-question-circle text-indigo-500 mr-2"></i>Ask factual questions about your content</li>
+                                        <li><i class="fas fa-search text-green-500 mr-2"></i>Request summaries of specific topics</li>
+                                        <li><i class="fas fa-balance-scale text-orange-500 mr-2"></i>Compare information across multiple documents</li>
+                                        <li><i class="fas fa-chart-line text-purple-500 mr-2"></i>Get analytical insights from your data</li>
+                                    </ul>
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <p class="text-sm text-gray-600"><i class="fas fa-lightbulb text-yellow-500 mr-2"></i><strong>Tip:</strong> Each response includes source citations so you can verify the information.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 4 -->
+                            <div class="flex items-start space-x-6">
+                                <div class="flex-shrink-0 w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                    <span class="text-purple-600 font-bold text-lg">4</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-semibold mb-3">Analyze and Optimize</h3>
+                                    <p class="text-gray-600 mb-3">Use the analytics dashboard to monitor performance and quality:</p>
+                                    <ul class="text-gray-600 space-y-2 mb-4">
+                                        <li><i class="fas fa-chart-bar text-green-500 mr-2"></i>View Ragas evaluation metrics for response quality</li>
+                                        <li><i class="fas fa-cog text-blue-500 mr-2"></i>Adjust configuration parameters in real-time</li>
+                                        <li><i class="fas fa-download text-indigo-500 mr-2"></i>Export conversation history for analysis</li>
+                                        <li><i class="fas fa-sliders-h text-orange-500 mr-2"></i>Fine-tune retrieval and generation settings</li>
+                                    </ul>
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <p class="text-sm text-gray-600"><i class="fas fa-lightbulb text-yellow-500 mr-2"></i><strong>Tip:</strong> Experiment with different chunking strategies and temperature settings to optimize for your specific use case.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Start Guide -->
+                        <div class="mt-12 p-6 bg-indigo-50 rounded-xl border border-indigo-200">
+                            <h3 class="text-lg font-semibold text-indigo-900 mb-3">🚀 Quick Start Guide</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div class="bg-white p-4 rounded-lg">
+                                    <h4 class="font-semibold mb-2 text-indigo-700">For First-Time Users:</h4>
+                                    <ol class="list-decimal list-inside space-y-1 text-gray-600">
+                                        <li>Upload 2-3 sample documents</li>
+                                        <li>Use default configuration settings</li>
+                                        <li>Start with simple factual questions</li>
+                                        <li>Gradually explore more complex queries</li>
+                                    </ol>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg">
+                                    <h4 class="font-semibold mb-2 text-indigo-700">For Advanced Users:</h4>
+                                    <ol class="list-decimal list-inside space-y-1 text-gray-600">
+                                        <li>Upload large document collections</li>
+                                        <li>Experiment with different chunking strategies</li>
+                                        <li>Adjust hybrid retrieval weights</li>
+                                        <li>Monitor Ragas metrics for optimization</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA Section -->
+        <section class="bg-gray-900 text-white py-16">
+            <div class="max-w-10xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h2 class="text-3xl font-bold mb-4">Ready to Transform Your Knowledge Management?</h2>
+                <p class="text-xl mb-8 max-w-8xl mx-auto">
+                    Join organizations that have boosted productivity by 40% and accelerated decision-making with our AI-powered knowledge ingestion system.
+                </p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Main Application -->
+    <div id="main-app" class="min-h-screen hidden">
+        <!-- App Layout -->
+        <div class="h-screen flex">
+            <!-- Sidebar -->
+            <div class="w-64 bg-white shadow-lg flex flex-col border-r">
+                <!-- Logo -->
+                <div class="p-4 border-b">
+                    <div class="flex items-center">
+                        <div class="relative">
+                            <i class="fas fa-brain text-xl text-indigo-600 mr-2"></i>
+                            <div class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></div>
+                        </div>
+                        <span class="text-lg font-bold">AI Knowledge Base</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mt-1">Enterprise RAG Platform</p>
+                </div>
+
+                <!-- Navigation -->
+                <nav class="flex-1 p-4">
+                    <ul class="space-y-1">
+                        <li>
+                            <button onclick="showAppSection('chat')" class="app-nav-btn active w-full text-left flex items-center p-3 rounded-lg hover:bg-indigo-50 text-indigo-600 bg-indigo-50">
+                                <i class="fas fa-comments mr-3"></i>
+                                Chat
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="showAppSection('analytics')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+                                <i class="fas fa-chart-bar mr-3"></i>
+                                Analytics & Quality
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="showAppSection('configuration')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+                                <i class="fas fa-cog mr-3"></i>
+                                Configuration
+                            </button>
+                        </li>
+                    </ul>
+                </nav>
+
+                <!-- System Status -->
+                <div class="p-4 border-t">
+                    <div class="text-sm">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-gray-600">System Status</span>
+                            <span id="system-status" class="font-medium text-gray-500">Checking...</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="progress-bar" class="bg-gray-400 h-2 rounded-full progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div id="status-details" class="text-xs text-gray-500 mt-1">Connecting to backend...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="flex-1 flex flex-col">
+                <!-- Header -->
+                <header class="bg-white shadow-sm border-b p-4">
+                    <div class="flex justify-between items-center">
+                        <h2 id="page-title" class="text-lg font-semibold">Document Upload & Setup</h2>
+                        <div class="flex space-x-4">
+                            <button onclick="backToHome()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-200">
+                                <i class="fas fa-home mr-2"></i>Back to Home
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Content Area -->
+                <main class="flex-1 p-6 overflow-auto bg-gray-50">
+                    <!-- Upload Section -->
+                    <div id="upload-section" class="mb-8">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h3 class="text-lg font-semibold mb-4">Upload Documents</h3>
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-400 transition duration-200" 
+                                 id="drop-zone"
+                                 ondrop="handleDrop(event)"
+                                 ondragover="handleDragOver(event)">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                                <p class="text-gray-600 mb-2">Drag & drop files here or click to browse</p>
+                                <p class="text-sm text-gray-500 mb-4">Supports PDF, DOCX, TXT, ZIP (Max 2GB)</p>
+                                <input type="file" id="file-input" multiple class="hidden" accept=".pdf,.docx,.txt,.zip,.doc">
+                                <button onclick="document.getElementById('file-input').click()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
+                                    Browse Files
+                                </button>
+                            </div>
+                            <div id="file-list" class="mt-4 space-y-3 max-h-60 overflow-y-auto"></div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="mt-6 flex justify-end space-x-4">
+                                <button id="upload-btn" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition duration-200">
+                                    <i class="fas fa-upload mr-2"></i>Upload Files
+                                </button>
+                                <button id="process-btn" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-200 disabled:bg-gray-400" disabled>
+                                    <i class="fas fa-play mr-2"></i>Start Building
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Processing Status -->
+                    <div id="processing-section" class="hidden mb-8">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h3 class="text-lg font-semibold mb-4">Building Knowledge Base</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="flex justify-between mb-2">
+                                        <span id="current-step" class="font-medium">Initializing processing pipeline...</span>
+                                        <span id="progress-text" class="text-gray-600">0%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-3">
+                                        <div id="processing-progress" class="bg-green-600 h-3 rounded-full progress-bar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div id="processing-details" class="text-sm text-gray-600 space-y-2">
+                                    <div class="flex justify-between">
+                                        <span>Documents processed:</span>
+                                        <span id="processed-docs">0/0</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Current operation:</span>
+                                        <span id="current-operation">Waiting to start</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Section -->
+                    <div id="chat-section" class="hidden h-full">
+                        <div class="bg-white rounded-lg shadow h-full flex flex-col">
+                            <!-- Chat Header -->
+                            <div class="border-b p-4 bg-gray-50 rounded-t-lg">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h3 class="text-lg font-semibold">Chat with Your Documents</h3>
+                                        <p class="text-sm text-gray-600">Ask questions about your uploaded content</p>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button onclick="exportChat('json')" class="text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 transition duration-200">
+                                            <i class="fas fa-download mr-1"></i>Export JSON
+                                        </button>
+                                        <button onclick="exportChat('csv')" class="text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 transition duration-200">
+                                            <i class="fas fa-file-csv mr-1"></i>Export CSV
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chat Messages -->
+                            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4">
+                                <!-- Messages will appear here -->
+                            </div>
+
+                            <!-- Chat Input -->
+                            <div class="border-t p-4 bg-gray-50 rounded-b-lg">
+                                <div class="flex space-x-4">
+                                    <input type="text" id="chat-input" placeholder="Ask a question about your documents..." 
+                                           class="flex-1 border rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200"
+                                           onkeypress="handleChatInputKeypress(event)">
+                                    <button id="send-btn" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition duration-200 disabled:bg-gray-400" disabled>
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                                <div class="flex justify-between items-center mt-2">
+                                    <p class="text-xs text-gray-500">
+                                        <i class="fas fa-lightbulb mr-1"></i>
+                                        Ask questions, request summaries, or compare information across documents
+                                    </p>
+                                    <span id="token-count" class="text-xs text-gray-500">0 tokens</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Section -->
+                    <div id="analytics-section" class="hidden">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h3 class="text-lg font-semibold mb-6">Analytics & Quality Metrics</h3>
+                            
+                            <!-- Ragas Evaluation -->
+                            <div class="mb-8">
+                                <h4 class="font-semibold mb-4 text-gray-700">RAGAS Evaluation Metrics</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <span class="text-sm font-medium text-blue-700">Answer Relevancy</span>
+                                            <i class="fas fa-bullseye text-blue-500"></i>
+                                        </div>
+                                        <div class="text-2xl font-bold text-blue-600" id="answer-relevancy">-</div>
+                                        <div class="text-xs text-blue-600 mt-1">How well answer addresses question</div>
+                                    </div>
+                                    <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <span class="text-sm font-medium text-green-700">Faithfulness</span>
+                                            <i class="fas fa-check-circle text-green-500"></i>
+                                        </div>
+                                        <div class="text-2xl font-bold text-green-600" id="faithfulness">-</div>
+                                        <div class="text-xs text-green-600 mt-1">Is answer grounded in context</div>
+                                    </div>
+                                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <span class="text-sm font-medium text-purple-700">Context Precision</span>
+                                            <i class="fas fa-crosshairs text-purple-500"></i>
+                                        </div>
+                                        <div class="text-2xl font-bold text-purple-600" id="context-precision">-</div>
+                                        <div class="text-xs text-purple-600 mt-1">Are relevant chunks ranked high</div>
+                                    </div>
+                                    <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <span class="text-sm font-medium text-orange-700">Overall Score</span>
+                                            <i class="fas fa-star text-orange-500"></i>
+                                        </div>
+                                        <div class="text-2xl font-bold text-orange-600" id="overall-score">-</div>
+                                        <div class="text-xs text-orange-600 mt-1">Composite evaluation score</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Usage Statistics -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                                    <h4 class="font-semibold mb-4 text-gray-700">Usage Statistics</h4>
+                                    <div class="space-y-4">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-gray-600">Total Chat Sessions</span>
+                                            <span id="total-sessions" class="font-semibold text-lg">0</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-gray-600">Total Messages</span>
+                                            <span id="total-messages" class="font-semibold text-lg">0</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-gray-600">Average Response Time</span>
+                                            <span id="avg-response-time" class="font-semibold text-lg">-</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-gray-600">Documents Processed</span>
+                                            <span id="total-documents" class="font-semibold text-lg">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                                    <h4 class="font-semibold mb-4 text-gray-700">System Information</h4>
+                                    <div class="space-y-3 text-sm">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Vector Store Status</span>
+                                            <span id="vector-store-status" class="font-medium text-red-600">Not Ready</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Current Model</span>
+                                            <span id="current-model" class="font-medium">-</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Chunking Strategy</span>
+                                            <span id="current-chunking" class="font-medium">-</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Last Updated</span>
+                                            <span id="last-updated" class="font-medium">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-6">
+                                <button onclick="refreshAnalytics()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
+                                    <i class="fas fa-sync-alt mr-2"></i>Refresh Analytics
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Configuration Section -->
+                    <div id="configuration-section" class="hidden">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h3 class="text-lg font-semibold mb-6">System Configuration</h3>
+                            <form id="config-form" class="space-y-8">
+                                <!-- Inference Model -->
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-3 text-gray-700">Inference Model</label>
+                                        <select name="inference_model" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200">
+                                            <option value="mistral:7b">Mistral-7B (Ollama)</option>
+                                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (OpenAI)</option>
+                                        </select>
+                                        <p class="text-xs text-gray-500 mt-2">Select the LLM provider and model for text generation</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium mb-3 text-gray-700">Chunking Strategy</label>
+                                        <select name="chunking_strategy" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200">
+                                            <option value="fixed">Fixed Size Chunking</option>
+                                            <option value="semantic">Semantic Chunking</option>
+                                            <option value="hierarchical">Hierarchical Chunking</option>
+                                        </select>
+                                        <p class="text-xs text-gray-500 mt-2">Choose how documents are split into chunks for processing</p>
+                                    </div>
+                                </div>
+
+                                <!-- Chunking Parameters -->
+                                <div>
+                                    <h4 class="font-medium mb-4 text-gray-700">Chunking Parameters</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2 text-gray-600">Chunk Size (tokens)</label>
+                                            <input type="number" name="chunk_size" value="512" min="100" max="2000" 
+                                                   class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200">
+                                            <p class="text-xs text-gray-500 mt-1">Larger chunks capture more context but may reduce precision</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2 text-gray-600">Chunk Overlap (tokens)</label>
+                                            <input type="number" name="chunk_overlap" value="50" min="0" max="200" 
+                                                   class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200">
+                                            <p class="text-xs text-gray-500 mt-1">Overlap between chunks to maintain context continuity</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Retrieval Parameters -->
+                                <div>
+                                    <h4 class="font-medium mb-4 text-gray-700">Retrieval Parameters</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2 text-gray-600">Retrieval Top K</label>
+                                            <input type="number" name="retrieval_top_k" value="10" min="1" max="50" 
+                                                   class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200">
+                                            <p class="text-xs text-gray-500 mt-1">Number of chunks to retrieve for each query</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2 text-gray-600">Vector Weight</label>
+                                            <input type="number" name="vector_weight" value="0.6" step="0.1" min="0" max="1" 
+                                                   class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200">
+                                            <p class="text-xs text-gray-500 mt-1">Weight for vector similarity search (0.0-1.0)</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2 text-gray-600">BM25 Weight</label>
+                                            <input type="number" name="bm25_weight" value="0.4" step="0.1" min="0" max="1" 
+                                                   class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200">
+                                            <p class="text-xs text-gray-500 mt-1">Weight for keyword search (0.0-1.0)</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <input type="checkbox" name="enable_reranking" id="enable_reranking" class="mr-3 w-4 h-4 text-indigo-600 focus:ring-indigo-500">
+                                        <label for="enable_reranking" class="text-sm font-medium text-gray-700">Enable Cross-Encoder Reranking</label>
+                                        <p class="text-xs text-gray-500 mt-1 ml-7">Use transformer model to rerank results for better precision (slower but more accurate)</p>
+                                    </div>
+                                </div>
+
+                                <!-- Generation Parameters -->
+                                <div>
+                                    <h4 class="font-medium mb-4 text-gray-700">Generation Parameters</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2 text-gray-600">Temperature</label>
+                                            <input type="number" name="temperature" value="0.1" step="0.1" min="0" max="1" 
+                                                   class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200">
+                                            <p class="text-xs text-gray-500 mt-1">Lower for factual answers, higher for creative responses</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2 text-gray-600">Max Tokens</label>
+                                            <input type="number" name="max_tokens" value="1000" min="100" max="4000" 
+                                                   class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200">
+                                            <p class="text-xs text-gray-500 mt-1">Maximum length of generated responses</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Save Button -->
+                                <div class="flex justify-end pt-4 border-t">
+                                    <button type="submit" class="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition duration-200 font-medium">
+                                        <i class="fas fa-save mr-2"></i>Save Configuration
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="file-input" multiple style="display: none;">
+
+    <script>
+        // API Service for backend communication
+        class APIService {
+            constructor() {
+                this.baseURL = window.location.origin;
+            }
+
+            async uploadFiles(files) {
+                const formData = new FormData();
+                for (let file of files) {
+                    formData.append('files', file);
+                }
+
+                const response = await fetch(`${this.baseURL}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Upload failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async startProcessing() {
+                const response = await fetch(`${this.baseURL}/api/start-processing`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Processing start failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async getProcessingStatus() {
+                const response = await fetch(`${this.baseURL}/api/processing-status`);
+                
+                if (!response.ok) {
+                    throw new Error(`Status check failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async sendChatMessage(message, sessionId = null) {
+                console.log('Sending chat message to backend:', message);
+                
+                try {
+                    const response = await fetch(`${this.baseURL}/api/chat`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            session_id: sessionId
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || `Chat failed: ${response.statusText}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log('Chat API response received:', result);
+                    
+                    // Handle both response formats for compatibility
+                    if (result.success === false) {
+                        throw new Error(result.error || 'Chat failed');
+                    }
+                    
+                    return result;
+                    
+                } catch (error) {
+                    console.error('Chat API error details:', error);
+                    throw error;
+                }
+            }
+
+            async updateConfiguration(config) {
+                const response = await fetch(`${this.baseURL}/api/configuration`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Configuration update failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async getConfiguration() {
+                const response = await fetch(`${this.baseURL}/api/configuration`);
+                
+                if (!response.ok) {
+                    throw new Error(`Configuration fetch failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async getAnalytics() {
+                const response = await fetch(`${this.baseURL}/api/analytics`);
+                
+                if (!response.ok) {
+                    throw new Error(`Analytics fetch failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async getSystemInfo() {
+                const response = await fetch(`${this.baseURL}/api/system-info`);
+                
+                if (!response.ok) {
+                    throw new Error(`System info fetch failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async exportChat(sessionId, format) {
+                const response = await fetch(`${this.baseURL}/api/export-chat/${sessionId}?format=${format}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Export failed: ${response.statusText}`);
+                }
+                
+                return await response.blob();
+            }
+        }
+
+        // Global state
+        const apiService = new APIService();
+        let uploadedFiles = [];
+        let currentSessionId = null;
+        let chatMessages = [];
+        let systemReady = false;
+        let processingInterval = null;
+
+        // Landing page functions
+        function showTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.add('hidden');
+                panel.classList.remove('active');
+            });
+            document.getElementById(`${tabName}-content`).classList.remove('hidden');
+            document.getElementById(`${tabName}-content`).classList.add('active');
+        }
+
+        async function startApp() {
+            document.getElementById('landing-page').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            await initializeApp();
+        }
+
+        function backToHome() {
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('landing-page').classList.remove('hidden');
+            
+            // Reset app state if needed
+            uploadedFiles = [];
+            currentSessionId = null;
+            chatMessages = [];
+            systemReady = false;
+            
+            // Clear file list
+            document.getElementById('file-list').innerHTML = '<p class="text-center text-gray-500 py-4">No files uploaded yet</p>';
+            updateProcessButton();
+            
+            // Show upload section
+            document.getElementById('upload-section').classList.remove('hidden');
+            document.getElementById('processing-section').classList.add('hidden');
+            document.getElementById('chat-section').classList.add('hidden');
+            document.getElementById('analytics-section').classList.add('hidden');
+            document.getElementById('configuration-section').classList.add('hidden');
+            
+            // Reset navigation
+            document.querySelectorAll('.app-nav-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-indigo-50', 'text-indigo-600');
+                btn.classList.add('text-gray-700', 'hover:bg-gray-100');
+            });
+            document.querySelector('[onclick="showAppSection(\'chat\')"]').classList.add('active', 'bg-indigo-50', 'text-indigo-600');
+        }
+
+        // Main app functions
+        async function initializeApp() {
+            setupEventListeners();
+            await loadConfiguration();
+            await checkSystemStatus();
+            startStatusPolling();
+        }
+
+        function setupEventListeners() {
+            // File input
+            document.getElementById('file-input').addEventListener('change', handleFileSelect);
+            
+            // Upload button
+            document.getElementById('upload-btn').addEventListener('click', function() {
+                document.getElementById('file-input').click();
+            });
+            
+            // Process button
+            document.getElementById('process-btn').addEventListener('click', startProcessing);
+            
+            // Chat input
+            document.getElementById('send-btn').addEventListener('click', sendMessage);
+            document.getElementById('chat-input').addEventListener('input', updateTokenCount);
+            
+            // Configuration form
+            document.getElementById('config-form').addEventListener('submit', saveConfiguration);
+            
+            // Drag and drop
+            const dropZone = document.getElementById('drop-zone');
+            dropZone.addEventListener('dragover', handleDragOver);
+            dropZone.addEventListener('drop', handleDrop);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('border-indigo-400', 'bg-indigo-50');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('border-indigo-400', 'bg-indigo-50');
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        async function handleFiles(files) {
+            const validFiles = [];
+            
+            for (let file of files) {
+                if (isValidFileType(file)) {
+                    validFiles.push(file);
+                } else {
+                    showNotification(`Unsupported file type: ${file.name}`, 'error');
+                }
+            }
+            
+            if (validFiles.length > 0) {
+                await uploadFilesToBackend(validFiles);
+            }
+        }
+
+        function isValidFileType(file) {
+            const validTypes = [
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'text/plain',
+                'application/zip',
+                'application/x-zip-compressed'
+            ];
+            return validTypes.includes(file.type) || 
+                   file.name.endsWith('.txt') || 
+                   file.name.endsWith('.md') ||
+                   file.name.endsWith('.docx') ||
+                   file.name.endsWith('.pdf') ||
+                   file.name.endsWith('.zip');
+        }
+
+        async function uploadFilesToBackend(files) {
+            try {
+                showNotification('Uploading files...', 'info');
+                const result = await apiService.uploadFiles(files);
+                
+                // Update local state with uploaded files
+                uploadedFiles = result.files || [];
+                updateFileList();
+                updateProcessButton();
+                
+                showNotification(`Successfully uploaded ${files.length} files`, 'success');
+                
+            } catch (error) {
+                console.error('Upload error:', error);
+                showNotification(`Upload failed: ${error.message}`, 'error');
+            }
+        }
+
+        function updateFileList() {
+            const fileList = document.getElementById('file-list');
+            fileList.innerHTML = '';
+
+            uploadedFiles.forEach((file, index) => {
+                const fileElement = document.createElement('div');
+                fileElement.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
+                fileElement.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas fa-file text-gray-400 mr-3"></i>
+                        <div>
+                            <div class="font-medium text-sm">${file.original_name || file.filename}</div>
+                            <div class="text-xs text-gray-500">${formatFileSize(file.size)} • ${new Date(file.upload_time).toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <button onclick="removeFile(${index})" class="text-red-500 hover:text-red-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                fileList.appendChild(fileElement);
+            });
+
+            if (uploadedFiles.length === 0) {
+                fileList.innerHTML = '<p class="text-center text-gray-500 py-4">No files uploaded yet</p>';
+            }
+        }
+
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            updateFileList();
+            updateProcessButton();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function updateProcessButton() {
+            const processBtn = document.getElementById('process-btn');
+            processBtn.disabled = uploadedFiles.length === 0;
+        }
+
+        async function startProcessing() {
+            if (uploadedFiles.length === 0) {
+                showNotification('Please upload files first', 'warning');
+                return;
+            }
+
+            try {
+                // Show processing section
+                document.getElementById('upload-section').classList.add('hidden');
+                document.getElementById('processing-section').classList.remove('hidden');
+                
+                // Start processing via API
+                const result = await apiService.startProcessing();
+                showNotification('Processing started successfully', 'success');
+                
+                // Start polling for status updates
+                startProcessingPolling();
+                
+            } catch (error) {
+                console.error('Processing start error:', error);
+                showNotification(`Failed to start processing: ${error.message}`, 'error');
+            }
+        }
+
+        function startProcessingPolling() {
+            if (processingInterval) {
+                clearInterval(processingInterval);
+            }
+            
+            processingInterval = setInterval(async () => {
+                try {
+                    const status = await apiService.getProcessingStatus();
+                    updateProcessingUI(status);
+                    
+                    if (status.status === 'ready' || status.status === 'error') {
+                        clearInterval(processingInterval);
+                        if (status.status === 'ready') {
+                            processingComplete();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Status polling error:', error);
+                }
+            }, 2000);
+        }
+
+        function updateProcessingUI(status) {
+            document.getElementById('processing-progress').style.width = `${status.progress}%`;
+            document.getElementById('progress-text').textContent = `${status.progress}%`;
+            document.getElementById('current-step').textContent = status.current_step || 'Processing...';
+            document.getElementById('processed-docs').textContent = `${status.processed_documents}/${status.total_documents}`;
+            
+            // Update system status
+            document.getElementById('system-status').textContent = status.status === 'processing' ? 'Processing' : 
+                                                                  status.status === 'ready' ? 'Ready' : 'Error';
+            document.getElementById('system-status').className = status.status === 'processing' ? 
+                'font-medium text-yellow-600' : 
+                status.status === 'ready' ? 'font-medium text-green-600' : 'font-medium text-red-600';
+        }
+
+        function processingComplete() {
+            systemReady = true;
+            
+            // Enable chat
+            document.getElementById('send-btn').disabled = false;
+            document.getElementById('system-status').textContent = 'Ready';
+            document.getElementById('system-status').className = 'font-medium text-green-600';
+            document.getElementById('progress-bar').className = 'bg-green-600 h-2 rounded-full progress-bar';
+            
+            // Show chat section automatically
+            setTimeout(() => {
+                showAppSection('chat');
+                addWelcomeMessage();
+            }, 1000);
+            
+            showNotification('Knowledge base setup complete! You can now chat with your documents.', 'success');
+        }
+
+        function startStatusPolling() {
+            setInterval(async () => {
+                try {
+                    const systemInfo = await apiService.getSystemInfo();
+                    updateSystemStatus(systemInfo);
+                } catch (error) {
+                    console.error('Status polling error:', error);
+                }
+            }, 5000);
+        }
+
+        function updateSystemStatus(systemInfo) {
+            const status = systemInfo.system_state;
+            document.getElementById('system-status').textContent = status.is_ready ? 'Ready' : 
+                                                                  status.processing_status === 'processing' ? 'Processing' : 'Setting up';
+            document.getElementById('system-status').className = status.is_ready ? 
+                'font-medium text-green-600' : 
+                'font-medium text-yellow-600';
+        }
+
+        function showAppSection(section) {
+            // Hide all sections
+            document.querySelectorAll('[id$="-section"]').forEach(sec => {
+                sec.classList.add('hidden');
+            });
+            
+            // Show selected section
+            document.getElementById(`${section}-section`).classList.remove('hidden');
+            
+            // Update navigation
+            document.querySelectorAll('.app-nav-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-indigo-50', 'text-indigo-600');
+                btn.classList.add('text-gray-700', 'hover:bg-gray-100');
+            });
+            
+            const activeBtn = document.querySelector(`[onclick="showAppSection('${section}')"]`);
+            activeBtn.classList.add('active', 'bg-indigo-50', 'text-indigo-600');
+            activeBtn.classList.remove('text-gray-700', 'hover:bg-gray-100');
+            
+            // Update page title
+            const titles = {
+                'chat': 'Chat with Documents',
+                'analytics': 'Analytics & Quality',
+                'configuration': 'System Configuration'
+            };
+            document.getElementById('page-title').textContent = titles[section];
+            
+            // Load section-specific data
+            if (section === 'analytics') {
+                loadAnalytics();
+            } else if (section === 'configuration') {
+                loadConfigurationUI();
+            } else if (section === 'chat') {
+                // Clear any duplicate messages and ensure welcome message exists
+                const chatMessages = document.getElementById('chat-messages');
+                const existingWelcome = chatMessages.querySelector('.welcome-message');
+                if (!existingWelcome && systemReady) {
+                    addWelcomeMessage();
+                }
+            }
+        }
+
+        function addWelcomeMessage() {
+            const chatMessages = document.getElementById('chat-messages');
+            
+            // Check if welcome message already exists
+            const existingWelcome = chatMessages.querySelector('.welcome-message');
+            if (existingWelcome) {
+                return; // Welcome message already exists
+            }
+            
+            const welcomeMsg = document.createElement('div');
+            welcomeMsg.className = 'chat-message welcome-message bg-blue-50 border border-blue-200 rounded-lg p-4'; // Added welcome-message class
+            welcomeMsg.innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-blue-600"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-medium text-blue-900">AI Assistant</div>
+                        <div class="text-blue-800 mt-1">
+                            <p>Hello! I'm ready to help you explore your documents. You can ask me questions like:</p>
+                            <ul class="list-disc list-inside mt-2 space-y-1 text-sm">
+                                <li>What are the main points in the uploaded documents?</li>
+                                <li>Can you summarize the key findings?</li>
+                                <li>Compare information across different documents</li>
+                                <li>Find specific details or statistics</li>
+                            </ul>
+                            <p class="mt-2">What would you like to know?</p>
+                        </div>
+                        <div class="text-xs text-blue-600 mt-2">System ready • ${new Date().toLocaleTimeString()}</div>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(welcomeMsg);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function handleChatInputKeypress(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message || !systemReady) return;
+
+            // Add user message
+            addChatMessage('user', message);
+            input.value = '';
+            updateTokenCount();
+
+            // Show loading indicator
+            const loadingMsg = addLoadingMessage();
+
+            try {
+                console.log('Sending chat message to backend:', message);
+                
+                // Send to backend
+                const response = await apiService.sendChatMessage(message, currentSessionId);
+                console.log('Chat API response received:', response);
+                
+                // Remove loading message
+                loadingMsg.remove();
+                
+                // Update session ID if this is the first message
+                if (!currentSessionId) {
+                    currentSessionId = response.session_id;
+                    console.log('New session ID:', currentSessionId);
+                }
+                
+                // Add AI response
+                addChatMessage('assistant', response.response, response.sources, response.metrics);
+                
+            } catch (error) {
+                console.error('Chat API error details:', error);
+                loadingMsg.remove();
+                
+                // More specific error message
+                let errorMessage = `Sorry, I encountered an error: ${error.message}`;
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Unable to connect to the server. Please check if the backend is running.';
+                } else if (error.message.includes('500')) {
+                    errorMessage = 'Server error. Please try again later.';
+                }
+                
+                addChatMessage('assistant', errorMessage, [], {});
+                showNotification(`Chat failed: ${error.message}`, 'error');
+            }
+        }
+
+        function addLoadingMessage() {
+            const chatMessages = document.getElementById('chat-messages');
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'chat-message bg-gray-50 border rounded-lg p-4';
+            loadingMsg.innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-gray-600"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-medium text-gray-900">AI Assistant</div>
+                        <div class="text-gray-700 mt-1 flex items-center">
+                            <div class="loading-spinner mr-2"></div>
+                            Thinking...
+                        </div>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(loadingMsg);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return loadingMsg;
+        }
+
+        function addChatMessage(role, content, sources = [], metrics = {}) {
+            const chatMessages = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${role === 'user' ? 'bg-white border' : 'bg-gray-50 border'} rounded-lg p-4`;
+            
+            let sourcesHTML = '';
+            if (sources && sources.length > 0) {
+                sourcesHTML = `
+                    <div class="mt-3 pt-3 border-t border-gray-200">
+                        <div class="text-xs font-medium text-gray-600 mb-2">Sources:</div>
+                        <div class="space-y-1">
+                            ${sources.map(source => {
+                                // Handle different source formats
+                                const textPreview = source.text_preview || source.text || 'Source content';
+                                const score = source.score !== undefined ? source.score : 0;
+                                return `
+                                    <div class="text-xs text-gray-500">
+                                        <i class="fas fa-file-alt mr-1"></i>
+                                        ${textPreview}
+                                        <span class="text-gray-400 ml-2">(Score: ${score.toFixed(3)})</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            let metricsHTML = '';
+            if (metrics && Object.keys(metrics).length > 0) {
+                metricsHTML = `
+                    <div class="mt-2 text-xs text-gray-500">
+                        ${metrics.retrieval_time ? `Retrieval: ${metrics.retrieval_time}ms` : ''}
+                        ${metrics.generation_time ? ` • Generation: ${metrics.generation_time}ms` : ''}
+                        ${metrics.tokens_used ? ` • Tokens: ${metrics.tokens_used}` : ''}
+                        ${metrics.total_time ? ` • Total: ${metrics.total_time}ms` : ''}
+                    </div>
+                `;
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 ${role === 'user' ? 'bg-indigo-100' : 'bg-gray-200'} rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas ${role === 'user' ? 'fa-user text-indigo-600' : 'fa-robot text-gray-600'}"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-medium ${role === 'user' ? 'text-indigo-900' : 'text-gray-900'}">${role === 'user' ? 'You' : 'AI Assistant'}</div>
+                        <div class="${role === 'user' ? 'text-gray-800' : 'text-gray-700'} mt-1">${content}</div>
+                        ${sourcesHTML}
+                        ${metricsHTML}
+                        <div class="text-xs ${role === 'user' ? 'text-indigo-600' : 'text-gray-500'} mt-2">${new Date().toLocaleTimeString()}</div>
+                    </div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        function updateTokenCount() {
+            const input = document.getElementById('chat-input');
+            const tokenCount = Math.ceil(input.value.length / 4); // Rough estimate
+            document.getElementById('token-count').textContent = `${tokenCount} tokens`;
+        }
+
+        async function loadAnalytics() {
+            try {
+                const analytics = await apiService.getAnalytics();
+                updateAnalyticsUI(analytics);
+            } catch (error) {
+                console.error('Analytics load error:', error);
+                showNotification(`Failed to load analytics: ${error.message}`, 'error');
+            }
+        }
+
+        async function refreshAnalytics() {
+            await loadAnalytics();
+            showNotification('Analytics refreshed', 'success');
+        }
+
+        function updateAnalyticsUI(analytics) {
+            // Update basic stats
+            document.getElementById('total-sessions').textContent = analytics.total_sessions || '0';
+            document.getElementById('total-messages').textContent = analytics.total_messages || '0';
+            document.getElementById('total-documents').textContent = uploadedFiles.length.toString();
+            document.getElementById('avg-response-time').textContent = analytics.average_response_time ? `${analytics.average_response_time}ms` : '-';
+            
+            // Update Ragas metrics
+            const ragas = analytics.ragas_metrics || {};
+            document.getElementById('answer-relevancy').textContent = ragas.answer_relevancy ? ragas.answer_relevancy.toFixed(2) : '-';
+            document.getElementById('faithfulness').textContent = ragas.faithfulness ? ragas.faithfulness.toFixed(2) : '-';
+            document.getElementById('context-precision').textContent = ragas.context_precision ? ragas.context_precision.toFixed(2) : '-';
+            document.getElementById('overall-score').textContent = ragas.overall_score ? ragas.overall_score.toFixed(2) : '-';
+            
+            // Update system info
+            document.getElementById('vector-store-status').textContent = systemReady ? 'Ready' : 'Not Ready';
+            document.getElementById('vector-store-status').className = systemReady ? 'font-medium text-green-600' : 'font-medium text-red-600';
+            document.getElementById('current-model').textContent = 'Mistral 7B Instruct';
+            document.getElementById('current-chunking').textContent = 'Fixed Size';
+            document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+        }
+
+        async function loadConfiguration() {
+            try {
+                const config = await apiService.getConfiguration();
+                if (config.configuration) {
+                    systemReady = config.configuration.is_ready || false;
+                }
+            } catch (error) {
+                console.error('Configuration load error:', error);
+            }
+        }
+
+        async function loadConfigurationUI() {
+            try {
+                const config = await apiService.getConfiguration();
+                if (config.configuration) {
+                    // Populate form with current configuration
+                    Object.keys(config.configuration).forEach(key => {
+                        const element = document.querySelector(`[name="${key}"]`);
+                        if (element) {
+                            if (element.type === 'checkbox') {
+                                element.checked = config.configuration[key];
+                            } else {
+                                element.value = config.configuration[key];
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Configuration UI load error:', error);
+            }
+        }
+
+        async function saveConfiguration(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const config = {};
+            
+            for (let [key, value] of formData.entries()) {
+                // Convert number fields to appropriate types
+                if (['chunk_size', 'chunk_overlap', 'retrieval_top_k', 'max_tokens'].includes(key)) {
+                    config[key] = parseInt(value);
+                } else if (['vector_weight', 'bm25_weight', 'temperature'].includes(key)) {
+                    config[key] = parseFloat(value);
+                } else if (key === 'enable_reranking') {
+                    config[key] = value === 'on';
+                } else {
+                    config[key] = value;
+                }
+            }
+            
+            try {
+                await apiService.updateConfiguration(config);
+                showNotification('Configuration saved successfully!', 'success');
+                
+                // Update system with new configuration
+                systemReady = true;
+                
+            } catch (error) {
+                console.error('Configuration save error:', error);
+                showNotification(`Configuration save failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function exportChat(format) {
+            if (!currentSessionId) {
+                showNotification('No chat session to export', 'warning');
+                return;
+            }
+            
+            try {
+                const blob = await apiService.exportChat(currentSessionId, format);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `chat-export-${currentSessionId}-${Date.now()}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showNotification(`Chat exported as ${format.toUpperCase()}`, 'success');
+            } catch (error) {
+                console.error('Export error:', error);
+                showNotification(`Export failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkSystemStatus() {
+            try {
+                const systemInfo = await apiService.getSystemInfo();
+                updateSystemStatus(systemInfo);
+            } catch (error) {
+                console.error('System status check error:', error);
+                document.getElementById('system-status').textContent = 'Offline';
+                document.getElementById('system-status').className = 'font-medium text-red-600';
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            document.querySelectorAll('.notification').forEach(n => n.remove());
+            
+            const notification = document.createElement('div');
+            notification.className = `notification fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white z-50 ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 
+                type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
+            }`;
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas ${
+                        type === 'success' ? 'fa-check-circle' : 
+                        type === 'error' ? 'fa-exclamation-circle' : 
+                        type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'
+                    } mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set active tab
+            showTab('features');
+        });
+    </script>
+</body>
+</html>

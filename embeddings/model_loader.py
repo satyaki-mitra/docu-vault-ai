@@ -1,405 +1,327 @@
-"""
-Embedding Model Loader
-Manages loading and caching of embedding models
-"""
-
-from typing import Optional, Dict
-from pathlib import Path
+# DEPENDENCIES
+import os
+import gc
 import torch
+from typing import Optional
+from config.settings import get_settings
+from config.logging_config import get_logger
+from utils.error_handler import handle_errors
+from utils.error_handler import EmbeddingError
 from sentence_transformers import SentenceTransformer
 
-from config.logging_config import get_logger
-from config.settings import get_settings
 
-logger = get_logger(__name__)
+# Setup Settings and Logging
 settings = get_settings()
+logger   = get_logger(__name__)
 
 
-class ModelLoader:
+class EmbeddingModelLoader:
     """
-    Singleton loader for embedding models.
-    Handles model caching, device management, and optimization.
+    Manages loading and caching of embedding models: Supports multiple models with efficient resource management
     """
-    
-    _instance = None
-    _models: Dict[str, SentenceTransformer] = {}
-    
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(ModelLoader, cls).__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-    
     def __init__(self):
-        if self._initialized:
-            return
+        self.logger        = logger
+        self._loaded_model = None
+        self._model_name   = None
+        self._device       = None
         
-        self.logger = logger
-        self.device = self._detect_device()
-        self._initialized = True
-        
-        self.logger.info(f"ModelLoader initialized with device: {self.device}")
+        # Model cache for multiple models
+        self._model_cache  = dict()
     
-    def _detect_device(self) -> str:
+
+    @handle_errors(error_type = EmbeddingError, log_error = True, reraise = True)
+    def load_model(self, model_name: Optional[str] = None, device: Optional[str] = None, force_reload: bool = False) -> SentenceTransformer:
         """
-        Detect best available device for inference.
+        Load embedding model with caching and device optimization
+        
+        Arguments:
+        ----------
+            model_name   { str }    : Name of model to load (default from settings)
+            
+            device       { str }    : Device to load on ('cpu', 'cuda', 'mps', 'auto')
+            
+            force_reload { bool }   : Force reload even if model is cached
         
         Returns:
-            Device string (cuda, mps, or cpu)
-        """
-        # Check settings preference
-        preferred_device = settings.EMBEDDING_DEVICE
+        --------
+            { SentenceTransformer } : Loaded model instance
         
-        if preferred_device == "cuda" and torch.cuda.is_available():
-            device = "cuda"
-            gpu_name = torch.cuda.get_device_name(0)
-            self.logger.info(f"Using CUDA GPU: {gpu_name}")
-        
-        elif preferred_device == "mps" and torch.backends.mps.is_available():
-            device = "mps"
-            self.logger.info("Using Apple Metal Performance Shaders (MPS)")
-        
-        else:
-            device = "cpu"
-            self.logger.info("Using CPU for inference")
-            if preferred_device != "cpu":
-                self.logger.warning(
-                    f"Requested device '{preferred_device}' not available, falling back to CPU"
-                )
-        
-        return device
-    
-    def load_model(
-        self,
-        model_name: Optional[str] = None,
-        device: Optional[str] = None,
-        normalize_embeddings: bool = True,
-        cache_folder: Optional[Path] = None
-    ) -> SentenceTransformer:
-        """
-        Load embedding model with caching.
-        
-        Args:
-            model_name: HuggingFace model name (default from settings)
-            device: Device to load model on (default: auto-detect)
-            normalize_embeddings: Normalize embeddings to unit length
-            cache_folder: Custom cache folder for model weights
-        
-        Returns:
-            Loaded SentenceTransformer model
+        Raises:
+        -------
+            EmbeddingError          : If model loading fails
         """
         model_name = model_name or settings.EMBEDDING_MODEL
-        device = device or self.device
+        device     = self._resolve_device(device)
         
-        # Check if model already loaded
-        cache_key = f"{model_name}_{device}"
-        if cache_key in self._models:
-            self.logger.debug(f"Using cached model: {model_name}")
-            return self._models[cache_key]
+        # Check cache first
+        cache_key  = f"{model_name}_{device}"
         
-        self.logger.info(f"Loading embedding model: {model_name}")
+        if ((not force_reload) and (cache_key in self._model_cache)):
+            self.logger.debug(f"Using cached model: {cache_key}")
+            
+            self._loaded_model = self._model_cache[cache_key]
+            self._model_name   = model_name
+            self._device       = device
+            
+            return self._loaded_model
         
         try:
-            # Load model
-            model = SentenceTransformer(
-                model_name,
-                device=device,
-                cache_folder=str(cache_folder) if cache_folder else None
-            )
+            self.logger.info(f"Loading embedding model: {model_name} on device: {device}")
             
-            # Configure model
-            if normalize_embeddings:
-                model.normalize_embeddings = True
+            # Load model with optimized settings
+            model                        = SentenceTransformer(model_name,
+                                                               device       = device,
+                                                               cache_folder = os.path.expanduser("~/.cache/sentence_transformers"),
+                                                              )
             
-            # Optimize for inference
-            model.eval()  # Set to evaluation mode
+            # Model-specific optimizations
+            model                        = self._optimize_model(model  = model, 
+                                                                device = device,
+                                                               )
             
-            # Cache model
-            self._models[cache_key] = model
+            # Cache the model
+            self._model_cache[cache_key] = model
+            self._loaded_model           = model
+            self._model_name             = model_name
+            self._device                 = device
             
             # Log model info
-            self._log_model_info(model, model_name)
+            self._log_model_info(model  = model, 
+                                 device = device,
+                                )
+            
+            self.logger.info(f"Successfully loaded model: {model_name}")
             
             return model
-        
-        except Exception as e:
-            self.logger.error(f"Failed to load model {model_name}: {e}")
-            raise
-    
-    def _log_model_info(self, model: SentenceTransformer, model_name: str):
-        """Log information about loaded model"""
-        try:
-            # Get embedding dimension
-            dim = model.get_sentence_embedding_dimension()
             
-            # Get model size (approximate)
-            total_params = sum(
-                p.numel() for p in model.parameters()
-            )
-            size_mb = total_params * 4 / (1024 * 1024)  # Assuming float32
-            
-            self.logger.info(
-                f"Model loaded successfully: {model_name}\n"
-                f"  Embedding dimension: {dim}\n"
-                f"  Parameters: {total_params:,}\n"
-                f"  Approximate size: {size_mb:.1f} MB\n"
-                f"  Device: {self.device}"
-            )
         except Exception as e:
-            self.logger.warning(f"Could not log model info: {e}")
+            self.logger.error(f"Failed to load model {model_name}: {repr(e)}")
+            raise EmbeddingError(f"Model loading failed: {repr(e)}")
     
-    def unload_model(self, model_name: Optional[str] = None):
+
+    def _resolve_device(self, device: Optional[str] = None) -> str:
         """
-        Unload model from memory.
+        Resolve the best available device
         
-        Args:
-            model_name: Model to unload (None = unload all)
+        Arguments:
+        ----------
+            device { str } : Requested device
+        
+        Returns:
+        --------
+               { str }     : Actual device to use
         """
-        if model_name:
-            # Unload specific model
-            keys_to_remove = [
-                k for k in self._models.keys() 
-                if k.startswith(model_name)
-            ]
-            for key in keys_to_remove:
-                del self._models[key]
-                self.logger.info(f"Unloaded model: {key}")
+        if (device and (device != "auto")):
+            return device
+        
+        # Auto device selection
+        if (settings.EMBEDDING_DEVICE != "auto"):
+            return settings.EMBEDDING_DEVICE
+        
+        # Automatic detection
+        if torch.cuda.is_available():
+            return "cuda"
+        
+        elif torch.backends.mps.is_available():
+            return "mps"
+        
         else:
-            # Unload all models
-            self._models.clear()
-            self.logger.info("Unloaded all models")
-        
-        # Force garbage collection
-        import gc
-        gc.collect()
-        
-        # Clear CUDA cache if using GPU
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            return "cpu"
     
-    def get_model_info(self, model_name: Optional[str] = None) -> dict:
+
+    def _optimize_model(self, model: SentenceTransformer, device: str) -> SentenceTransformer:
         """
-        Get information about loaded model(s).
+        Apply optimizations to the model
         
-        Args:
-            model_name: Model name (None = default model)
+        Arguments:
+        ----------
+            model  { SentenceTransformer } : Model to optimize
+
+            device { str }                 : Device model is on
         
         Returns:
-            Dictionary with model information
+        --------
+            { SentenceTransformer }        : Optimized model
         """
-        model_name = model_name or settings.EMBEDDING_MODEL
+        # Enable eval mode for inference
+        model.eval()
+        
+        # GPU optimizations
+        if (device == "cuda"):
+            # Use half precision for GPU if supported
+            try:
+                model = model.half()
+                self.logger.debug("Enabled half precision for GPU")
+            
+            except Exception as e:
+                self.logger.warning(f"Could not enable half precision: {repr(e)}")
+        
+        # Disable gradient computation
+        for param in model.parameters():
+            param.requires_grad = False
+        
+        return model
+    
+
+    def _log_model_info(self, model: SentenceTransformer, device: str):
+        """
+        Log detailed model information
+        
+        Arguments:
+        ----------
+            model  { SentenceTransformer } : Model to log info for
+
+            device { str }                 : Device model is on
+        """
+        try:
+            # Get model architecture info
+            if hasattr(model, '_modules'):
+                modules = list(model._modules.keys())
+            
+            else:
+                modules = ["unknown"]
+            
+            # Get embedding dimension
+            if hasattr(model, 'get_sentence_embedding_dimension'):
+                dimension = model.get_sentence_embedding_dimension()
+            
+            else:
+                dimension = "unknown"
+            
+            # Count parameters
+            total_params = sum(p.numel() for p in model.parameters())
+            
+            self.logger.info(f"Model Info: {len(modules)} modules, dimension={dimension}, parameters={total_params:,}, device={device}")
+                           
+        except Exception as e:
+            self.logger.debug(f"Could not get detailed model info: {repr(e)}")
+    
+
+    def get_loaded_model(self) -> Optional[SentenceTransformer]:
+        """
+        Get currently loaded model
+        
+        Returns:
+        --------
+            { SentenceTransformer } : Currently loaded model or None
+        """
+        return self._loaded_model
+    
+
+    def get_model_info(self) -> dict:
+        """
+        Get information about loaded model
+        
+        Returns:
+        --------
+            { dict }    : Model information dictionary
+        """
+        if self._loaded_model is None:
+            return {"loaded": False}
+        
+        info = {"loaded"       : True,
+                "model_name"   : self._model_name,
+                "device"       : self._device,
+                "cache_size"   : len(self._model_cache),
+               }
         
         try:
-            model = self.load_model(model_name)
+            if hasattr(self._loaded_model, 'get_sentence_embedding_dimension'):
+                info["embedding_dimension"] = self._loaded_model.get_sentence_embedding_dimension()
             
-            return {
-                "model_name": model_name,
-                "embedding_dimension": model.get_sentence_embedding_dimension(),
-                "max_seq_length": model.max_seq_length,
-                "device": self.device,
-                "normalize_embeddings": getattr(model, 'normalize_embeddings', False),
-                "loaded": True,
-            }
+            info["model_class"] = type(self._loaded_model).__name__
+            
         except Exception as e:
-            return {
-                "model_name": model_name,
-                "error": str(e),
-                "loaded": False,
-            }
-    
-    def list_loaded_models(self) -> list:
-        """
-        List all currently loaded models.
-        
-        Returns:
-            List of loaded model identifiers
-        """
-        return list(self._models.keys())
-    
-    def get_device_info(self) -> dict:
-        """
-        Get information about available devices.
-        
-        Returns:
-            Dictionary with device information
-        """
-        info = {
-            "current_device": self.device,
-            "cuda_available": torch.cuda.is_available(),
-            "mps_available": torch.backends.mps.is_available(),
-        }
-        
-        if torch.cuda.is_available():
-            info.update({
-                "cuda_device_count": torch.cuda.device_count(),
-                "cuda_device_name": torch.cuda.get_device_name(0),
-                "cuda_memory_allocated": f"{torch.cuda.memory_allocated(0) / 1024**2:.1f} MB",
-                "cuda_memory_reserved": f"{torch.cuda.memory_reserved(0) / 1024**2:.1f} MB",
-            })
+            self.logger.warning(f"Could not get detailed model info: {e}")
         
         return info
     
-    def optimize_model(
-        self,
-        model: SentenceTransformer,
-        use_half_precision: bool = False,
-        compile_model: bool = False
-    ) -> SentenceTransformer:
+
+    def clear_cache(self, model_name: Optional[str] = None):
         """
-        Optimize model for faster inference.
+        Clear model cache
         
-        Args:
-            model: Model to optimize
-            use_half_precision: Use FP16 precision (GPU only)
-            compile_model: Compile with torch.compile (PyTorch 2.0+)
-        
-        Returns:
-            Optimized model
+        Arguments:
+        ----------
+            model_name { str } : Specific model to clear (None = all)
         """
-        try:
-            # Half precision (FP16)
-            if use_half_precision and self.device == "cuda":
-                model = model.half()
-                self.logger.info("Converted model to FP16 precision")
+        if model_name:
+            # Clear specific model from all devices
+            keys_to_remove = [k for k in self._model_cache.keys() if k.startswith(model_name)]
             
-            # Torch compile (PyTorch 2.0+)
-            if compile_model:
-                try:
-                    import torch._dynamo
-                    model = torch.compile(model)
-                    self.logger.info("Compiled model with torch.compile")
-                except Exception as e:
-                    self.logger.warning(f"Could not compile model: {e}")
+            for key in keys_to_remove:
+                del self._model_cache[key]
             
-            return model
+            self.logger.info(f"Cleared cache for model: {model_name}")
         
-        except Exception as e:
-            self.logger.warning(f"Model optimization failed: {e}")
-            return model
+        else:
+            # Clear all cache
+            cache_size = len(self._model_cache)
+            self._model_cache.clear()
+            
+            self.logger.info(f"Cleared all model cache ({cache_size} models)")
     
-    def warmup(self, model: Optional[SentenceTransformer] = None, num_samples: int = 5):
+
+    def unload_model(self):
         """
-        Warm up model with dummy inputs.
-        
-        Args:
-            model: Model to warm up (None = default model)
-            num_samples: Number of warmup samples
+        Unload current model and free memory
         """
-        if model is None:
-            model = self.load_model()
-        
-        self.logger.info("Warming up model...")
-        
-        # Create dummy inputs
-        dummy_texts = [
-            f"This is a warmup sentence number {i}" 
-            for i in range(num_samples)
-        ]
-        
-        try:
-            # Run inference
-            _ = model.encode(dummy_texts, show_progress_bar=False)
-            self.logger.info("Model warmup complete")
-        except Exception as e:
-            self.logger.warning(f"Model warmup failed: {e}")
+        if self._loaded_model:
+            model_name = self._model_name
+            
+            # Clear from cache
+            if self._model_name and self._device:
+                cache_key = f"{self._model_name}_{self._device}"
+                self._model_cache.pop(cache_key, None)
+            
+            # Clear references
+            self._loaded_model = None
+            self._model_name   = None
+            self._device       = None
+            
+            # Force garbage collection            
+            gc.collect()
+            
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            
+            self.logger.info(f"Unloaded model: {model_name}")
 
 
-# Global loader instance
-_loader = None
+# Global model loader instance
+_model_loader = None
 
 
-def get_model_loader() -> ModelLoader:
+def get_model_loader() -> EmbeddingModelLoader:
     """
-    Get global ModelLoader instance (singleton).
+    Get global model loader instance (singleton)
     
     Returns:
-        ModelLoader instance
+    --------
+        { EmbeddingModelLoader } : Model loader instance
     """
-    global _loader
-    if _loader is None:
-        _loader = ModelLoader()
-    return _loader
+    global _model_loader
 
-
-def load_embedding_model(
-    model_name: Optional[str] = None,
-    device: Optional[str] = None
-) -> SentenceTransformer:
-    """
-    Convenience function to load embedding model.
+    if _model_loader is None:
+        _model_loader = EmbeddingModelLoader()
     
-    Args:
-        model_name: Model name
-        device: Device
+    return _model_loader
+
+
+def load_embedding_model(model_name: Optional[str] = None, device: Optional[str] = None) -> SentenceTransformer:
+    """
+    Convenience function to load embedding model
+    
+    Arguments:
+    ----------
+        model_name { str } : Model name
+        
+        device     { str } : Device
     
     Returns:
-        Loaded model
+    --------
+        { SentenceTransformer } : Loaded model
     """
     loader = get_model_loader()
+
     return loader.load_model(model_name, device)
-
-
-if __name__ == "__main__":
-    # Test model loader
-    print("=== Model Loader Tests ===\n")
-    
-    loader = ModelLoader()
-    
-    # Test 1: Device detection
-    print("Test 1: Device detection")
-    device_info = loader.get_device_info()
-    for key, value in device_info.items():
-        print(f"  {key}: {value}")
-    print()
-    
-    # Test 2: Load default model
-    print("Test 2: Load default model")
-    try:
-        model = loader.load_model()
-        print(f"  ✓ Model loaded successfully")
-        
-        info = loader.get_model_info()
-        print(f"  Model: {info['model_name']}")
-        print(f"  Dimension: {info['embedding_dimension']}")
-        print(f"  Max length: {info['max_seq_length']}")
-        print(f"  Device: {info['device']}")
-    except Exception as e:
-        print(f"  ✗ Failed to load model: {e}")
-    print()
-    
-    # Test 3: List loaded models
-    print("Test 3: List loaded models")
-    loaded = loader.list_loaded_models()
-    print(f"  Loaded models: {loaded}")
-    print()
-    
-    # Test 4: Model warmup
-    print("Test 4: Model warmup")
-    try:
-        loader.warmup(model, num_samples=3)
-        print("  ✓ Warmup complete")
-    except Exception as e:
-        print(f"  ✗ Warmup failed: {e}")
-    print()
-    
-    # Test 5: Test encoding
-    print("Test 5: Test encoding")
-    try:
-        test_texts = ["Hello world", "Test sentence"]
-        embeddings = model.encode(test_texts, show_progress_bar=False)
-        print(f"  ✓ Encoded {len(test_texts)} texts")
-        print(f"  Embedding shape: {embeddings.shape}")
-    except Exception as e:
-        print(f"  ✗ Encoding failed: {e}")
-    print()
-    
-    # Test 6: Convenience function
-    print("Test 6: Convenience function")
-    try:
-        model2 = load_embedding_model()
-        print("  ✓ Loaded via convenience function")
-    except Exception as e:
-        print(f"  ✗ Failed: {e}")
-    print()
-    
-    print("✓ Model loader module created successfully!")

@@ -1,9 +1,9 @@
 # DEPENDENCIES
 import re
 import tiktoken
-from enum import Enum
 from typing import List
 from typing import Optional
+from config.models import TokenizerType
 from config.settings import get_settings
 from config.logging_config import get_logger
 
@@ -13,24 +13,13 @@ logger   = get_logger(__name__)
 settings = get_settings()
 
 
-class TokenizerType(str, Enum):
-    """
-    Supported tokenizer types
-    """
-    CL100K      = "cl100k_base"  # GPT-4, GPT-3.5-turbo
-    P50K        = "p50k_base"    # Codex, text-davinci-002/003
-    R50K        = "r50k_base"    # GPT-3, text-davinci-001
-    GPT2        = "gpt2"         # GPT-2
-    APPROXIMATE = "approximate"  # Fast approximation
-
-
 class TokenCounter:
     """
     Token counting utility with support for multiple tokenizers: Provides accurate token counts for chunking and context management
     """
     def __init__(self, tokenizer_type: str = "cl100k_base"):
         """
-        Initialize token counter.
+        Initialize token counter
         
         Arguments:
         ----------
@@ -38,21 +27,32 @@ class TokenCounter:
         """
         self.tokenizer_type = tokenizer_type
         self.logger         = logger
+
+        # Validate tokenizer type
+        valid_tokenizers    = [t.value for t in TokenizerType]
+        
+        if tokenizer_type not in valid_tokenizers:
+            self.logger.warning(f"Invalid tokenizer type: {tokenizer_type}, using approximate")
+            self.tokenizer_type = TokenizerType.APPROXIMATE
+            self.tokenizer      = None
+            
+            return
         
         # Initialize tokenizer
         if (tokenizer_type != TokenizerType.APPROXIMATE):
             try:
                 self.tokenizer = tiktoken.get_encoding(tokenizer_type)
                 self.logger.debug(f"Initialized tiktoken tokenizer: {tokenizer_type}")
-
+            
             except Exception as e:
                 self.logger.warning(f"Failed to load tiktoken: {repr(e)}, using approximation")
+                
                 self.tokenizer      = None
                 self.tokenizer_type = TokenizerType.APPROXIMATE
         
         else:
             self.tokenizer = None
-    
+        
 
     def count_tokens(self, text: str) -> int:
         """
@@ -86,34 +86,36 @@ class TokenCounter:
 
     def _approximate_token_count(self, text: str) -> int:
         """
-        Approximate token count using heuristics: 
-        - Rule -  ~4 characters per token for English text
-        
-        Arguments:
-        ----------
-            text { str } : Input text
-        
-        Returns:
-        --------
-             { int }     : Approximate token count
+        Approximate token count using multiple heuristics
         """
-        # Split by whitespace to get words
-        words         = text.split()
+        if not text:
+            return 0
         
-        # Count characters
-        char_count    = len(text)
+        # Method 1: Word-based estimation (accounts for subword tokenization)
+        words      = text.split()
+        word_count = len(words)
         
-        # Hybrid approach: average of word-based and char-based estimates - Words typically = 1.3 tokens (accounting for subword tokenization)
-        word_estimate = len(words) * 1.3
+        # Method 2: Character-based estimation
+        char_count = len(text)
         
-        # Characters typically = 4 chars per token
-        char_estimate = char_count / 4.0
+        # Method 3: Hybrid approach with weighting
+        # - Short texts: more word-based (better for code/short docs)
+        # - Long texts: more character-based (better for prose)
+        if (char_count < 1000):
+            # Prefer word-based for short texts : Slightly higher for short texts
+            estimate = word_count * 1.33  
         
-        # Take average of both estimates
-        estimate      = int((word_estimate + char_estimate) / 2)
+        else:
+            # Balanced approach for longer texts
+            word_estimate = word_count * 1.3
+            char_estimate = char_count / 4.0
+            estimate      = (word_estimate + char_estimate) / 2
         
-        # Ensure at least 1 token
-        return max(1, estimate)  
+        # Ensure reasonable bounds
+        min_tokens = max(1, word_count)  # At least 1 token per word
+        max_tokens = char_count // 2     # At most 1 token per 2 chars
+        
+        return max(min_tokens, min(int(estimate), max_tokens))
     
 
     def encode(self, text: str) -> List[int]:
@@ -319,12 +321,33 @@ class TokenCounter:
     @staticmethod
     def _split_into_sentences(text: str) -> List[str]:
         """
-        Simple sentence splitter
+        Simple sentence splitter with better edge case handling
         """
+        if not text.strip():
+            return []
+        
         # Split on sentence boundaries
-        sentences       = re.split(r'(?<=[.!?])\s+', text)
-        final_sentences = [s.strip() for s in sentences if s.strip()]
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        
+        # Filter and clean
+        final_sentences = list()
 
+        for sentence in sentences:
+            sentence = sentence.strip()
+
+            if sentence:
+                # Handle abbreviations (basic)
+                if not any(sentence.endswith(abbr) for abbr in ['Dr.', 'Mr.', 'Mrs.', 'Ms.', 'etc.']):
+                    final_sentences.append(sentence)
+                
+                else:
+                    # For abbreviations, keep with next sentence if possible
+                    if final_sentences:
+                        final_sentences[-1] += " " + sentence
+                    
+                    else:
+                        final_sentences.append(sentence)
+        
         return final_sentences
     
 
@@ -495,77 +518,3 @@ def truncate_to_tokens(text: str, max_tokens: int, suffix: str = "...", tokenize
     counter = get_token_counter(tokenizer_type)
     
     return counter.truncate_to_tokens(text, max_tokens, suffix)
-
-
-
-if __name__ == "__main__":
-    # Test token counter
-    print("=== Token Counter Tests ===\n")
-    
-    # Test with different tokenizers
-    test_text = """
-                    This is a test document with multiple sentences. It contains various types of content.
-                    We'll use this to test the token counter functionality and ensure it works correctly.
-                    The quick brown fox jumps over the lazy dog.
-                """
-    
-    print("Test 1: Count tokens with different tokenizers")
-    for tokenizer in ["cl100k_base", "gpt2", "approximate"]:
-        try:
-            counter = TokenCounter(tokenizer)
-            tokens  = counter.count_tokens(test_text)
-            print(f"  {tokenizer}: {tokens} tokens")
-        
-        except Exception as e:
-            print(f"  {tokenizer}: Error - {e}")
-    
-    print()
-    
-    # Test token stats
-    print("Test 2: Token statistics")
-    counter = TokenCounter("approximate")
-    stats   = counter.get_token_stats(test_text)
-    
-    for key, value in stats.items():
-        print(f"  {key}: {value}")
-    
-    print()
-    
-    # Test truncation
-    print("Test 3: Truncation to 20 tokens")
-    truncated = counter.truncate_to_tokens(test_text, max_tokens=20, suffix="...")
-
-    print(f"  Original: {counter.count_tokens(test_text)} tokens")
-    print(f"  Truncated: {counter.count_tokens(truncated)} tokens")
-    print(f"  Text: {truncated}")
-    print()
-    
-    # Test splitting
-    print("Test 4: Split into chunks (20 tokens each, 5 overlap)")
-    chunks = counter.split_into_token_chunks(test_text, chunk_size=20, overlap=5)
-    
-    print(f"  Created {len(chunks)} chunks:")
-    for i, chunk in enumerate(chunks, 1):
-        tokens = counter.count_tokens(chunk)
-        print(f"    Chunk {i}: {tokens} tokens - {chunk[:50]}...")
-    
-    print()
-    
-    # Test cost estimation
-    print("Test 5: Cost estimation")
-    cost = counter.estimate_cost(test_text, cost_per_1k_tokens=0.002)
-    
-    print(f"  Text tokens: {counter.count_tokens(test_text)}")
-    print(f"  Estimated cost: ${cost:.6f}")
-    print()
-    
-    # Test convenience functions
-    print("Test 6: Convenience functions")
-    quick_count = count_tokens("Hello world!")
-    
-    print(f"  Quick count: {quick_count} tokens")
-    quick_truncate = truncate_to_tokens("This is a longer text that will be truncated", max_tokens=5)
-    print(f"  Quick truncate: {quick_truncate}")
-    print()
-    
-    print("✓ Token counter module created successfully!")

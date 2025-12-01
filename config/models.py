@@ -19,11 +19,22 @@ class DocumentType(str, Enum):
     """
     Supported document types
     """
-    PDF  = "pdf"
-    DOCX = "docx"
-    TXT  = "txt"
-    URL  = "url"
-    ZIP  = "zip"
+    PDF     = "pdf"
+    DOCX    = "docx"
+    TXT     = "txt"
+    URL     = "url"
+    IMAGE   = "image"    
+    ARCHIVE = "archive"
+
+
+class IngestionInputType(str, Enum):
+    """
+    Supported input types for ingestion
+    """
+    FILE    = "file"
+    URL     = "url"
+    ARCHIVE = "archive"
+    TEXT    = "text"
 
 
 class ProcessingStatus(str, Enum):
@@ -36,6 +47,17 @@ class ProcessingStatus(str, Enum):
     FAILED     = "failed"
 
 
+class TokenizerType(str, Enum):
+    """
+    Supported tokenizer types
+    """
+    CL100K      = "cl100k_base"  # GPT-4, GPT-3.5-turbo
+    P50K        = "p50k_base"    # Codex, text-davinci-002/003
+    R50K        = "r50k_base"    # GPT-3, text-davinci-001
+    GPT2        = "gpt2"         # GPT-2
+    APPROXIMATE = "approximate"  # Fast approximation
+
+
 class ChunkingStrategy(str, Enum):
     """
     Available chunking strategies
@@ -43,6 +65,48 @@ class ChunkingStrategy(str, Enum):
     FIXED        = "fixed"
     SEMANTIC     = "semantic"
     HIERARCHICAL = "hierarchical"
+
+
+class LLMProvider(str, Enum):
+    """
+    Supported LLM providers
+    """
+    OLLAMA    = "ollama"
+    OPENAI    = "openai"
+
+
+class TemperatureStrategy(str, Enum):
+    """
+    Temperature control strategies
+    """
+    FIXED       = "fixed"
+    ADAPTIVE    = "adaptive"
+    CONFIDENCE  = "confidence"
+    PROGRESSIVE = "progressive"
+
+
+class CitationStyle(str, Enum):
+    """
+    Supported citation styles
+    """
+    NUMERIC  = "numeric"
+    VERBOSE  = "verbose"
+    MINIMAL  = "minimal"
+    ACADEMIC = "academic"
+    LEGAL    = "legal"
+
+
+class PromptType(str, Enum):
+    """
+    Supported prompt types
+    """
+    QA             = "qa"
+    SUMMARY        = "summary"
+    ANALYTICAL     = "analytical"
+    COMPARISON     = "comparison"
+    EXTRACTION     = "extraction"
+    CREATIVE       = "creative"
+    CONVERSATIONAL = "conversational"
 
 
 # Document Models
@@ -149,25 +213,38 @@ class ChunkWithScore(BaseModel):
     Chunk with retrieval score
     """
     chunk            : DocumentChunk
-    score            : float                                           = Field(..., ge = 0.0, le = 1.0, description = "Relevance score")
-    rank             : int                                             = Field(..., ge = 1, description = "Rank in results")
-    retrieval_method : Literal["vector", "bm25", "hybrid", "reranked"] = Field(...)
+    score            : float                                             = Field(..., ge = 0.0, le = 1.0, description = "Relevance score")
+    rank             : int                                               = Field(..., ge = 1, description = "Rank in results")
+    retrieval_method : Literal['vector', 'bm25', 'hybrid', 'reranked',
+                               'hybrid_weighted', 'hybrid_rrf',
+                               'hybrid_comb_sum', 'hybrid_diversified',
+                               'vector_diversified', 'bm25_diversified',
+                               'reranked_diversified', 'test']           = 'vector'
     
 
     @property
     def citation(self) -> str:
-        """
-        Generate citation string
-        """
         parts = [self.chunk.document_id]
-
+        
+        # Add source filename if available
+        if ((hasattr(self.chunk, 'metadata')) and ('filename' in self.chunk.metadata)):
+            parts.append(f"file: {self.chunk.metadata['filename']}")
+        
         if self.chunk.page_number:
             parts.append(f"page {self.chunk.page_number}")
-
+        
         if self.chunk.section_title:
             parts.append(f"section: {self.chunk.section_title}")
         
         return ", ".join(parts)
+
+
+# Embedding Request 
+class EmbeddingRequest(BaseModel):
+    texts      : List[str]
+    normalize  : bool          = True
+    device     : Optional[str] = None
+    batch_size : Optional[int] = None
 
 
 # Query Models 
@@ -175,6 +252,8 @@ class QueryRequest(BaseModel):
     """
     User query request
     """
+    model_config                           = ConfigDict(protected_namespaces = ())
+
     query            : str                 = Field(..., min_length = 1, max_length = 1000, description = "User question")
     
     # Retrieval parameters
@@ -221,6 +300,7 @@ class QueryResponse(BaseModel):
     timestamp          : datetime                   = Field(default_factory = datetime.now)
     model_used         : str                        = Field(...)
     
+    model_config                                    = ConfigDict(protected_namespaces = ())
 
     @property
     def citation_text(self) -> str:
@@ -300,7 +380,6 @@ class ProcessingProgress(BaseModel):
 
 
 # Embedding Models
-
 class EmbeddingRequest(BaseModel):
     """
     Request to generate embeddings
@@ -345,6 +424,31 @@ class RetrievalResponse(BaseModel):
     chunks            : List[ChunkWithScore] = Field(...)
     retrieval_time_ms : float                = Field(..., ge = 0.0)
     num_candidates    : int                  = Field(..., ge = 0)
+
+
+# Evaluation Models
+class EvaluationRequest(BaseModel):
+    """
+    Request for RAG evaluation
+    """
+    query            : str                  = Field(..., description = "Original user query")
+    reference_answer : Optional[str]        = Field(None, description = "Ground truth answer for evaluation")
+    context_chunks   : List[ChunkWithScore] = Field(..., description = "Retrieved context chunks")
+    generated_answer : str                  = Field(..., description = "LLM-generated answer to evaluate")
+
+
+class EvaluationResult(BaseModel):
+    """
+    RAG evaluation results using Ragas metrics
+    """
+    answer_relevancy   : float           = Field(..., ge = 0.0, le = 1.0, description = "How well answer addresses question")
+    faithfulness       : float           = Field(..., ge = 0.0, le = 1.0, description = "Is answer grounded in context")
+    context_precision  : float           = Field(..., ge = 0.0, le = 1.0, description = "Are relevant chunks ranked high")
+    context_recall     : Optional[float] = Field(None, ge = 0.0, le = 1.0, description = "Was all necessary info retrieved")
+    overall_score      : float           = Field(..., ge = 0.0, le = 1.0, description = "Composite evaluation score")
+    evaluation_time_ms : float           = Field(..., ge=0.0)
+    model_used         : str             = Field(..., description = "Ragas evaluation model")
+    timestamp          : datetime        = Field(default_factory = datetime.now)
 
 
 # System Models
@@ -446,13 +550,19 @@ class RetrievalConfig(BaseModel):
         return v
 
 
+# Chat Response
+class ChatRequest(BaseModel):
+    message    : str
+    session_id : Optional[str] = None
+
+
 # Validation Utilities
 def validate_document_id(document_id: str) -> bool:
     """
     Validate document ID format
     """
     # Format: doc_<timestamp>_<hash>
-    pattern = r'^doc_\d+_[a-f0-9]{8}$'
+    pattern = r'^doc_\d{10,}_[a-f0-9]{8}$'
 
     return bool(re.match(pattern, document_id))
 
@@ -466,42 +576,4 @@ def validate_chunk_id(chunk_id: str) -> bool:
 
     return bool(re.match(pattern, chunk_id))
 
-
-
-if __name__ == "__main__":
-    # Test models
-    print("=== Testing Pydantic Models ===\n")
-    
-    # Test DocumentMetadata
-    doc_meta = DocumentMetadata(document_id     = "doc_12345_abcd1234",
-                                filename        = "test.pdf",
-                                document_type   = DocumentType.PDF,
-                                file_size_bytes = 1024 * 1024 * 5,  # 5MB
-                                num_pages       = 10,
-                               )
-
-    print("DocumentMetadata:")
-    print(f"  File size: {doc_meta.file_size_mb:.2f} MB")
-    print(f"  Status: {doc_meta.status}")
-    print()
-    
-    # Test QueryRequest
-    query_req = QueryRequest(query       = "What are the main risks?",
-                             top_k       = 5,
-                             temperature = 0.1,
-                            )
-
-    print("QueryRequest:")
-    print(f"  Query: {query_req.query}")
-    print(f"  Top-k: {query_req.top_k}")
-    print()
-    
-    # Test validation
-    try:
-        invalid_req = QueryRequest(query="")  # Should fail
-    
-    except Exception as e:
-        print(f"Validation working: {e}")
-    
-    print("\n✓ All models validated successfully!")
     

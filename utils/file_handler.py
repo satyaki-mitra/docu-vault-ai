@@ -15,6 +15,7 @@ from config.settings import get_settings
 from config.logging_config import get_logger
 
 
+# Setup Settings and Logging
 settings = get_settings()
 logger   = get_logger(__name__)
 
@@ -70,7 +71,7 @@ class FileHandler:
             return file_path.suffix.lstrip('.').lower()
 
         except Exception as e:
-            logger.warning(f"Could not detect file type for {file_path}: {e}")
+            logger.warning(f"Could not detect file type for {file_path}: {repr(e)}")
             return file_path.suffix.lstrip('.').lower()
     
 
@@ -168,9 +169,9 @@ class FileHandler:
         max_length = 255
         
         if (len(filename) > max_length):
-            name, ext = os.path.splitext(filename)
-            name      = name[:max_length - len(ext) - 1]
-            filename  = name + ext
+            name, extension = os.path.splitext(filename)
+            name            = name[:max_length - len(extension) - 1]
+            filename        = name + extension
         
         return filename
     
@@ -232,7 +233,7 @@ class FileHandler:
         """
         directory = Path(directory)
 
-        directory.mkdir(parents=True, exist_ok=True)
+        directory.mkdir(parents = True, exist_ok = True)
         return directory
     
 
@@ -533,37 +534,3 @@ class TempFileManager:
             
             except Exception as e:
                 logger.warning(f"Failed to delete temporary file {self.temp_file}: {e}")
-
-
-if __name__ == "__main__":
-    # Test file handler
-    print("=== File Handler Tests ===\n")
-    
-    # Test safe filename
-    unsafe_name = "../../../etc/passwd<>|test.pdf"
-    safe_name   = FileHandler.safe_filename(unsafe_name)
-    print(f"Safe filename: {unsafe_name} -> {safe_name}")
-    
-    # Test unique filename generation
-    unique_name = FileHandler.generate_unique_filename("document.pdf")
-    print(f"Unique filename: {unique_name}")
-    
-    # Test file size formatting
-    sizes       = [500, 1024, 1024**2, 1024**3]
-
-    for size in sizes:
-        print(f"{size} bytes = {FileHandler.format_file_size(size)}")
-    
-    # Test temp file manager
-    print("\n=== Temp File Manager ===")
-    
-    with TempFileManager(suffix=".txt", prefix="test_") as temp_path:
-        print(f"Created temp file: {temp_path}")
-        
-        temp_path.write_text("Test content")
-        
-        print(f"Temp file exists: {temp_path.exists()}")
-    
-    print(f"After context: exists = {temp_path.exists()}")
-    
-    print("\n✓ All file handler tests passed!")

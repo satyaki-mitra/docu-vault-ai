@@ -1,6 +1,6 @@
 # DEPENDENCIES
 import chardet
- import hashlib
+import hashlib
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
@@ -21,14 +21,20 @@ class TXTParser:
     Plain text file parser with automatic encoding detection : handles various text encodings and formats
     """
     # Common encodings to try
-    COMMON_ENCODINGS = ['utf-8', 'utf-16', 'ascii', 'latin-1', 'cp1252', 'iso-8859-1']
+    COMMON_ENCODINGS = ['utf-8', 
+                        'utf-16', 
+                        'ascii', 
+                        'latin-1', 
+                        'cp1252', 
+                        'iso-8859-1',
+                       ]
     
     def __init__(self):
         self.logger = logger
 
     
     @handle_errors(error_type = TextEncodingError, log_error = True, reraise = True)
-    def parse(self, file_path: Path, extract_metadata: bool = True,s clean_text: bool = True, encoding: Optional[str] = None) -> tuple[str, Optional[DocumentMetadata]]:
+    def parse(self, file_path: Path, extract_metadata: bool = True, clean_text: bool = True, encoding: Optional[str] = None) -> tuple[str, Optional[DocumentMetadata]]:
         """
         Parse text file and extract content
         
@@ -71,7 +77,10 @@ class TXTParser:
             metadata = None
 
             if extract_metadata:
-                metadata = self._extract_metadata(file_path, encoding, len(text_content))
+                metadata = self._extract_metadata(file_path   = file_path, 
+                                                  encoding    = encoding, 
+                                                  text_length = len(text_content),
+                                                 )
             
             # Clean text
             if clean_text:
@@ -142,7 +151,7 @@ class TXTParser:
         """
         for encoding in self.COMMON_ENCODINGS:
             try:
-                with open(file_path, 'r', encoding=encoding) as f:
+                with open(file_path, 'r', encoding = encoding) as f:
                     # Try reading first 1000 chars
                     f.read(1000)  
 
@@ -178,7 +187,7 @@ class TXTParser:
         modified_time   = datetime.fromtimestamp(stat.st_mtime)
         
         # Generate document ID
-        doc_hash        = hashlib.md5(str(file_path).encode()).hexdigest()[:8]
+        doc_hash        = hashlib.md5(str(file_path).encode()).hexdigest()
         doc_id          = f"doc_{int(datetime.now().timestamp())}_{doc_hash}"
         
         # Estimate pages (rough: 3000 characters per page)
@@ -229,7 +238,7 @@ class TXTParser:
             encoding = self.detect_encoding(file_path)
         
         try:
-            with open(file_path, 'r', encoding=encoding, errors='replace') as f:
+            with open(file_path, 'r', encoding = encoding, errors = 'replace') as f:
                 lines = f.readlines()
             
             if end_line is None:
@@ -325,72 +334,3 @@ class TXTParser:
         except Exception as e:
             self.logger.warning(f"Error checking if file is empty: {repr(e)}")
             return True
-
-
-if __name__ == "__main__":
-    # Test TXT parser
-    print("=== TXT Parser Tests ===\n")
-    
-    parser   = TXTParser()
-    
-    # Create a test TXT file
-    test_txt = Path("test_document.txt")
-    
-    # Create test file if it doesn't exist
-    if not test_txt.exists():
-        with open(test_txt, 'w', encoding='utf-8') as f:
-            f.write("This is a test document.\n")
-            f.write("It has multiple lines.\n")
-            f.write("With different content.\n")
-            f.write("\n")
-            f.write("And some blank lines too.\n")
-        
-        print(f"Created test file: {test_txt}\n")
-    
-    # Test basic parsing
-    print("Test 1: Basic parsing")
-    text, metadata = parser.parse(test_txt)
-    
-    print(f"  Extracted: {len(text)} characters")
-    print(f"  Lines: {metadata.extra.get('num_lines', 0)}")
-    print(f"  Encoding: {metadata.extra.get('encoding', 'unknown')}")
-    print(f"  Title: {metadata.title}")
-    print()
-    
-    # Test encoding detection
-    print("Test 2: Encoding detection")
-    encoding = parser.detect_encoding(test_txt)
-    
-    print(f"  Detected encoding: {encoding}")
-    print()
-    
-    # Test line reading
-    print("Test 3: Line reading")
-    lines = parser.read_lines(test_txt, start_line=0, end_line=3)
-    
-    print(f"  First 3 lines:")
-    for i, line in enumerate(lines, 1):
-        print(f"    {i}. {line.strip()}")
-    
-    print()
-    
-    # Test file info
-    print("Test 4: File info")
-    info = parser.get_file_info(test_txt)
-    
-    for key, value in info.items():
-        print(f"  {key}: {value}")
-    
-    print()
-    
-    # Test empty check
-    print("Test 5: Empty check")
-    is_empty = parser.is_empty(test_txt)
-    
-    print(f"  Is empty: {is_empty}")
-    print()
-    
-    # Clean up
-    test_txt.unlink()  # Delete test file
-    
-    print("✓ TXT parser module created successfully!")

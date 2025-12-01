@@ -1,9 +1,10 @@
 # DEPENDENCIES
 from enum import Enum
+from typing import List
 from pathlib import Path
 from typing import Union
 from typing import Optional 
-
+from utils.helpers import IDGenerator
 from config.models import DocumentType
 from config.models import DocumentMetadata
 from utils.file_handler import FileHandler
@@ -11,9 +12,10 @@ from utils.error_handler import RAGException
 from config.logging_config import get_logger
 from document_parser.pdf_parser import PDFParser
 from document_parser.txt_parser import TXTParser
+from document_parser.ocr_engine import OCREngine
 from document_parser.docx_parser import DOCXParser
 from utils.error_handler import InvalidFileTypeError
-
+from document_parser.zip_handler import ArchiveHandler
 
 
 # Setup Logging
@@ -33,17 +35,34 @@ class ParserFactory:
                                    DocumentType.TXT  : TXTParser(),
                                   }
         
+        # Initialize helper components
+        self._ocr_engine        = None
+        self._archive_handler   = None
+        
         # File extension to DocumentType mapping
-        self._extension_mapping = {'pdf'  : DocumentType.PDF,
-                                   'docx' : DocumentType.DOCX,
-                                   'doc'  : DocumentType.DOCX,
-                                   'txt'  : DocumentType.TXT,
-                                   'text' : DocumentType.TXT,
-                                   'md'   : DocumentType.TXT, 
-                                   'log'  : DocumentType.TXT,
-                                   'csv'  : DocumentType.TXT,
-                                   'json' : DocumentType.TXT,
-                                   'xml'  : DocumentType.TXT,
+        self._extension_mapping = {'pdf'   : DocumentType.PDF,
+                                   'docx'  : DocumentType.DOCX,
+                                   'doc'   : DocumentType.DOCX,
+                                   'txt'   : DocumentType.TXT,
+                                   'text'  : DocumentType.TXT,
+                                   'md'    : DocumentType.TXT, 
+                                   'log'   : DocumentType.TXT,
+                                   'csv'   : DocumentType.TXT,
+                                   'json'  : DocumentType.TXT,
+                                   'xml'   : DocumentType.TXT,
+                                   'png'   : DocumentType.IMAGE, 
+                                   'jpg'   : DocumentType.IMAGE, 
+                                   'jpeg'  : DocumentType.IMAGE, 
+                                   'gif'   : DocumentType.IMAGE, 
+                                   'bmp'   : DocumentType.IMAGE, 
+                                   'tiff'  : DocumentType.IMAGE, 
+                                   'webp'  : DocumentType.IMAGE,
+                                   'zip'   : DocumentType.ARCHIVE, 
+                                   'tar'   : DocumentType.ARCHIVE, 
+                                   'gz'    : DocumentType.ARCHIVE, 
+                                   'tgz'   : DocumentType.ARCHIVE, 
+                                   'rar'   : DocumentType.ARCHIVE, 
+                                   '7z'    : DocumentType.ARCHIVE,
                                   }
 
     
@@ -57,7 +76,7 @@ class ParserFactory:
         
         Returns:
         --------
-             { Parser }          : Parser instance
+             { object }          : Parser instance or handler
         
         Raises:
         -------
@@ -65,22 +84,34 @@ class ParserFactory:
         """
         doc_type = self.detect_document_type(file_path = file_path)
         
-        if doc_type not in self._parsers:
-            raise InvalidFileTypeError(file_type = str(doc_type), allowed_types = [t.value for t in self._parsers.keys()])
+        # Handle special types (image, archive)
+        if (doc_type == DocumentType.IMAGE):
+            return self._get_ocr_engine()
         
-        return self._parsers[doc_type]
+        elif (doc_type == DocumentType.ARCHIVE): 
+            return self._get_archive_handler()
+        
+        # Handle standard document types
+        elif doc_type in self._parsers:
+            return self._parsers[doc_type]
+        
+        else:
+            raise InvalidFileTypeError(file_type     = str(doc_type),
+                                       allowed_types = [t.value for t in self._parsers.keys()] + [DocumentType.IMAGE.value, DocumentType.ARCHIVE.value],
+                                      )
+        
     
-    
-    def detect_document_type(self, file_path: Path) -> DocumentType:
+    def detect_document_type(self, file_path: Path) -> Union[DocumentType, str]:
         """
-        Detect document type from file extension and content.
+        Detect document type from file extension and content
         
-        Args:
+        Arguments:
+        ----------
             file_path { Path }   : Path to document
         
         Returns:
         --------
-            { DocumentType }     : DocumentType enum
+            { Union }            : DocumentType enum or string for special types
         
         Raises:
         -------
@@ -136,23 +167,157 @@ class ParserFactory:
            
             RAGException              : If parsing fails
         """
-        file_path      = Path(file_path)
+        file_path = Path(file_path)
         
         self.logger.info(f"Parsing document: {file_path}")
         
-        # Get appropriate parser
-        parser         = self.get_parser(file_path)
+        # Get appropriate parser/handler
+        parser    = self.get_parser(file_path)
         
-        # Parse document
-        text, metadata = parser.parse(file_path,
-                                      extract_metadata = extract_metadata,
-                                      clean_text       = clean_text,
-                                      **kwargs
-                                     )
+        # Handle different parser types
+        if isinstance(parser, (PDFParser, DOCXParser, TXTParser)):
+            # Standard document parser
+            text, metadata = parser.parse(file_path,
+                                          extract_metadata = extract_metadata,
+                                          clean_text       = clean_text,
+                                          **kwargs
+                                         )
+        
+        elif isinstance(parser, OCREngine):
+            # Image file - use OCR
+            text        = parser.extract_text_from_image(file_path)
+            metadata    = self._create_image_metadata(file_path) if extract_metadata else None
+        
+        elif isinstance(parser, ArchiveHandler):
+            # Archive file - extract and parse contents
+            return self._parse_archive(file_path        = file_path,
+                                       extract_metadata = extract_metadata,
+                                       clean_text       = clean_text,
+                                       **kwargs
+                                      )
+        
+        else:
+            raise InvalidFileTypeError(file_type = file_path.suffix, allowed_types = self.get_supported_extensions())
         
         self.logger.info(f"Successfully parsed {file_path.name}: {len(text)} chars, type={metadata.document_type if metadata else 'unknown'}")
         
         return text, metadata
+    
+
+    def _get_ocr_engine(self) -> OCREngine:
+        """
+        Get OCR engine instance (lazy initialization)
+        
+        Returns:
+        --------
+            { OCREngine } : OCR engine instance
+        """
+        if self._ocr_engine is None:
+            self._ocr_engine = OCREngine()
+        
+        return self._ocr_engine
+    
+
+    def _get_archive_handler(self) -> ArchiveHandler:
+        """
+        Get archive handler instance (lazy initialization)
+        
+        Returns:
+        --------
+            { ArchiveHandler } : Archive handler instance
+        """
+        if self._archive_handler is None:
+            self._archive_handler = ArchiveHandler()
+        
+        return self._archive_handler
+    
+
+    def _create_image_metadata(self, file_path: Path) -> DocumentMetadata:
+        """
+        Create metadata for image file
+        
+        Arguments:
+        ----------
+            file_path { Path } : Path to image file
+        
+        Returns:
+        --------
+            { DocumentMetadata } : DocumentMetadata object
+        """
+        stat = file_path.stat()
+        
+        return DocumentMetadata(document_id     = IDGenerator.generate_document_id(),
+                                filename        = file_path.name,
+                                file_path       = file_path,
+                                document_type   = DocumentType.IMAGE,
+                                file_size_bytes = stat.st_size,
+                                created_date    = stat.st_ctime,
+                                modified_date   = stat.st_mtime,
+                                extra           = {"file_type": "image"},
+                               )
+    
+
+    def _parse_archive(self, file_path: Path, extract_metadata: bool = True, clean_text: bool = True, **kwargs) -> tuple[str, Optional[DocumentMetadata]]:
+        """
+        Parse archive file: extract contents and parse all supported files
+        
+        Arguments:
+        ----------
+            file_path        { Path } : Path to archive file
+
+            extract_metadata { bool } : Extract document metadata
+            
+            clean_text       { bool } : Clean extracted text
+            
+            **kwargs                  : Additional arguments
+        
+        Returns:
+        --------
+                { tuple }             : Tuple of (combined_text, metadata)
+        """
+        archive_handler = self._get_archive_handler()
+        
+        # Extract archive contents
+        extracted_files = archive_handler.extract_archive(file_path)
+        
+        # Parse all extracted files
+        combined_text   = ""
+        all_metadata    = list()
+        
+        for extracted_file in extracted_files:
+            if self.is_supported(extracted_file):
+                try:
+                    file_text, file_metadata = self.parse(extracted_file,
+                                                          extract_metadata = extract_metadata,
+                                                          clean_text       = clean_text,
+                                                          **kwargs
+                                                         )
+                    
+                    combined_text           += f"\n\n[FILE: {extracted_file.name}]\n{file_text}"
+                    
+                    if file_metadata:
+                        all_metadata.append(file_metadata)
+                
+                except Exception as e:
+                    self.logger.warning(f"Failed to parse extracted file {extracted_file}: {repr(e)}")
+                    continue
+        
+        # Create combined metadata
+        combined_metadata = None
+        
+        if extract_metadata and all_metadata:
+            combined_metadata = DocumentMetadata(document_id     = IDGenerator.generate_document_id(),
+                                                 filename        = file_path.name,
+                                                 file_path       = file_path,
+                                                 document_type   = DocumentType.ARCHIVE,
+                                                 file_size_bytes = file_path.stat().st_size,
+                                                 extra           = {"archive_contents"    : len(extracted_files),
+                                                                    "parsed_files"        : len(all_metadata),
+                                                                    "contained_documents" : [meta.document_id for meta in all_metadata],
+                                                                   }
+                                                )
+        
+        return combined_text.strip(), combined_metadata
     
 
     def is_supported(self, file_path: Path) -> bool:
@@ -289,13 +454,14 @@ class ParserFactory:
         --------
             { dict }    : Dictionary with parser information
         """
-        info = {"supported_types"      : [t.value for t in self._parsers.keys()],
+        info = {"supported_types"      : [t.value for t in self._parsers.keys()] + ['image', 'archive'],
                 "supported_extensions" : self.get_supported_extensions(),
-                "parser_classes"       : {t.value: type(p).__name__  for t, p in self._parsers.items()}
+                "parser_classes"       : {t.value: type(p).__name__  for t, p in self._parsers.items()},
+                "special_handlers"     : {"image"   : "OCREngine", 
+                                          "archive" : "ArchiveHandler"},
                }
 
         return info
-
 
 
 # Global factory instance
@@ -366,72 +532,3 @@ def get_supported_extensions() -> list[str]:
     factory = get_parser_factory()
 
     return factory.get_supported_extensions()
-
-
-
-if __name__ == "__main__":
-    # Test parser factory
-    print("=== Parser Factory Tests ===\n")
-    
-    factory = ParserFactory()
-    
-    # Test 1: Get parser info
-    print("Test 1: Parser info")
-    info = factory.get_parser_info()
-    
-    print(f"  Supported types: {info['supported_types']}")
-    print(f"  Supported extensions: {', '.join(info['supported_extensions'])}")
-    print(f"  Parser classes: {info['parser_classes']}")
-    print()
-    
-    # Test 2: Detect document type
-    print("Test 2: Document type detection")
-    test_files = ["document.pdf", "report.docx", "notes.txt", "data.csv", "config.json"]
-    for filename in test_files:
-        
-        try:
-            doc_type = factory.detect_document_type(file_path = Path(filename))
-            print(f"  {filename} -> {doc_type}")
-       
-        except Exception as e:
-            print(f"  {filename} -> Error: {e}")
-    
-    print()
-    
-    # Test 3: Check if supported
-    print("Test 3: Support check")
-    test_files = ["test.pdf", "test.xlsx", "test.txt", "test.mp4"]
-    
-    for filename in test_files:
-        is_supported = factory.is_supported(Path(filename))
-        print(f"  {filename}: {'✓ Supported' if is_supported else '✗ Not supported'}")
-    
-    print()
-    
-    # Test 4: Parse actual files (if they exist)
-    print("Test 4: Parsing test files")
-    test_files = ["test_document.txt"]
-    
-    for test_file in test_files:
-        if Path(test_file).exists():
-            try:
-                text, metadata = factory.parse(test_file)
-                print(f"  ✓ Parsed {test_file}:")
-                print(f"    - Characters: {len(text)}")
-                print(f"    - Type: {metadata.document_type}")
-                print(f"    - Title: {metadata.title}")
-            
-            except Exception as e:
-                print(f"  ✗ Failed to parse {test_file}: {e}")
-        
-        else:
-            print(f"  - Skipped {test_file} (not found)")
-    print()
-    
-    # Test 5: Convenience functions
-    print("Test 5: Convenience functions")
-    print(f"  Supported extensions: {', '.join(get_supported_extensions())}")
-    print(f"  Is 'test.pdf' supported: {is_supported_file('test.pdf')}")
-    print()
-    
-    print("✓ Parser factory module created successfully!")
