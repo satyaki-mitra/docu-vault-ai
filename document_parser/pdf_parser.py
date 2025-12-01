@@ -13,7 +13,7 @@ from config.models import DocumentMetadata
 from config.logging_config import get_logger
 from utils.error_handler import PDFParseError
 from utils.error_handler import handle_errors
-
+from document_parser.ocr_engine import OCREngine
 
 try:
     import fitz 
@@ -31,7 +31,7 @@ except ImportError:
     PYPdf2_AVAILABLE = False
 
 
-# Setup Logger
+# Setup Logging
 logger = get_logger(__name__)
 
 
@@ -45,12 +45,22 @@ class PDFParser:
         """
         Initialize PDF parser.
         
-        Args:
-            prefer_pymupdf: Use PyMuPDF as primary parser if available
+        Arguments:
+        ----------
+            prefer_pymupdf { bool } : Use PyMuPDF as primary parser if available
         """
         self.logger         = logger
         self.prefer_pymupdf = prefer_pymupdf and PYMUPDF_AVAILABLE
+        self.ocr_engine     = None  
         
+        try:
+            from document_parser.ocr_engine import OCREngine
+            self.ocr_available = True
+
+        except ImportError:
+            self.ocr_available = False
+            self.logger.warning("OCR engine not available - scanned PDFs may not be processed")
+
         if (not PYMUPDF_AVAILABLE and not PYPdf2_AVAILABLE):
             raise ImportError("Neither PyMuPDF nor PyPDF2 are available. Please install at least one.")
         
@@ -114,7 +124,7 @@ class PDFParser:
             
             except Exception as e:
                 self.logger.error(f"PyPDF2 parsing also failed for {file_path}: {repr(e)}")
-                raise PDFParseError(str(file_path), original_error=e)
+                raise PDFParseError(str(file_path), original_error = e)
         
         else:
             raise PDFParseError(str(file_path), original_error = RuntimeError("No PDF parsing libraries available"))
@@ -122,42 +132,34 @@ class PDFParser:
     
     def _parse_with_pymupdf(self, file_path: Path, extract_metadata: bool = True, clean_text: bool = True, password: Optional[str] = None) -> tuple[str, Optional[DocumentMetadata]]:
         """
-        Parse PDF using PyMuPDF (fitz)
-        
-        Arguments:
-        ----------
-            file_path        { Path } : Path to PDF file
-            
-            extract_metadata { bool } : Extract document metadata
-            
-            clean_text       { bool } : Clean extracted text
-            
-            password         { str }  : Password for encrypted PDFs
-        
-        Returns:
-        --------
-                   { tuple }          : Tuple of (extracted_text, metadata)
+        Parse PDF using PyMuPDF (fitz) with OCR fallback for scanned documents
         """
         self.logger.debug(f"Using PyMuPDF for parsing: {file_path}")
         
+        doc = None
+
         try:
             # Open PDF with PyMuPDF
+            self.logger.debug(f"Opening document: {file_path}")
             doc = fitz.open(str(file_path))
             
+            self.logger.debug(f"Document opened successfully, {len(doc)} pages")
+            
             # Handle encrypted PDFs
-            if doc.needs_pass and password:
+            if (doc.needs_pass and password):
                 if not doc.authenticate(password):
                     raise PDFParseError(str(file_path), original_error = ValueError("Invalid password for encrypted PDF"))
             
             elif (doc.needs_pass and not password):
                 raise PDFParseError(str(file_path), original_error = ValueError("PDF is encrypted but no password provided"))
             
-            # Extract text from all pages
-            text_content = self._extract_text_with_pymupdf(doc = doc)
-            
-            # Extract metadata
-            metadata     = None
+            # Extract text with per-page OCR fallback
+            text_content = self._extract_text_with_pymupdf(doc       = doc, 
+                                                           file_path = file_path,
+                                                          )
 
+            # Extract metadata
+            metadata = None
             if extract_metadata:
                 metadata = self._extract_metadata_with_pymupdf(doc       = doc, 
                                                                file_path = file_path,
@@ -171,16 +173,18 @@ class PDFParser:
                                                  preserve_structure   = True,
                                                 )
             
-            doc.close()
-            
             self.logger.info(f"Successfully parsed PDF with PyMuPDF: {len(text_content)} characters, {len(doc)} pages")
-            
             return text_content, metadata
             
         except Exception as e:
             self.logger.error(f"PyMuPDF parsing failed for {file_path}: {repr(e)}")
             raise
-    
+        
+        finally:
+            # Always close the document in finally block
+            if doc:
+                self.logger.debug("Closing PyMuPDF document")
+                doc.close()
 
     def _parse_with_pypdf2(self, file_path: Path, extract_metadata: bool = True, clean_text: bool = True, password: Optional[str] = None) -> tuple[str, Optional[DocumentMetadata]]:
         """
@@ -244,13 +248,15 @@ class PDFParser:
             raise
 
     
-    def _extract_text_with_pymupdf(self, doc: "fitz.Document") -> str:
+    def _extract_text_with_pymupdf(self, doc: "fitz.Document", file_path: Path = None) -> str:
         """
-        Extract text from all pages using PyMuPDF.
+        Extract text from all pages using PyMuPDF with per-page OCR fallback.
         
         Arguments:
         ----------
-            doc : PyMuPDF document object
+            doc        : PyMuPDF document object
+            
+            file_path  : Path to PDF file (for OCR fallback)
         
         Returns:
         --------
@@ -269,10 +275,34 @@ class PDFParser:
                     self.logger.debug(f"Extracted {len(page_text)} chars from page {page_num + 1} with PyMuPDF")
                 
                 else:
+                    # No text extracted - this page might be scanned
                     self.logger.warning(f"No text extracted from page {page_num + 1} with PyMuPDF (might be scanned)")
+                    
+                    # Try OCR for this specific page if available
+                    if self.ocr_available and file_path:
+                        try:
+                            self.logger.info(f"Attempting OCR for page {page_num + 1}")
+                            ocr_text = self._extract_page_text_with_ocr(file_path, page_num + 1)
+                            
+                            if ocr_text and ocr_text.strip():
+                                text_parts.append(f"\n[PAGE {page_num + 1} - OCR]\n{ocr_text}")
+                                self.logger.info(f"OCR extracted {len(ocr_text)} chars from page {page_num + 1}")
+                            
+                            else:
+                                text_parts.append(f"\n[PAGE {page_num + 1} - NO TEXT]\n")
+                                self.logger.warning(f"OCR also failed to extract text from page {page_num + 1}")
+                        
+                        except Exception as ocr_error:
+                            self.logger.warning(f"OCR failed for page {page_num + 1}: {repr(ocr_error)}")
+                            text_parts.append(f"\n[PAGE {page_num + 1} - OCR FAILED]\n")
+                    
+                    else:
+                        # No OCR available or no file_path provided
+                        text_parts.append(f"\n[PAGE {page_num + 1} - NO TEXT]\n")
             
             except Exception as e:
                 self.logger.warning(f"Error extracting text from page {page_num + 1} with PyMuPDF: {repr(e)}")
+                text_parts.append(f"\n[PAGE {page_num + 1} - ERROR: {str(e)}]\n")
                 continue
         
         return "\n".join(text_parts)
@@ -345,7 +375,7 @@ class PDFParser:
         num_pages     = len(doc)
         
         # Generate document ID
-        doc_hash      = hashlib.md5(str(file_path).encode()).hexdigest()[:8]
+        doc_hash      = hashlib.md5(str(file_path).encode()).hexdigest()
         doc_id        = f"doc_{int(datetime.now().timestamp())}_{doc_hash}"
         
         # Create metadata object
@@ -400,7 +430,7 @@ class PDFParser:
         num_pages     = len(reader.pages)
         
         # Generate document ID
-        doc_hash      = hashlib.md5(str(file_path).encode()).hexdigest()[:8]
+        doc_hash      = hashlib.md5(str(file_path).encode()).hexdigest()
         doc_id        = f"doc_{int(datetime.now().timestamp())}_{doc_hash}"
         
         # Create metadata object
@@ -421,7 +451,51 @@ class PDFParser:
                                         )
         
         return metadata
+
+
+    def _extract_text_with_ocr(self, file_path: Path) -> str:
+        """
+        Extract text from scanned PDF using OCR
+        """
+        if not self.ocr_available:
+            raise PDFParseError(str(file_path), original_error = RuntimeError("OCR engine not available"))
+        
+        if self.ocr_engine is None:
+            self.ocr_engine = OCREngine()
+        
+        return self.ocr_engine.extract_text_from_pdf(file_path)
+
     
+    def _extract_page_text_with_ocr(self, file_path: Path, page_number: int) -> str:
+        """
+        Extract text from a specific page using OCR
+        
+        Arguments:
+        ----------
+            file_path   { Path }  : Path to PDF file
+
+            page_number { int }   : Page number (1-indexed)
+        
+        Returns:
+        --------
+            { str }               : Extracted text from the page
+        """
+        if not self.ocr_available:
+            raise PDFParseError(str(file_path), original_error = RuntimeError("OCR engine not available"))
+        
+        if self.ocr_engine is None:
+            self.ocr_engine = OCREngine()
+        
+        try:
+            # Use OCR engine to extract text from specific page
+            return self.ocr_engine.extract_text_from_pdf(pdf_path = file_path, 
+                                                         pages    = [page_number],
+                                                        )
+        
+        except Exception as e:
+            self.logger.error(f"OCR failed for page {page_number}: {repr(e)}")
+            return ""
+            
 
     @staticmethod
     def _get_metadata_field(metadata: Dict, field_names: List[str]) -> Optional[str]:
@@ -509,7 +583,7 @@ class PDFParser:
         # Fall back to PyPDF2
         if PYPdf2_AVAILABLE:
             page_text = self._extract_page_text_pypdf2(file_path   = file_path, 
-                                                       page_number = page_number, 
+                                                       pagse_number = page_number, 
                                                        clean_text  = clean_text,
                                                       )
             
@@ -523,6 +597,7 @@ class PDFParser:
         """
         Extract page text using PyMuPDF
         """
+        doc = None
         try:
             doc       = fitz.open(str(file_path))
             num_pages = len(doc)
@@ -533,8 +608,6 @@ class PDFParser:
             page      = doc[page_number - 1]
             page_text = page.get_text()
             
-            doc.close()
-            
             if clean_text:
                 page_text = TextCleaner.clean(page_text)
             
@@ -543,6 +616,10 @@ class PDFParser:
         except Exception as e:
             self.logger.error(f"Failed to extract page {page_number} with PyMuPDF: {repr(e)}")
             raise PDFParseError(str(file_path), original_error = e)
+            
+        finally:
+            if doc:
+                doc.close()
     
     
     def _extract_page_text_pypdf2(self, file_path: Path, page_number: int, clean_text: bool = True) -> str:
@@ -584,16 +661,19 @@ class PDFParser:
         """
         # Try PyMuPDF first if available
         if PYMUPDF_AVAILABLE:
+            doc = None
             try:
                 doc        = fitz.open(str(file_path))
                 page_count = len(doc)
-                
-                doc.close()
                 
                 return page_count
             
             except Exception as e:
                 self.logger.warning(f"PyMuPDF page count failed, trying PyPDF2: {repr(e)}")
+            
+            finally:
+                if doc:
+                    doc.close()
         
         # Fall back to PyPDF2
         if PYPdf2_AVAILABLE:
@@ -659,6 +739,7 @@ class PDFParser:
         """
         Extract page range using PyMuPDF
         """
+        doc = None
         try:
             doc       = fitz.open(str(file_path))
             num_pages = len(doc)
@@ -676,7 +757,6 @@ class PDFParser:
                     text_parts.append(f"\n[PAGE {page_num + 1}]\n{page_text}")
             
             combined_text = "\n".join(text_parts)
-            doc.close()
             
             if clean_text:
                 combined_text = TextCleaner.clean(combined_text)
@@ -686,6 +766,10 @@ class PDFParser:
         except Exception as e:
             self.logger.error(f"Failed to extract page range with PyMuPDF: {repr(e)}")
             raise PDFParseError(str(file_path), original_error = e)
+            
+        finally:
+            if doc:
+                doc.close()
     
 
     def _extract_page_range_pypdf2(self, file_path: Path, start_page: int, end_page: int, clean_text: bool = True) -> str:
@@ -754,6 +838,7 @@ class PDFParser:
         """
         Check if PDF is scanned using PyMuPDF
         """
+        doc = None
         try:
             doc               = fitz.open(str(file_path))
             
@@ -766,15 +851,13 @@ class PDFParser:
                 text               = page.get_text()
                 total_text_length += len(text.strip())
             
-            doc.close()
-            
             # If average text per page is very low, likely scanned
             avg_text_per_page = total_text_length / pages_to_check
 
             # characters per page
             threshold         = 100 
             
-            is_scanned        = avg_text_per_page < threshold
+            is_scanned        = (avg_text_per_page < threshold)
             
             if is_scanned:
                 self.logger.info(f"PDF appears to be scanned (avg {avg_text_per_page:.0f} chars/page)")
@@ -784,6 +867,10 @@ class PDFParser:
         except Exception as e:
             self.logger.warning(f"Could not determine if PDF is scanned with PyMuPDF: {repr(e)}")
             return False
+            
+        finally:
+            if doc:
+                doc.close()
     
 
     def _is_scanned_pypdf2(self, file_path: Path) -> bool:
@@ -809,7 +896,7 @@ class PDFParser:
                 # characters per page
                 threshold         = 100  
                 
-                is_scanned        = avg_text_per_page < threshold
+                is_scanned        = (avg_text_per_page < threshold)
                 
                 if is_scanned:
                     self.logger.info(f"PDF appears to be scanned (avg {avg_text_per_page:.0f} chars/page)")
@@ -819,48 +906,3 @@ class PDFParser:
         except Exception as e:
             self.logger.warning(f"Could not determine if PDF is scanned with PyPDF2: {repr(e)}")
             return False
-
-
-
-if __name__ == "__main__":
-    # Test PDF parser
-    print("=== PDF Parser Tests ===\n")
-    
-    parser = PDFParser()
-    
-    # Create a test PDF (you'll need an actual PDF file for this)
-    test_pdf = Path("test_document.pdf")
-    
-    if test_pdf.exists():
-        # Test basic parsing
-        print("Test 1: Basic parsing")
-        text, metadata = parser.parse(test_pdf)
-        print(f"  Extracted: {len(text)} characters")
-        print(f"  Pages: {metadata.num_pages}")
-        print(f"  Title: {metadata.title}")
-        print(f"  Author: {metadata.author}")
-        print(f"  Parser used: {metadata.extra.get('parser_used', 'unknown')}")
-        print()
-        
-        # Test page count
-        print("Test 2: Page count")
-        page_count = parser.get_page_count(test_pdf)
-        print(f"  Total pages: {page_count}")
-        print()
-        
-        # Test single page extraction
-        print("Test 3: Single page extraction")
-        page_text = parser.extract_page_text(test_pdf, page_number=1)
-        print(f"  Page 1 text: {page_text[:200]}...")
-        print()
-        
-        # Test scanned detection
-        print("Test 4: Scanned detection")
-        is_scanned = parser.is_scanned(test_pdf)
-        print(f"  Is scanned: {is_scanned}")
-        print()
-    else:
-        print(f"Test PDF not found: {test_pdf}")
-        print("Please create a test PDF file to run tests")
-    
-    print("✓ PDF parser module created successfully!")

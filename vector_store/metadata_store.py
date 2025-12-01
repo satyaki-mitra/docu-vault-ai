@@ -1,672 +1,699 @@
-"""
-Metadata Store
-SQLite-based storage for document and chunk metadata
-"""
-
-from typing import List, Optional, Dict, Any
-from pathlib import Path
-import sqlite3
+# DEPENDENCIES
 import json
+import sqlite3
+import numpy as np
+from typing import Any
+from typing import List
+from typing import Dict
+from pathlib import Path
+from typing import Optional
 from datetime import datetime
-from contextlib import contextmanager
-
-from config.logging_config import get_logger
+from config.models import DocumentType
+from config.models import DocumentChunk
 from config.settings import get_settings
-from config.models import DocumentMetadata, DocumentChunk, ProcessingStatus
+from config.models import DocumentMetadata
+from config.models import ProcessingStatus
+from config.models import ChunkingStrategy
+from utils.file_handler import FileHandler
+from config.logging_config import get_logger
+from utils.error_handler import handle_errors
+from utils.error_handler import IndexingError
 
-logger = get_logger(__name__)
+
+# Setup Settings and Logging
 settings = get_settings()
+logger   = get_logger(__name__)
 
 
 class MetadataStore:
     """
-    SQLite-based metadata storage.
-    Stores document metadata, chunk information, and query history.
+    SQLite-based metadata storage for documents and chunks: Provides fast metadata retrieval and relationship management
     """
-    
     def __init__(self, db_path: Optional[Path] = None):
         """
-        Initialize metadata store.
+        Initialize metadata store
         
-        Args:
-            db_path: Path to SQLite database (default from settings)
+        Arguments:
+        ----------
+            db_path { Path } : Path to SQLite database file
         """
+        self.logger  = logger
         self.db_path = Path(db_path or settings.METADATA_DB_PATH)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         
-        self.logger = logger
-        self._initialize_database()
+        # Ensure directory exists
+        FileHandler.ensure_directory(self.db_path.parent)
         
-        self.logger.info(f"MetadataStore initialized: {self.db_path}")
+        # Initialize database
+        self._init_database()
+        
+        self.logger.info(f"Initialized MetadataStore: db_path={self.db_path}")
     
-    @contextmanager
-    def _get_connection(self):
-        """Get database connection context manager"""
-        conn = sqlite3.connect(str(self.db_path))
-        conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+
+    def _init_database(self):
+        """
+        Initialize database schema
+        """
         try:
-            yield conn
-            conn.commit()
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Documents table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS documents (
+                        document_id TEXT PRIMARY KEY,
+                        filename TEXT NOT NULL,
+                        file_path TEXT,
+                        document_type TEXT NOT NULL,
+                        title TEXT,
+                        author TEXT,
+                        created_date TEXT,
+                        modified_date TEXT,
+                        upload_date TEXT NOT NULL,
+                        processed_date TEXT,
+                        status TEXT NOT NULL,
+                        file_size_bytes INTEGER NOT NULL,
+                        num_pages INTEGER,
+                        num_tokens INTEGER,
+                        num_chunks INTEGER,
+                        chunking_strategy TEXT,
+                        processing_time_seconds REAL,
+                        error_message TEXT,
+                        extra_data TEXT,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    )
+                ''')
+                
+                # Chunks table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS chunks (
+                        chunk_id TEXT PRIMARY KEY,
+                        document_id TEXT NOT NULL,
+                        text TEXT NOT NULL,
+                        embedding BLOB,
+                        chunk_index INTEGER NOT NULL,
+                        start_char INTEGER NOT NULL,
+                        end_char INTEGER NOT NULL,
+                        page_number INTEGER,
+                        section_title TEXT,
+                        token_count INTEGER NOT NULL,
+                        metadata TEXT,
+                        created_at TEXT NOT NULL,
+                        FOREIGN KEY (document_id) REFERENCES documents (document_id) ON DELETE CASCADE,
+                        UNIQUE(document_id, chunk_index)
+                    )
+                ''')
+                
+                # Indexes for performance
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks(document_id)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_chunks_created_at ON chunks(created_at)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_documents_upload_date ON documents(upload_date)')
+                
+                conn.commit()
+                
         except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            conn.close()
+            self.logger.error(f"Failed to initialize database: {repr(e)}")
+            raise IndexingError(f"Database initialization failed: {repr(e)}")
     
-    def _initialize_database(self):
-        """Create database tables if they don't exist"""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Documents table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS documents (
-                    document_id TEXT PRIMARY KEY,
-                    filename TEXT NOT NULL,
-                    file_path TEXT,
-                    document_type TEXT NOT NULL,
-                    title TEXT,
-                    author TEXT,
-                    created_date TEXT,
-                    modified_date TEXT,
-                    upload_date TEXT NOT NULL,
-                    processed_date TEXT,
-                    status TEXT NOT NULL,
-                    file_size_bytes INTEGER NOT NULL,
-                    num_pages INTEGER,
-                    num_tokens INTEGER,
-                    num_chunks INTEGER,
-                    chunking_strategy TEXT,
-                    processing_time_seconds REAL,
-                    error_message TEXT,
-                    extra TEXT
-                )
-            """)
-            
-            # Chunks table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS chunks (
-                    chunk_id TEXT PRIMARY KEY,
-                    document_id TEXT NOT NULL,
-                    chunk_index INTEGER NOT NULL,
-                    text TEXT NOT NULL,
-                    start_char INTEGER NOT NULL,
-                    end_char INTEGER NOT NULL,
-                    page_number INTEGER,
-                    section_title TEXT,
-                    parent_chunk_id TEXT,
-                    token_count INTEGER NOT NULL,
-                    metadata TEXT,
-                    FOREIGN KEY (document_id) REFERENCES documents (document_id)
-                )
-            """)
-            
-            # Query history table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS query_history (
-                    query_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    query TEXT NOT NULL,
-                    timestamp TEXT NOT NULL,
-                    retrieval_time_ms REAL,
-                    generation_time_ms REAL,
-                    total_time_ms REAL,
-                    num_results INTEGER,
-                    model_used TEXT
-                )
-            """)
-            
-            # Create indices
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_documents_status 
-                ON documents(status)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_chunks_document 
-                ON chunks(document_id)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_query_timestamp 
-                ON query_history(timestamp)
-            """)
-            
-            self.logger.debug("Database tables initialized")
-    
-    # ========== Document Operations ==========
-    
-    def add_document(self, metadata: DocumentMetadata):
+
+    @handle_errors(error_type = IndexingError, log_error = True, reraise = True)
+    def store_chunks(self, chunks: List[DocumentChunk], rebuild: bool = False) -> dict:
         """
-        Add document metadata.
+        Store chunks and their document metadata
         
-        Args:
-            metadata: DocumentMetadata object
-        """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT OR REPLACE INTO documents (
-                    document_id, filename, file_path, document_type,
-                    title, author, created_date, modified_date,
-                    upload_date, processed_date, status,
-                    file_size_bytes, num_pages, num_tokens, num_chunks,
-                    chunking_strategy, processing_time_seconds,
-                    error_message, extra
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                metadata.document_id,
-                metadata.filename,
-                str(metadata.file_path) if metadata.file_path else None,
-                metadata.document_type.value,
-                metadata.title,
-                metadata.author,
-                metadata.created_date.isoformat() if metadata.created_date else None,
-                metadata.modified_date.isoformat() if metadata.modified_date else None,
-                metadata.upload_date.isoformat(),
-                metadata.processed_date.isoformat() if metadata.processed_date else None,
-                metadata.status.value,
-                metadata.file_size_bytes,
-                metadata.num_pages,
-                metadata.num_tokens,
-                metadata.num_chunks,
-                metadata.chunking_strategy.value if metadata.chunking_strategy else None,
-                metadata.processing_time_seconds,
-                metadata.error_message,
-                json.dumps(metadata.extra) if metadata.extra else None
-            ))
-            
-            self.logger.info(f"Added document: {metadata.document_id}")
-    
-    def get_document(self, document_id: str) -> Optional[DocumentMetadata]:
-        """
-        Get document metadata by ID.
-        
-        Args:
-            document_id: Document ID
+        Arguments:
+        ----------
+            chunks  { list } : List of DocumentChunk objects
+
+            rebuild { bool } : Whether to rebuild the storage
         
         Returns:
-            DocumentMetadata or None
+        --------
+               { dict }      : Storage statistics
         """
-        with self._get_connection() as conn:
+        if not chunks:
+            return {"stored": 0, "message": "No chunks to store"}
+        
+        if rebuild:
+            self.clear()
+        
+        # Group chunks by document
+        chunks_by_doc = dict()
+
+        for chunk in chunks:
+            if chunk.document_id not in chunks_by_doc:
+                chunks_by_doc[chunk.document_id] = []
+
+            chunks_by_doc[chunk.document_id].append(chunk)
+        
+        total_stored = 0
+        
+        with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM documents WHERE document_id = ?",
-                (document_id,)
-            )
+            
+            for document_id, doc_chunks in chunks_by_doc.items():
+                # Extract document metadata from first chunk
+                first_chunk       = doc_chunks[0]
+                document_metadata = self._extract_document_metadata(first_chunk, len(doc_chunks))
+                
+                # Store document
+                self._store_document(cursor, document_metadata)
+                
+                # Store chunks
+                for chunk in doc_chunks:
+                    self._store_chunk(cursor, chunk)
+                    total_stored += 1
+            
+            conn.commit()
+        
+        self.logger.info(f"Stored {total_stored} chunks for {len(chunks_by_doc)} documents")
+        
+        return {"stored_chunks"    : total_stored,
+                "stored_documents" : len(chunks_by_doc),
+                "message"          : "Metadata storage completed",
+               }
+    
+
+    def _extract_document_metadata(self, chunk: DocumentChunk, num_chunks: int) -> DocumentMetadata:
+        """
+        Extract document metadata from chunk
+        
+        Arguments:
+        ----------
+            chunk      { DocumentChunk } : Chunk with document metadata
+
+            num_chunks { int }           : Number of chunks in document
+        
+        Returns:
+        --------
+            { DocumentMetadata }         : Document metadata
+        """
+        # Extract metadata from chunk with proper validation
+        chunk_metadata    = chunk.metadata or {}
+        
+        # Determine document type with proper validation
+        document_type_str = chunk_metadata.get('document_type', 'unknown')
+        
+        try:
+            document_type = DocumentType(document_type_str)
+        
+        except ValueError:
+            # Try to infer from filename or other metadata
+            filename = chunk_metadata.get('file_name', '') or chunk_metadata.get('filename', '')
+            
+            if filename:
+                extension = filename.split('.')[-1].lower()
+
+                if (extension == 'pdf'):
+                    document_type = DocumentType.PDF
+
+                elif (extension in ['docx', 'doc']):
+                    document_type = DocumentType.DOCX
+
+                elif (extension == 'txt'):
+                    document_type = DocumentType.TXT
+
+                elif (extension in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff']):
+                    document_type = DocumentType.IMAGE
+                
+                elif (extension in ['zip', 'tar', 'gz', 'rar', '7z']):
+                    document_type = DocumentType.ARCHIVE
+                
+                elif (extension in ['html', 'htm'] or filename.startswith('http')):
+                    document_type = DocumentType.URL
+                
+                else:
+                    # default fallback
+                    document_type = DocumentType.TXT  
+            
+            else:
+                document_type = DocumentType.TXT  # default fallback
+        
+        # Ensure file_size_bytes is valid
+        file_size_bytes = chunk_metadata.get('file_size_bytes', 0)
+        if (file_size_bytes <= 0):
+            # Estimate file size based on text content as fallback
+            file_size_bytes = len(chunk.text.encode('utf-8')) if chunk.text else 1
+        
+        # Get filename with fallback
+        filename  = chunk_metadata.get('file_name') or chunk_metadata.get('filename') or f"document_{chunk.document_id}"
+        
+        # Get other metadata with fallbacks
+        file_path = chunk_metadata.get('file_path')
+        title     = chunk_metadata.get('title') or filename
+        author    = chunk_metadata.get('author')
+        
+        # Handle dates
+        upload_date = chunk_metadata.get('upload_date')
+        
+        if upload_date and isinstance(upload_date, datetime):
+            upload_date = upload_date
+        
+        else:
+            upload_date = datetime.now()
+        
+        created_date = chunk_metadata.get('created_date')
+        if created_date and isinstance(created_date, datetime):
+            created_date = created_date
+        
+        modified_date = chunk_metadata.get('modified_date')
+        
+        if modified_date and isinstance(modified_date, datetime):
+            modified_date = modified_date
+        
+        # Calculate token count estimate if not provided
+        num_tokens = chunk_metadata.get('num_tokens', 0)
+        
+        if (num_tokens <= 0 and chunk.text):
+            # Rough estimate: ~4 characters per token
+            num_tokens = len(chunk.text) // 4
+        
+        # Get chunking strategy
+        chunking_strategy_str = chunk_metadata.get('chunking_strategy')
+        chunking_strategy     = None
+
+        if chunking_strategy_str:
+            try:
+                chunking_strategy = ChunkingStrategy(chunking_strategy_str)
+            
+            except ValueError:
+                pass
+        
+        return DocumentMetadata(document_id             = chunk.document_id,
+                                filename                = filename,
+                                file_path               = Path(file_path) if file_path else None,
+                                document_type           = document_type,
+                                title                   = title,
+                                author                  = author,
+                                created_date            = created_date,
+                                modified_date           = modified_date,
+                                upload_date             = upload_date,
+                                processed_date          = datetime.now(),
+                                status                  = ProcessingStatus.COMPLETED,
+                                file_size_bytes         = file_size_bytes,
+                                num_pages               = chunk_metadata.get('num_pages', 1),
+                                num_tokens              = num_tokens,
+                                num_chunks              = num_chunks,
+                                chunking_strategy       = chunking_strategy,
+                                processing_time_seconds = chunk_metadata.get('processing_time_seconds', 0.0),
+                                error_message           = chunk_metadata.get('error_message'),
+                                extra                   = chunk_metadata.get('extra_data') or {},
+                               )
+    
+
+    def _store_document(self, cursor: sqlite3.Cursor, metadata: DocumentMetadata):
+        """
+        Store document metadata
+        
+        Arguments:
+        ----------
+            cursor   { sqlite3.Cursor }   : Database cursor
+
+            metadata { DocumentMetadata } : Document metadata
+        """
+        now = datetime.now().isoformat()
+        
+        cursor.execute('''
+            INSERT OR REPLACE INTO documents 
+            (document_id, filename, file_path, document_type, title, author, 
+             created_date, modified_date, upload_date, processed_date, status,
+             file_size_bytes, num_pages, num_tokens, num_chunks, chunking_strategy,
+             processing_time_seconds, error_message, extra_data, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            metadata.document_id,
+            metadata.filename,
+            str(metadata.file_path) if metadata.file_path else None,
+            metadata.document_type.value,
+            metadata.title,
+            metadata.author,
+            metadata.created_date.isoformat() if metadata.created_date else None,
+            metadata.modified_date.isoformat() if metadata.modified_date else None,
+            metadata.upload_date.isoformat(),
+            metadata.processed_date.isoformat() if metadata.processed_date else None,
+            metadata.status.value,
+            metadata.file_size_bytes,
+            metadata.num_pages,
+            metadata.num_tokens,
+            metadata.num_chunks,
+            metadata.chunking_strategy.value if metadata.chunking_strategy else None,
+            metadata.processing_time_seconds,
+            metadata.error_message,
+            json.dumps(metadata.extra) if metadata.extra else None,
+            now,
+            now
+        ))
+    
+
+    def _store_chunk(self, cursor: sqlite3.Cursor, chunk: DocumentChunk):
+        """
+        Store chunk metadata
+        
+        Arguments:
+        ----------
+            cursor { sqlite3.Cursor } : Database cursor
+
+            chunk  { DocumentChunk }  : Chunk to store
+        """
+        now = datetime.now().isoformat()
+        
+        # Convert embedding to bytes if present
+        embedding_blob = None
+        if chunk.embedding:
+            embedding_array = np.array(chunk.embedding, dtype='float32')
+            embedding_blob  = embedding_array.tobytes()
+        
+        cursor.execute('''
+            INSERT OR REPLACE INTO chunks 
+            (chunk_id, document_id, text, embedding, chunk_index, start_char, end_char,
+             page_number, section_title, token_count, metadata, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            chunk.chunk_id,
+            chunk.document_id,
+            chunk.text,
+            embedding_blob,
+            chunk.chunk_index,
+            chunk.start_char,
+            chunk.end_char,
+            chunk.page_number,
+            chunk.section_title,
+            chunk.token_count,
+            json.dumps(chunk.metadata) if chunk.metadata else None,
+            now
+        ))
+    
+
+    @handle_errors(error_type = IndexingError, log_error = True, reraise = False)
+    def add_chunks(self, chunks: List[DocumentChunk]) -> dict:
+        """
+        Add new chunks to storage
+        
+        Arguments:
+        ----------
+            chunks { list } : New chunks to add
+        
+        Returns:
+        --------
+               { dict }     : Add operation statistics
+        """
+        return self.store_chunks(chunks, rebuild = False)
+    
+
+    def get_chunk_metadata(self, chunk_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get metadata for a specific chunk
+        
+        Arguments:
+        ----------
+            chunk_id { str } : Chunk ID
+        
+        Returns:
+        --------
+               { dict }      : Chunk metadata or None
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT c.*, d.filename, d.document_type, d.title
+                FROM chunks c
+                LEFT JOIN documents d ON c.document_id = d.document_id
+                WHERE c.chunk_id = ?
+            ''', (chunk_id,))
+            
             row = cursor.fetchone()
             
             if not row:
                 return None
             
-            return self._row_to_document_metadata(row)
+            return self._row_to_chunk_dict(row)
     
-    def list_documents(
-        self,
-        status: Optional[ProcessingStatus] = None,
-        limit: Optional[int] = None
-    ) -> List[DocumentMetadata]:
+
+    def get_chunks_by_document(self, document_id: str) -> List[Dict[str, Any]]:
         """
-        List all documents.
+        Get all chunks for a document
         
-        Args:
-            status: Filter by status
-            limit: Maximum number of results
+        Arguments:
+        ----------
+            document_id { str } : Document ID
         
         Returns:
-            List of DocumentMetadata
+        --------
+                     { list }   : List of chunk metadata dictionaries
         """
-        with self._get_connection() as conn:
+        with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
-            query = "SELECT * FROM documents"
-            params = []
+            cursor.execute('''
+                SELECT c.*, d.filename, d.document_type, d.title
+                FROM chunks c
+                LEFT JOIN documents d ON c.document_id = d.document_id
+                WHERE c.document_id = ?
+                ORDER BY c.chunk_index
+            ''', (document_id,))
             
-            if status:
-                query += " WHERE status = ?"
-                params.append(status.value)
-            
-            query += " ORDER BY upload_date DESC"
-            
-            if limit:
-                query += " LIMIT ?"
-                params.append(limit)
-            
-            cursor.execute(query, params)
             rows = cursor.fetchall()
             
-            return [self._row_to_document_metadata(row) for row in rows]
+            return [self._row_to_chunk_dict(row) for row in rows]
     
-    def update_document_status(
-        self,
-        document_id: str,
-        status: ProcessingStatus,
-        error_message: Optional[str] = None
-    ):
+
+    def get_all_chunks(self) -> List[DocumentChunk]:
         """
-        Update document processing status.
-        
-        Args:
-            document_id: Document ID
-            status: New status
-            error_message: Error message if failed
-        """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            
-            updates = {
-                "status": status.value,
-                "error_message": error_message
-            }
-            
-            if status == ProcessingStatus.COMPLETED:
-                updates["processed_date"] = datetime.now().isoformat()
-            
-            set_clause = ", ".join([f"{k} = ?" for k in updates.keys()])
-            values = list(updates.values()) + [document_id]
-            
-            cursor.execute(
-                f"UPDATE documents SET {set_clause} WHERE document_id = ?",
-                values
-            )
-            
-            self.logger.info(f"Updated document status: {document_id} -> {status.value}")
-    
-    def delete_document(self, document_id: str):
-        """
-        Delete document and its chunks.
-        
-        Args:
-            document_id: Document ID
-        """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Delete chunks first
-            cursor.execute("DELETE FROM chunks WHERE document_id = ?", (document_id,))
-            
-            # Delete document
-            cursor.execute("DELETE FROM documents WHERE document_id = ?", (document_id,))
-            
-            self.logger.info(f"Deleted document: {document_id}")
-    
-    # ========== Chunk Operations ==========
-    
-    def add_chunk(self, chunk: DocumentChunk):
-        """
-        Add chunk metadata.
-        
-        Args:
-            chunk: DocumentChunk object
-        """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT OR REPLACE INTO chunks (
-                    chunk_id, document_id, chunk_index, text,
-                    start_char, end_char, page_number, section_title,
-                    parent_chunk_id, token_count, metadata
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                chunk.chunk_id,
-                chunk.document_id,
-                chunk.chunk_index,
-                chunk.text,
-                chunk.start_char,
-                chunk.end_char,
-                chunk.page_number,
-                chunk.section_title,
-                chunk.parent_chunk_id,
-                chunk.token_count,
-                json.dumps(chunk.metadata) if chunk.metadata else None
-            ))
-    
-    def add_chunks_batch(self, chunks: List[DocumentChunk]):
-        """
-        Add multiple chunks efficiently.
-        
-        Args:
-            chunks: List of DocumentChunk objects
-        """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            
-            data = [
-                (
-                    chunk.chunk_id,
-                    chunk.document_id,
-                    chunk.chunk_index,
-                    chunk.text,
-                    chunk.start_char,
-                    chunk.end_char,
-                    chunk.page_number,
-                    chunk.section_title,
-                    chunk.parent_chunk_id,
-                    chunk.token_count,
-                    json.dumps(chunk.metadata) if chunk.metadata else None
-                )
-                for chunk in chunks
-            ]
-            
-            cursor.executemany("""
-                INSERT OR REPLACE INTO chunks (
-                    chunk_id, document_id, chunk_index, text,
-                    start_char, end_char, page_number, section_title,
-                    parent_chunk_id, token_count, metadata
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, data)
-            
-            self.logger.info(f"Added {len(chunks)} chunks")
-    
-    def get_chunk(self, chunk_id: str) -> Optional[DocumentChunk]:
-        """
-        Get chunk by ID.
-        
-        Args:
-            chunk_id: Chunk ID
+        Get all chunks from database
         
         Returns:
-            DocumentChunk or None
+        --------
+            { List[DocumentChunk] }    : List of all chunks
         """
-        with self._get_connection() as conn:
+        with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM chunks WHERE chunk_id = ?",
-                (chunk_id,)
-            )
+            
+            cursor.execute('''
+                                SELECT chunk_id, document_id, text, embedding, chunk_index, 
+                                    start_char, end_char, page_number, section_title, 
+                                    token_count, metadata
+                                FROM chunks
+                                ORDER BY document_id, chunk_index
+                           '''
+                          )
+            
+            rows   = cursor.fetchall()
+            
+            chunks = list()
+            
+            for row in rows:
+                # Parse embedding from bytes
+                embedding = None
+
+                if row[3]:  # embedding column
+                    embedding_array = np.frombuffer(row[3], dtype='float32')
+                    embedding       = embedding_array.tolist()
+                
+                # Parse metadata JSON
+                metadata = None
+                if row[10]:  # metadata column
+                    try:
+                        metadata = json.loads(row[10])
+                    
+                    except:
+                        metadata  = dict()
+                
+                # Create DocumentChunk object
+                chunk = DocumentChunk(chunk_id      = row[0],
+                                      document_id   = row[1],
+                                      text          = row[2],
+                                      embedding     = embedding,
+                                      chunk_index   = row[4],
+                                      start_char    = row[5],
+                                      end_char      = row[6],
+                                      page_number   = row[7],
+                                      section_title = row[8],
+                                      token_count   = row[9],
+                                      metadata      = metadata or {},
+                                     )
+                
+                chunks.append(chunk)
+            
+            self.logger.info(f"Retrieved {len(chunks)} chunks from database")
+            
+            return chunks
+
+
+    def get_document_metadata(self, document_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get metadata for a document
+        
+        Arguments:
+        ----------
+            document_id { str } : Document ID
+        
+        Returns:
+        --------
+               { dict }         : Document metadata or None
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute('SELECT * FROM documents WHERE document_id = ?', (document_id,))
+            
             row = cursor.fetchone()
             
             if not row:
                 return None
             
-            return self._row_to_chunk(row)
+            return self._row_to_document_dict(row)
     
-    def get_chunks_by_document(self, document_id: str) -> List[DocumentChunk]:
+
+    def _row_to_chunk_dict(self, row) -> Dict[str, Any]:
         """
-        Get all chunks for a document.
+        Convert database row to chunk dictionary
         
-        Args:
-            document_id: Document ID
-        
-        Returns:
-            List of DocumentChunk objects
-        """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM chunks WHERE document_id = ? ORDER BY chunk_index",
-                (document_id,)
-            )
-            rows = cursor.fetchall()
-            
-            return [self._row_to_chunk(row) for row in rows]
-    
-    def get_chunks_batch(self, chunk_ids: List[str]) -> List[DocumentChunk]:
-        """
-        Get multiple chunks by IDs.
-        
-        Args:
-            chunk_ids: List of chunk IDs
+        Arguments:
+        ----------
+            row : Database row
         
         Returns:
-            List of DocumentChunk objects
+        --------
+            { dict }    : Chunk dictionary
         """
-        if not chunk_ids:
-            return []
+        columns    = ['chunk_id', 'document_id', 'text', 'embedding', 'chunk_index', 
+                      'start_char', 'end_char', 'page_number', 'section_title', 
+                      'token_count', 'metadata', 'created_at', 'filename', 'document_type', 'title',
+                     ]
         
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            
-            placeholders = ",".join(["?" for _ in chunk_ids])
-            cursor.execute(
-                f"SELECT * FROM chunks WHERE chunk_id IN ({placeholders})",
-                chunk_ids
-            )
-            rows = cursor.fetchall()
-            
-            # Maintain order from input
-            chunk_dict = {self._row_to_chunk(row).chunk_id: self._row_to_chunk(row) for row in rows}
-            return [chunk_dict.get(cid) for cid in chunk_ids if cid in chunk_dict]
-    
-    # ========== Query History Operations ==========
-    
-    def add_query_history(
-        self,
-        query: str,
-        retrieval_time_ms: float,
-        generation_time_ms: float,
-        total_time_ms: float,
-        num_results: int,
-        model_used: str
-    ):
-        """
-        Add query to history.
+        chunk_dict = dict(zip(columns, row))
         
-        Args:
-            query: Search query
-            retrieval_time_ms: Retrieval time
-            generation_time_ms: Generation time
-            total_time_ms: Total time
-            num_results: Number of results
-            model_used: Model identifier
-        """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT INTO query_history (
-                    query, timestamp, retrieval_time_ms, generation_time_ms,
-                    total_time_ms, num_results, model_used
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                query,
-                datetime.now().isoformat(),
-                retrieval_time_ms,
-                generation_time_ms,
-                total_time_ms,
-                num_results,
-                model_used
-            ))
-    
-    def get_query_history(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """
-        Get recent query history.
+        # Parse JSON fields
+        if chunk_dict['metadata']:
+            chunk_dict['metadata'] = json.loads(chunk_dict['metadata'])
         
-        Args:
-            limit: Maximum number of queries
+        # Convert embedding bytes back to list
+        if chunk_dict['embedding']:
+            embedding_array         = np.frombuffer(chunk_dict['embedding'], dtype='float32')
+            chunk_dict['embedding'] = embedding_array.tolist()
+        
+        return chunk_dict
+    
+
+    def _row_to_document_dict(self, row) -> Dict[str, Any]:
+        """
+        Convert database row to document dictionary
+        
+        Arguments:
+        ----------
+            row         : Database row
         
         Returns:
-            List of query dictionaries
+        --------
+            { dict }    : Document dictionary
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM query_history 
-                ORDER BY timestamp DESC 
-                LIMIT ?
-            """, (limit,))
-            rows = cursor.fetchall()
-            
-            return [dict(row) for row in rows]
+        columns  = ['document_id', 'filename', 'file_path', 'document_type', 'title', 'author',
+                    'created_date', 'modified_date', 'upload_date', 'processed_date', 'status',
+                    'file_size_bytes', 'num_pages', 'num_tokens', 'num_chunks', 'chunking_strategy',
+                    'processing_time_seconds', 'error_message', 'extra_data', 'created_at', 'updated_at',
+                   ]
+        
+        doc_dict = dict(zip(columns, row))
+        
+        # Parse JSON fields
+        if doc_dict['extra_data']:
+            doc_dict['extra_data'] = json.loads(doc_dict['extra_data'])
+        
+        return doc_dict
     
-    # ========== Statistics ==========
-    
-    def get_statistics(self) -> dict:
+
+    def get_stats(self) -> dict:
         """
-        Get database statistics.
+        Get metadata store statistics
         
         Returns:
-            Statistics dictionary
+        --------
+            { dict }    : Statistics
         """
-        with self._get_connection() as conn:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor      = conn.cursor()
+            
+            # Document count
+            cursor.execute('SELECT COUNT(*) FROM documents')
+            doc_count   = cursor.fetchone()[0]
+            
+            # Chunk count
+            cursor.execute('SELECT COUNT(*) FROM chunks')
+            chunk_count = cursor.fetchone()[0]
+            
+            # Database size
+            db_size     = self.db_path.stat().st_size if self.db_path.exists() else 0
+            
+            return {"documents"        : doc_count,
+                    "chunks"           : chunk_count,
+                    "database_size_mb" : db_size / (1024 * 1024),
+                    "db_path"          : str(self.db_path),
+                   }
+    
+
+    def is_ready(self) -> bool:
+        """
+        Check if metadata store is ready
+        
+        Returns:
+        --------
+            { bool }    : True if ready
+        """
+        return self.db_path.exists()
+    
+
+    def clear(self):
+        """
+        Clear all metadata
+        """
+        with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
-            # Document stats
-            cursor.execute("SELECT COUNT(*) FROM documents")
-            total_docs = cursor.fetchone()[0]
+            cursor.execute('DELETE FROM chunks')
+            cursor.execute('DELETE FROM documents')
             
-            cursor.execute("SELECT COUNT(*) FROM documents WHERE status = ?", ("completed",))
-            completed_docs = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT SUM(file_size_bytes) FROM documents")
-            total_size = cursor.fetchone()[0] or 0
-            
-            # Chunk stats
-            cursor.execute("SELECT COUNT(*) FROM chunks")
-            total_chunks = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT AVG(token_count) FROM chunks")
-            avg_chunk_tokens = cursor.fetchone()[0] or 0
-            
-            # Query stats
-            cursor.execute("SELECT COUNT(*) FROM query_history")
-            total_queries = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT AVG(total_time_ms) FROM query_history")
-            avg_query_time = cursor.fetchone()[0] or 0
-            
-            return {
-                "total_documents": total_docs,
-                "completed_documents": completed_docs,
-                "total_file_size_mb": total_size / (1024 * 1024),
-                "total_chunks": total_chunks,
-                "avg_chunk_tokens": avg_chunk_tokens,
-                "total_queries": total_queries,
-                "avg_query_time_ms": avg_query_time,
-            }
-    
-    # ========== Helper Methods ==========
-    
-    def _row_to_document_metadata(self, row: sqlite3.Row) -> DocumentMetadata:
-        """Convert database row to DocumentMetadata"""
-        from config.models import DocumentType, ProcessingStatus, ChunkingStrategy
+            conn.commit()
         
-        return DocumentMetadata(
-            document_id=row["document_id"],
-            filename=row["filename"],
-            file_path=Path(row["file_path"]) if row["file_path"] else None,
-            document_type=DocumentType(row["document_type"]),
-            title=row["title"],
-            author=row["author"],
-            created_date=datetime.fromisoformat(row["created_date"]) if row["created_date"] else None,
-            modified_date=datetime.fromisoformat(row["modified_date"]) if row["modified_date"] else None,
-            upload_date=datetime.fromisoformat(row["upload_date"]),
-            processed_date=datetime.fromisoformat(row["processed_date"]) if row["processed_date"] else None,
-            status=ProcessingStatus(row["status"]),
-            file_size_bytes=row["file_size_bytes"],
-            num_pages=row["num_pages"],
-            num_tokens=row["num_tokens"],
-            num_chunks=row["num_chunks"],
-            chunking_strategy=ChunkingStrategy(row["chunking_strategy"]) if row["chunking_strategy"] else None,
-            processing_time_seconds=row["processing_time_seconds"],
-            error_message=row["error_message"],
-            extra=json.loads(row["extra"]) if row["extra"] else {}
-        )
+        self.logger.info("Cleared all metadata")
     
-    def _row_to_chunk(self, row: sqlite3.Row) -> DocumentChunk:
-        """Convert database row to DocumentChunk"""
-        return DocumentChunk(
-            chunk_id=row["chunk_id"],
-            document_id=row["document_id"],
-            text=row["text"],
-            chunk_index=row["chunk_index"],
-            start_char=row["start_char"],
-            end_char=row["end_char"],
-            page_number=row["page_number"],
-            section_title=row["section_title"],
-            parent_chunk_id=row["parent_chunk_id"],
-            token_count=row["token_count"],
-            metadata=json.loads(row["metadata"]) if row["metadata"] else {}
-        )
+
+    def get_size(self) -> dict:
+        """
+        Get storage size information
+        
+        Returns:
+        --------
+            { dict }    : Size information
+        """
+        db_size = self.db_path.stat().st_size if self.db_path.exists() else 0
+        
+        return {"disk_mb"    : db_size / (1024 * 1024),
+                "memory_mb"  : 0,  # SQLite is file-based
+                "documents"  : self.get_stats()["documents"],
+                "chunks"     : self.get_stats()["chunks"],
+               }
     
-    def close(self):
-        """Close database connection (cleanup)"""
-        # SQLite connections are closed automatically in context manager
-        self.logger.info("Metadata store closed")
+
+# Global metadata store instance
+_metadata_store = None
 
 
-if __name__ == "__main__":
-    # Test metadata store
-    print("=== Metadata Store Tests ===\n")
+def get_metadata_store(db_path: Optional[Path] = None) -> MetadataStore:
+    """
+    Get global metadata store instance
     
-    from config.models import DocumentType, ProcessingStatus
+    Arguments:
+    ----------
+        db_path { Path } : Database path
     
-    # Create test database
-    test_db = Path("test_metadata.db")
-    store = MetadataStore(test_db)
+    Returns:
+    --------
+        { MetadataStore } : MetadataStore instance
+    """
+    global _metadata_store
+
+    if _metadata_store is None:
+        _metadata_store = MetadataStore(db_path)
     
-    # Test 1: Add document
-    print("Test 1: Add document")
-    doc_metadata = DocumentMetadata(
-        document_id="doc_test_123",
-        filename="test.pdf",
-        document_type=DocumentType.PDF,
-        file_size_bytes=50000,
-        status=ProcessingStatus.PENDING
-    )
-    store.add_document(doc_metadata)
-    print(f"  Added document: {doc_metadata.document_id}")
-    print()
-    
-    # Test 2: Get document
-    print("Test 2: Get document")
-    retrieved = store.get_document("doc_test_123")
-    print(f"  Retrieved: {retrieved.document_id}")
-    print(f"  Filename: {retrieved.filename}")
-    print(f"  Status: {retrieved.status}")
-    print()
-    
-    # Test 3: Add chunks
-    print("Test 3: Add chunks")
-    chunks = [
-        DocumentChunk(
-            chunk_id=f"chunk_test_{i}",
-            document_id="doc_test_123",
-            text=f"This is test chunk {i}",
-            chunk_index=i,
-            start_char=i*100,
-            end_char=(i+1)*100,
-            token_count=20
-        )
-        for i in range(5)
-    ]
-    store.add_chunks_batch(chunks)
-    print(f"  Added {len(chunks)} chunks")
-    print()
-    
-    # Test 4: Get chunks
-    print("Test 4: Get chunks by document")
-    doc_chunks = store.get_chunks_by_document("doc_test_123")
-    print(f"  Retrieved {len(doc_chunks)} chunks")
-    print()
-    
-    # Test 5: Update status
-    print("Test 5: Update document status")
-    store.update_document_status("doc_test_123", ProcessingStatus.COMPLETED)
-    updated = store.get_document("doc_test_123")
-    print(f"  Status updated to: {updated.status}")
-    print()
-    
-    # Test 6: Query history
-    print("Test 6: Add query history")
-    store.add_query_history(
-        query="test query",
-        retrieval_time_ms=100.5,
-        generation_time_ms=250.3,
-        total_time_ms=350.8,
-        num_results=5,
-        model_used="mistral-7b"
-    )
-    history = store.get_query_history(limit=10)
-    print(f"  Added query, history size: {len(history)}")
-    print()
-    
-    # Test 7: Statistics
-    print("Test 7: Get statistics")
-    stats = store.get_statistics()
-    for key, value in stats.items():
-        print(f"  {key}: {value}")
-    print()
-    
-    # Cleanup
-    test_db.unlink()
-    print("✓ Metadata store module created successfully!")
+    return _metadata_store

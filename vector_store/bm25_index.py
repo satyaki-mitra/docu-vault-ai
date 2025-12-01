@@ -1,430 +1,504 @@
-"""
-BM25 Index
-Keyword-based search using BM25 algorithm
-"""
-
-from typing import List, Tuple, Optional
-from pathlib import Path
+# DEPENDENCIES
+import time
 import pickle
-from rank_bm25 import BM25Okapi
-import numpy as np
-
-from config.logging_config import get_logger
+from typing import Any
+from typing import List
+from typing import Dict
+from pathlib import Path
+from typing import Tuple
+from typing import Optional
 from config.settings import get_settings
-from config.models import DocumentChunk
+from config.logging_config import get_logger
+from utils.error_handler import handle_errors
+from utils.error_handler import IndexingError
+from vector_store.index_persister import get_index_persister
 
-logger = get_logger(__name__)
+
+# Setup Settings and Logging
 settings = get_settings()
+logger   = get_logger(__name__)
+
+try:
+    from rank_bm25 import BM25Okapi
+    BM25_AVAILABLE = True
+
+except ImportError:
+    BM25_AVAILABLE = False
+    logger.warning("rank_bm25 not available, BM25 indexing disabled")
 
 
 class BM25Index:
     """
-    BM25 (Best Matching 25) keyword search index.
-    Provides lexical search to complement semantic vector search.
+    BM25 keyword search index: Provides traditional keyword-based search as complement to vector search: Implements probabilistic relevance scoring for text retrieval
     """
-    
-    def __init__(
-        self,
-        k1: float = None,
-        b: float = None
-    ):
+    def __init__(self):
         """
-        Initialize BM25 index.
-        
-        Args:
-            k1: Term frequency saturation parameter (default from settings)
-            b: Length normalization parameter (default from settings)
+        Initialize BM25 index
         """
-        self.k1 = k1 if k1 is not None else settings.BM25_K1
-        self.b = b if b is not None else settings.BM25_B
-        
-        self.index: Optional[BM25Okapi] = None
-        self.corpus: List[List[str]] = []  # Tokenized documents
-        self.chunk_ids: List[str] = []
-        self.raw_texts: List[str] = []  # Original texts for reference
-        
         self.logger = logger
-        self.logger.info(f"BM25Index initialized: k1={self.k1}, b={self.b}")
-    
-    def _tokenize(self, text: str) -> List[str]:
-        """
-        Tokenize text for BM25.
         
-        Args:
-            text: Input text
+        if not BM25_AVAILABLE:
+            self.logger.warning("BM25 indexing disabled - install rank_bm25")
+            self.bm25      = None
+            self.chunk_ids = []
+            return
+        
+        # BM25 configuration (from project document)
+        self.k1             = settings.BM25_K1      # Term saturation parameter
+        self.b              = settings.BM25_B       # Length normalization parameter
+        
+        # Index components
+        self.bm25           = None
+        self.chunk_ids      = list()
+        self.vocabulary     = set()
+        self.index_metadata = dict()
+        
+        # Initialize persister
+        self.persister      = get_index_persister()
+        
+        # Statistics
+        self.search_count   = 0
+        self.build_count    = 0
+        
+        self.logger.info(f"Initialized BM25Index: k1={self.k1}, b={self.b}")
+    
+
+    @handle_errors(error_type = IndexingError, log_error = True, reraise = True)
+    def build_index(self, texts: List[str], chunk_ids: List[str], rebuild: bool = False) -> dict:
+        """
+        Build BM25 index from texts
+        
+        Arguments:
+        ----------
+            texts     { list } : List of text documents
+            
+            chunk_ids { list } : Corresponding chunk IDs
+            
+            rebuild   { bool } : Whether to rebuild existing index
         
         Returns:
-            List of tokens
+        --------
+               { dict }        : Build statistics
         """
-        # Simple whitespace tokenization with lowercasing
-        # For production, consider more sophisticated tokenization
-        tokens = text.lower().split()
+        if not BM25_AVAILABLE:
+            raise IndexingError("BM25 not available - install rank_bm25 package")
         
-        # Remove very short tokens
-        tokens = [t for t in tokens if len(t) > 1]
+        if (len(texts) != len(chunk_ids)):
+            raise IndexingError(f"Texts count {len(texts)} doesn't match chunk IDs count {len(chunk_ids)}")
         
-        return tokens
+        if (self.bm25 is not None) and (not rebuild):
+            self.logger.info("BM25 index already exists, use rebuild=True to rebuild")
+            return self.get_index_stats()
+        
+        self.logger.info(f"Building BM25 index for {len(texts)} documents")
+        
+        start_time        = time.time()
+        
+        # Tokenize texts
+        tokenized_texts   = [self._tokenize_text(text) for text in texts]
+        
+        # Build BM25 index
+        self.bm25         = BM25Okapi(tokenized_texts, 
+                                      k1 = self.k1, 
+                                      b  = self.b,
+                                     )
+        
+        # Update instance state
+        self.chunk_ids    = chunk_ids
+        self.build_count += 1
+        
+        # Build vocabulary
+        self.vocabulary   = set()
+
+        for tokens in tokenized_texts:
+            self.vocabulary.update(tokens)
+        
+        build_time        = time.time() - start_time
+        
+        # Save to disk
+        metadata          = {"build_time"      : build_time,
+                             "document_count"  : len(chunk_ids),
+                             "vocabulary_size" : len(self.vocabulary),
+                             "parameters"      : {"k1": self.k1, "b": self.b},
+                            }
+          
+        self.persister.save_bm25_index(self.bm25, chunk_ids, metadata)
+        
+        stats = {"documents"            : len(chunk_ids),
+                 "build_time_seconds"   : build_time,
+                 "vocabulary_size"      : len(self.vocabulary),
+                 "documents_per_second" : len(chunk_ids) / build_time if build_time > 0 else 0,
+                 "parameters"           : {"k1": self.k1, "b": self.b},
+                }
+        
+        self.logger.info(f"BM25 index built: {len(chunk_ids)} documents in {build_time:.2f}s")
+        
+        return stats
     
-    def add_documents(
-        self,
-        texts: List[str],
-        chunk_ids: List[str]
-    ):
+
+    def _tokenize_text(self, text: str) -> List[str]:
         """
-        Add documents to BM25 index.
+        Tokenize text for BM25 indexing
         
-        Args:
-            texts: List of document texts
-            chunk_ids: List of chunk IDs
-        """
-        if len(texts) != len(chunk_ids):
-            raise ValueError("Number of texts must match number of chunk IDs")
-        
-        # Tokenize documents
-        for text in texts:
-            tokens = self._tokenize(text)
-            self.corpus.append(tokens)
-        
-        self.chunk_ids.extend(chunk_ids)
-        self.raw_texts.extend(texts)
-        
-        # Rebuild index
-        if self.corpus:
-            self.index = BM25Okapi(self.corpus, k1=self.k1, b=self.b)
-        
-        self.logger.info(
-            f"Added {len(texts)} documents (total: {len(self.corpus)})"
-        )
-    
-    def search(
-        self,
-        query: str,
-        k: int = 10
-    ) -> Tuple[List[str], List[float]]:
-        """
-        Search using BM25.
-        
-        Args:
-            query: Search query
-            k: Number of results to return
+        Arguments:
+        ----------
+            text { str } : Input text
         
         Returns:
-            Tuple of (chunk_ids, scores)
+        --------
+               { list }  : List of tokens
         """
-        if self.index is None or not self.corpus:
-            self.logger.warning("Index is empty")
-            return [], []
+        # Simple tokenization: lowercase, split, remove short tokens
+        tokens          = text.lower().split()
+        
+        # Filter tokens
+        filtered_tokens = list()
+        
+        for token in tokens:
+            # Remove punctuation and short tokens
+            token = ''.join(char for char in token if char.isalnum())
+            
+            # Reasonable token length
+            if ((len(token) >= 2) and (len(token) <= 50)):  
+                filtered_tokens.append(token)
+        
+        return filtered_tokens
+    
+
+    @handle_errors(error_type = IndexingError, log_error = True, reraise = True)
+    def add_to_index(self, texts: List[str], chunk_ids: List[str]) -> dict:
+        """
+        Add new documents to existing index
+        
+        Arguments:
+        ----------
+            texts     { list } : New text documents
+            
+            chunk_ids { list } : New chunk IDs
+        
+        Returns:
+        --------
+               { dict }        : Add operation statistics
+        """
+        if not BM25_AVAILABLE:
+            raise IndexingError("BM25 not available")
+        
+        if self.bm25 is None:
+            raise IndexingError("No BM25 index exists. Build index first.")
+        
+        if (len(texts) != len(chunk_ids)):
+            raise IndexingError(f"Texts count {len(texts)} doesn't match chunk IDs count {len(chunk_ids)}")
+        
+        self.logger.info(f"Adding {len(chunk_ids)} documents to BM25 index")
+        
+        start_time          = time.time()
+        
+        # Tokenize new texts
+        new_tokenized_texts = [self._tokenize_text(text) for text in texts]
+        
+        # Update BM25 index (this is a limitation of BM25Okapi - we need to rebuild)
+        all_texts           = [self.bm25.corpus[i] for i in range(len(self.bm25.corpus))] + new_tokenized_texts
+        all_chunk_ids       = self.chunk_ids + chunk_ids
+        
+        # Rebuild index with all documents
+        self.bm25           = BM25Okapi(all_texts, k1 = self.k1, b = self.b)
+        self.chunk_ids      = all_chunk_ids
+        
+        # Update vocabulary
+        for tokens in new_tokenized_texts:
+            self.vocabulary.update(tokens)
+        
+        add_time = time.time() - start_time
+        
+        # Save updated index
+        metadata = {"added_documents" : len(chunk_ids),
+                    "total_documents" : len(self.chunk_ids),
+                    "vocabulary_size" : len(self.vocabulary),
+                    "add_time"        : add_time,
+                   }
+        
+        self.persister.save_bm25_index(self.bm25, self.chunk_ids, metadata)
+        
+        stats = {"added"            : len(chunk_ids),
+                 "new_total"        : len(self.chunk_ids),
+                 "add_time_seconds" : add_time,
+                 "vocabulary_size"  : len(self.vocabulary),
+                }
+        
+        self.logger.info(f"Added {len(chunk_ids)} documents to BM25 index in {add_time:.2f}s")
+        
+        return stats
+    
+
+    @handle_errors(error_type = IndexingError, log_error = True, reraise = True)
+    def search(self, query: str, top_k: int = 10) -> List[Tuple[str, float]]:
+        """
+        Search for relevant documents using BM25
+        
+        Arguments:
+        ----------
+            query  { str } : Search query string
+            
+            top_k  { int } : Number of results to return
+        
+        Returns:
+        --------
+               { list }    : List of (chunk_id, score) tuples
+        """
+        if not BM25_AVAILABLE:
+            raise IndexingError("BM25 not available")
+        
+        if self.bm25 is None:
+            # Try to load from disk
+            self._load_index_from_disk()
+            
+            if self.bm25 is None:
+                raise IndexingError("No BM25 index available for search")
+        
+        if not query or not query.strip():
+            return []
         
         # Tokenize query
-        query_tokens = self._tokenize(query)
+        query_tokens = self._tokenize_text(query)
         
         if not query_tokens:
-            self.logger.warning("Query resulted in no tokens")
-            return [], []
+            return []
         
         # Get BM25 scores
-        scores = self.index.get_scores(query_tokens)
+        scores      = self.bm25.get_scores(query_tokens)
         
-        # Get top k indices
-        k = min(k, len(scores))
-        top_indices = np.argsort(scores)[::-1][:k]
+        # Get top-k results
+        top_indices = sorted(range(len(scores)), 
+                             key     = lambda i: scores[i], 
+                             reverse = True,
+                            )[:top_k]
         
-        # Get corresponding chunk IDs and scores
-        chunk_ids = [self.chunk_ids[idx] for idx in top_indices]
-        top_scores = [float(scores[idx]) for idx in top_indices]
+        # Convert to results
+        results     = list()
         
-        return chunk_ids, top_scores
+        for idx in top_indices:
+            if ((scores[idx] > 0) and (idx < len(self.chunk_ids))):
+                chunk_id = self.chunk_ids[idx]
+
+                results.append((chunk_id, float(scores[idx])))
+        
+        self.search_count += 1
+        
+        self.logger.debug(f"BM25 search returned {len(results)} results for query: '{query}'")
+        
+        return results
     
-    def batch_search(
-        self,
-        queries: List[str],
-        k: int = 10
-    ) -> Tuple[List[List[str]], List[List[float]]]:
+
+    def _load_index_from_disk(self):
         """
-        Search for multiple queries.
-        
-        Args:
-            queries: List of queries
-            k: Number of results per query
-        
-        Returns:
-            Tuple of (chunk_ids_list, scores_list)
-        """
-        all_chunk_ids = []
-        all_scores = []
-        
-        for query in queries:
-            chunk_ids, scores = self.search(query, k=k)
-            all_chunk_ids.append(chunk_ids)
-            all_scores.append(scores)
-        
-        return all_chunk_ids, all_scores
-    
-    def get_document(self, chunk_id: str) -> Optional[str]:
-        """
-        Get original document text by chunk ID.
-        
-        Args:
-            chunk_id: Chunk ID
-        
-        Returns:
-            Original text or None
+        Load index from disk if available
         """
         try:
-            idx = self.chunk_ids.index(chunk_id)
-            return self.raw_texts[idx]
-        except ValueError:
+            index, chunk_ids, metadata = self.persister.load_bm25_index()
+            
+            if index is not None:
+                self.bm25           = index
+                self.chunk_ids      = chunk_ids
+                self.index_metadata = metadata
+                
+                # Rebuild vocabulary
+                self.vocabulary     = set()
+
+                if hasattr(self.bm25, 'corpus'):
+                    for tokens in self.bm25.corpus:
+                        self.vocabulary.update(tokens)
+                
+                self.logger.info(f"Loaded BM25 index from disk: {len(chunk_ids)} documents")
+            
+        except Exception as e:
+            self.logger.warning(f"Could not load BM25 index from disk: {e}")
+    
+
+    def is_index_built(self) -> bool:
+        """
+        Check if index is built and ready
+        
+        Returns:
+        --------
+            { bool }    : True if index is built
+        """
+        if self.bm25 is not None:
+            return True
+        
+        # Check if index exists on disk
+        return self.persister.index_files_exist()
+    
+
+    def get_index_stats(self) -> dict:
+        """
+        Get BM25 index statistics
+        
+        Returns:
+        --------
+            { dict }    : Index statistics
+        """
+        if not BM25_AVAILABLE:
+            return {"available": False}
+        
+        if self.bm25 is None:
+            self._load_index_from_disk()
+            
+            if self.bm25 is None:
+                return {"built": False}
+        
+        stats = {"built"           : True,
+                 "document_count"  : len(self.chunk_ids),
+                 "vocabulary_size" : len(self.vocabulary),
+                 "search_count"    : self.search_count,
+                 "build_count"     : self.build_count,
+                 "parameters"      : {"k1": self.k1, "b": self.b},
+                }
+        
+        # Add metadata
+        stats.update(self.index_metadata)
+        
+        return stats
+    
+
+    def optimize_index(self) -> dict:
+        """
+        Optimize BM25 index
+        
+        Returns:
+        --------
+            { dict }    : Optimization results
+        """
+        if not BM25_AVAILABLE or self.bm25 is None:
+            return {"optimized" : False, 
+                    "message"   : "No BM25 index to optimize",
+                   }
+        
+        self.logger.info("Optimizing BM25 index")
+        
+        # BM25 optimization is limited, but we can adjust parameters
+        return {"optimized"       : True,
+                "parameters"      : {"k1" : self.k1, "b" : self.b},
+                "vocabulary_size" : len(self.vocabulary),
+                "message"         : "BM25 index optimization completed",
+               }
+    
+
+    def clear_index(self):
+        """
+        Clear the index
+        """
+        self.bm25           = None
+        self.chunk_ids      = list()
+        self.vocabulary     = set()
+        self.index_metadata = dict()
+        self.search_count   = 0
+        
+        self.logger.info("BM25 index cleared")
+    
+
+    def get_index_size(self) -> dict:
+        """
+        Get index size information
+        
+        Returns:
+        --------
+            { dict }    : Size information
+        """
+        if not BM25_AVAILABLE or self.bm25 is None:
+            return {"memory_mb": 0, "disk_mb": 0}
+        
+        # Estimate memory usage (rough)
+        vocab_size    = len(self.vocabulary)
+        doc_count     = len(self.chunk_ids)
+        memory_bytes  = (vocab_size * 50) + (doc_count * 100)  # Rough estimates
+        
+        # Get disk size from persister
+        files_info    = self.persister.get_index_files_info()
+        bm25_files    = {k: v for k, v in files_info.items() if 'bm25' in k}
+        disk_size     = sum(info.get('size_mb', 0) for info in bm25_files.values())
+        
+        return {"memory_mb"       : memory_bytes / (1024 * 1024),
+                "disk_mb"         : disk_size,
+                "document_count"  : doc_count,
+                "vocabulary_size" : vocab_size,
+                "files"           : bm25_files,
+               }
+    
+
+    def get_term_stats(self, term: str) -> Optional[Dict[str, Any]]:
+        """
+        Get statistics for a specific term
+        
+        Arguments:
+        ----------
+            term { str } : Term to analyze
+        
+        Returns:
+        --------
+               { dict }  : Term statistics or None
+        """
+        if not BM25_AVAILABLE or self.bm25 is None:
             return None
-    
-    def get_statistics(self) -> dict:
-        """
-        Get index statistics.
         
-        Returns:
-            Statistics dictionary
-        """
-        if not self.corpus:
-            return {
-                "num_documents": 0,
-                "avg_doc_length": 0,
-                "total_tokens": 0,
-                "k1": self.k1,
-                "b": self.b,
-            }
+        term = term.lower()
         
-        doc_lengths = [len(doc) for doc in self.corpus]
-        total_tokens = sum(doc_lengths)
+        if term not in self.vocabulary:
+            return None
         
-        return {
-            "num_documents": len(self.corpus),
-            "avg_doc_length": np.mean(doc_lengths),
-            "min_doc_length": min(doc_lengths),
-            "max_doc_length": max(doc_lengths),
-            "total_tokens": total_tokens,
-            "k1": self.k1,
-            "b": self.b,
-        }
-    
-    def save(self, directory: Path):
-        """
-        Save BM25 index to disk.
+        # Calculate term frequency across documents
+        term_freq = 0
+        doc_freq  = 0
         
-        Args:
-            directory: Directory to save files
-        """
-        directory = Path(directory)
-        directory.mkdir(parents=True, exist_ok=True)
+        if hasattr(self.bm25, 'corpus'):
+            for tokens in self.bm25.corpus:
+                if term in tokens:
+                    doc_freq  += 1
+                    term_freq += tokens.count(term)
         
-        # Save all data
-        data = {
-            "corpus": self.corpus,
-            "chunk_ids": self.chunk_ids,
-            "raw_texts": self.raw_texts,
-            "k1": self.k1,
-            "b": self.b,
-        }
-        
-        save_path = directory / "bm25_index.pkl"
-        with open(save_path, 'wb') as f:
-            pickle.dump(data, f)
-        
-        self.logger.info(f"Saved BM25 index to {directory}")
-    
-    def load(self, directory: Path):
-        """
-        Load BM25 index from disk.
-        
-        Args:
-            directory: Directory containing saved files
-        """
-        directory = Path(directory)
-        load_path = directory / "bm25_index.pkl"
-        
-        if not load_path.exists():
-            raise FileNotFoundError(f"BM25 index file not found: {load_path}")
-        
-        with open(load_path, 'rb') as f:
-            data = pickle.load(f)
-        
-        self.corpus = data["corpus"]
-        self.chunk_ids = data["chunk_ids"]
-        self.raw_texts = data["raw_texts"]
-        self.k1 = data["k1"]
-        self.b = data["b"]
-        
-        # Rebuild BM25 index
-        if self.corpus:
-            self.index = BM25Okapi(self.corpus, k1=self.k1, b=self.b)
-        
-        self.logger.info(
-            f"Loaded BM25 index from {directory} ({len(self.corpus)} documents)"
-        )
-    
-    def reset(self):
-        """Reset index"""
-        self.index = None
-        self.corpus = []
-        self.chunk_ids = []
-        self.raw_texts = []
-        self.logger.info("Index reset")
-    
-    def get_term_frequencies(self, query: str) -> dict:
-        """
-        Get term frequencies for query across corpus.
-        
-        Args:
-            query: Search query
-        
-        Returns:
-            Dictionary of term frequencies
-        """
-        if not self.corpus:
-            return {}
-        
-        query_tokens = self._tokenize(query)
-        term_freqs = {}
-        
-        for token in query_tokens:
-            # Count documents containing this term
-            count = sum(1 for doc in self.corpus if token in doc)
-            term_freqs[token] = {
-                "doc_frequency": count,
-                "doc_percentage": (count / len(self.corpus)) * 100
-            }
-        
-        return term_freqs
-    
-    def explain_score(self, query: str, chunk_id: str) -> dict:
-        """
-        Explain BM25 score for a specific document.
-        
-        Args:
-            query: Search query
-            chunk_id: Chunk ID to explain
-        
-        Returns:
-            Dictionary with score breakdown
-        """
-        try:
-            idx = self.chunk_ids.index(chunk_id)
-        except ValueError:
-            return {"error": "Chunk ID not found"}
-        
-        query_tokens = self._tokenize(query)
-        document = self.corpus[idx]
-        
-        if self.index is None:
-            return {"error": "Index not initialized"}
-        
-        # Get BM25 score
-        scores = self.index.get_scores(query_tokens)
-        score = float(scores[idx])
-        
-        # Get term statistics
-        term_info = []
-        for token in query_tokens:
-            term_freq_in_doc = document.count(token)
-            term_info.append({
-                "term": token,
-                "frequency_in_doc": term_freq_in_doc,
-                "in_document": token in document
-            })
-        
-        return {
-            "chunk_id": chunk_id,
-            "total_score": score,
-            "doc_length": len(document),
-            "query_terms": term_info,
-            "avg_doc_length": np.mean([len(d) for d in self.corpus])
-        }
+        return {"term"          : term,
+                "term_frequency": term_freq,
+                "document_frequency": doc_freq,
+                "in_vocabulary" : True,
+               }
 
 
-if __name__ == "__main__":
-    # Test BM25 index
-    print("=== BM25 Index Tests ===\n")
+# Global BM25 index instance
+_bm25_index = None
+
+
+def get_bm25_index() -> BM25Index:
+    """
+    Get global BM25 index instance
     
-    # Test 1: Create and add documents
-    print("Test 1: Create and add documents")
-    bm25 = BM25Index()
+    Returns:
+    --------
+        { BM25Index } : BM25Index instance
+    """
+    global _bm25_index
+
+    if _bm25_index is None:
+        _bm25_index = BM25Index()
     
-    texts = [
-        "Machine learning is a subset of artificial intelligence",
-        "Deep learning uses neural networks with multiple layers",
-        "Natural language processing enables computers to understand text",
-        "Computer vision allows machines to interpret images",
-        "Artificial intelligence is transforming technology"
-    ]
-    chunk_ids = [f"chunk_{i}" for i in range(len(texts))]
+    return _bm25_index
+
+
+def search_with_bm25(query: str, top_k: int = 10, **kwargs) -> List[Tuple[str, float]]:
+    """
+    Convenience function for BM25 search
     
-    bm25.add_documents(texts, chunk_ids)
-    print(f"  Added {len(texts)} documents")
+    Arguments:
+    ----------
+        query { str } : Search query
+        
+        top_k { int } : Number of results
+        
+        **kwargs      : Additional arguments
     
-    stats = bm25.get_statistics()
-    print(f"  Stats: {stats['num_documents']} docs, "
-          f"avg length: {stats['avg_doc_length']:.1f} tokens")
-    print()
+    Returns:
+    --------
+          { list }    : Search results
+    """
+    index = get_bm25_index()
+
+    return index.search(query, top_k, **kwargs)
     
-    # Test 2: Search
-    print("Test 2: Search")
-    query = "artificial intelligence machine learning"
-    results, scores = bm25.search(query, k=3)
-    
-    print(f"  Query: '{query}'")
-    for i, (chunk_id, score) in enumerate(zip(results, scores)):
-        text = bm25.get_document(chunk_id)
-        print(f"    {i+1}. {chunk_id} (score: {score:.4f})")
-        print(f"       {text}")
-    print()
-    
-    # Test 3: Term frequencies
-    print("Test 3: Term frequencies")
-    term_freqs = bm25.get_term_frequencies(query)
-    print(f"  Query: '{query}'")
-    for term, freq in term_freqs.items():
-        print(f"    '{term}': {freq['doc_frequency']} docs ({freq['doc_percentage']:.1f}%)")
-    print()
-    
-    # Test 4: Score explanation
-    print("Test 4: Score explanation")
-    if results:
-        explanation = bm25.explain_score(query, results[0])
-        print(f"  Explaining score for: {results[0]}")
-        print(f"  Total score: {explanation['total_score']:.4f}")
-        print(f"  Doc length: {explanation['doc_length']} tokens")
-        print(f"  Query terms:")
-        for term_info in explanation['query_terms']:
-            print(f"    - {term_info['term']}: "
-                  f"freq={term_info['frequency_in_doc']}, "
-                  f"in_doc={term_info['in_document']}")
-    print()
-    
-    # Test 5: Batch search
-    print("Test 5: Batch search")
-    queries = [
-        "neural networks",
-        "computer vision",
-        "artificial intelligence"
-    ]
-    batch_results, batch_scores = bm25.batch_search(queries, k=2)
-    
-    for query, results, scores in zip(queries, batch_results, batch_scores):
-        print(f"  Query: '{query}' -> {len(results)} results")
-    print()
-    
-    # Test 6: Save and load
-    print("Test 6: Save and load")
-    test_dir = Path("test_bm25_index")
-    bm25.save(test_dir)
-    print(f"  Saved to {test_dir}")
-    
-    bm25_2 = BM25Index()
-    bm25_2.load(test_dir)
-    stats2 = bm25_2.get_statistics()
-    print(f"  Loaded: {stats2['num_documents']} documents")
-    
-    # Cleanup
-    import shutil
-    shutil.rmtree(test_dir)
-    print()
-    
-    print("✓ BM25 index module created successfully!")

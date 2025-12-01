@@ -1,5 +1,7 @@
 # DEPENDENCIES
 import os
+import time
+import torch
 from pathlib import Path
 from pydantic import Field
 from typing import Literal
@@ -29,15 +31,19 @@ class Settings(BaseSettings):
     
     # Ollama LLM Settings
     OLLAMA_BASE_URL               : str                                                      = Field(default = "http://localhost:11434", description = "Ollama API endpoint")
-    OLLAMA_MODEL                  : str                                                      = Field(default = "mistral:7b-instruct",description = "Ollama model name")
+    OLLAMA_MODEL                  : str                                                      = Field(default = "mistral:7b", description = "Ollama model name")
     OLLAMA_TIMEOUT                : int                                                      = Field(default = 120, description = "Ollama request timeout (seconds)")
     
     # Generation parameters
     DEFAULT_TEMPERATURE           : float                                                    = Field(default = 0.1, ge = 0.0, le = 1.0, description = "LLM temperature (0=deterministic, 1=creative)")
-    DEFAULT_TOP_P                 : float                                                    = Field(default = 0.9, ge = 0.0, le = 1.0, description = "Nucleus sampling threshold")
+    TOP_P                         : float                                                    = Field(default = 0.9, ge = 0.0, le = 1.0, description = "Nucleus sampling threshold")
     MAX_TOKENS                    : int                                                      = Field(default = 1000, description = "Max output tokens")
     CONTEXT_WINDOW                : int                                                      = Field(default = 8192, description = "Model context window size")
     
+    # OpenAI Settings
+    OPENAI_API_KEY                : Optional[str]                                            = Field(default = None, description = "Open AI API secret key")
+    OPENAI_MODEL                  : str                                                      = Field(default = "gpt-3.5-turbo", description = "Ollama model name")
+   
     # Embedding Settings
     EMBEDDING_MODEL               : str                                                      = Field(default = "BAAI/bge-small-en-v1.5", description = "HuggingFace embedding model")
     EMBEDDING_DIMENSION           : int                                                      = Field(default = 384, description = "Embedding vector dimension")
@@ -75,7 +81,7 @@ class Settings(BaseSettings):
     BM25_B                        : float                                                    = Field(default = 0.75, description = "BM25 length normalization")
     
     # Reranking
-    ENABLE_RERANKING              : bool                                                     = Field(default = False, description = "Enable cross-encoder reranking")
+    ENABLE_RERANKING              : bool                                                     = Field(default = True, description = "Enable cross-encoder reranking")
     RERANKER_MODEL                : str                                                      = Field(default = "cross-encoder/ms-marco-MiniLM-L-6-v2", description = "Reranker model")
     
     # Storage Settings
@@ -125,7 +131,9 @@ class Settings(BaseSettings):
     
     # Security Settings
     ENABLE_AUTH                   : bool                                                     = Field(default = False, description = "Enable authentication")
-    SECRET_KEY                    : str                                                      = Field(default = "change-this-in-production-use-env-var", description = "Secret key for sessions")
+    SECRET_KEY                    : str                                                      = Field(default = os.getenv("SECRET_KEY", "dev-key-change-in-production"))
+    
+    FIXED_CHUNK_STRATEGY          : str                                                      = Field(default = "fixed", description = "Default chunking strategy")
     
 
     class Config:
@@ -144,7 +152,8 @@ class Settings(BaseSettings):
             v.parent.mkdir(parents = True, exist_ok = True)
 
         else:  # It's a directory
-            v.mkdir(parents=True, exist_ok=True)
+            v.mkdir(parents = True, exist_ok = True)
+
         return v
 
     
@@ -178,7 +187,6 @@ class Settings(BaseSettings):
         """
         if self.EMBEDDING_DEVICE == "cuda":
             try:
-                import torch
                 return torch.cuda.is_available()
 
             except ImportError:
@@ -193,6 +201,14 @@ class Settings(BaseSettings):
         """
         return f"{self.OLLAMA_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     
+
+    @classmethod
+    def get_timestamp_ms(cls) -> int:
+        """
+        Get current timestamp in milliseconds
+        """
+        return int(time.time() * 1000)
+
 
     def summary(self) -> dict:
         """
@@ -221,17 +237,3 @@ def get_settings() -> Settings:
     Get global settings instance
     """
     return settings
-
-
-if __name__ == "__main__":
-    # Test configuration
-    print("=== Configuration Summary ===")
-    import json
-    print(json.dumps(settings.summary(), indent=2))
-    
-    print("\n=== Validation Tests ===")
-    print(f"Max file size (bytes): {settings.max_file_size_bytes:,}")
-    print(f"CUDA available: {settings.is_cuda_available}")
-    print(f"Ollama generate URL: {settings.get_ollama_url('/api/generate')}")
-    print(f"Upload directory exists: {settings.UPLOAD_DIR.exists()}")
-    print(f"Vector store directory exists: {settings.VECTOR_STORE_DIR.exists()}")

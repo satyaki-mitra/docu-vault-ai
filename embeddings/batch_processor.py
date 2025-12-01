@@ -1,462 +1,365 @@
-"""
-Batch Processor
-Efficient batch processing for embedding generation
-"""
-
-from typing import List, Optional, Callable, Generator
-import time
-from dataclasses import dataclass
+# DEPENDENCIES
 import numpy as np
-
-from config.logging_config import get_logger
+from typing import List
+from typing import Optional
+from numpy.typing import NDArray
 from config.settings import get_settings
-from config.models import DocumentChunk
-from embeddings.bge_embedder import BGEEmbedder, get_embedder
+from config.logging_config import get_logger
+from utils.error_handler import handle_errors
+from utils.error_handler import EmbeddingError
+from chunking.token_counter import get_token_counter
+from sentence_transformers import SentenceTransformer
+from utils.helpers import BatchProcessor as BaseBatchProcessor
 
-logger = get_logger(__name__)
+
+# Setup Settings and Logging
 settings = get_settings()
-
-
-@dataclass
-class BatchStats:
-    """Statistics for batch processing"""
-    total_items: int
-    processed_items: int
-    failed_items: int
-    total_time_seconds: float
-    avg_time_per_batch: float
-    items_per_second: float
+logger   = get_logger(__name__)
 
 
 class BatchProcessor:
     """
-    Efficient batch processor for embeddings.
-    Handles large datasets with progress tracking and error recovery.
+    Efficient batch processing for embeddings: Handles large batches with memory optimization and progress tracking
     """
+    def __init__(self):
+        self.logger           = logger
+        self.base_processor   = BaseBatchProcessor()
+        
+        # Batch processing statistics
+        self.total_batches    = 0
+        self.total_texts      = 0
+        self.failed_batches   = 0
     
-    def __init__(
-        self,
-        embedder: Optional[BGEEmbedder] = None,
-        batch_size: Optional[int] = None,
-        show_progress: bool = True
-    ):
+
+    @handle_errors(error_type = EmbeddingError, log_error = True, reraise = True)
+    def process_embeddings_batch(self, model: SentenceTransformer, texts: List[str], batch_size: Optional[int] = None, normalize: bool = True, **kwargs) -> List[NDArray]:
         """
-        Initialize batch processor.
+        Process embeddings in optimized batches
         
-        Args:
-            embedder: BGE embedder instance (default: global)
-            batch_size: Batch size (default: from settings)
-            show_progress: Show progress during processing
-        """
-        self.embedder = embedder or get_embedder()
-        self.batch_size = batch_size or settings.EMBEDDING_BATCH_SIZE
-        self.show_progress = show_progress
-        self.logger = logger
-        
-        self.logger.info(f"BatchProcessor initialized: batch_size={self.batch_size}")
-    
-    def process_texts(
-        self,
-        texts: List[str],
-        callback: Optional[Callable[[int, np.ndarray], None]] = None
-    ) -> np.ndarray:
-        """
-        Process texts in batches.
-        
-        Args:
-            texts: List of texts to embed
-            callback: Optional callback(batch_idx, embeddings) after each batch
+        Arguments:
+        ----------
+            model      { SentenceTransformer } : Embedding model
+
+            texts             { list }         : List of texts to embed
+            
+            batch_size        { int }          : Batch size (default from settings)
+            
+            normalize         { bool }         : Normalize embeddings
+            
+            **kwargs                           : Additional model.encode parameters
         
         Returns:
-            Array of all embeddings
+        --------
+                      { list }                 : List of embedding vectors
         """
         if not texts:
-            return np.empty((0, self.embedder.embedding_dim))
+            return []
         
-        total_batches = (len(texts) + self.batch_size - 1) // self.batch_size
-        self.logger.info(
-            f"Processing {len(texts)} texts in {total_batches} batches"
-        )
+        batch_size = batch_size or settings.EMBEDDING_BATCH_SIZE
         
-        all_embeddings = []
-        start_time = time.time()
+        self.logger.debug(f"Processing {len(texts)} texts in batches of {batch_size}")
         
-        for batch_idx in range(total_batches):
-            batch_start = batch_idx * self.batch_size
-            batch_end = min(batch_start + self.batch_size, len(texts))
-            batch_texts = texts[batch_start:batch_end]
+        try:
+            # Use model's built-in batching with optimization
+            embeddings          = model.encode(texts,
+                                               batch_size           = batch_size,
+                                               normalize_embeddings = normalize,
+                                               show_progress_bar    = False,
+                                               convert_to_numpy     = True,
+                                               **kwargs
+                                              )
             
-            # Generate embeddings for batch
-            try:
-                batch_embeddings = self.embedder.embed_texts(
-                    batch_texts,
-                    show_progress=False
-                )
-                all_embeddings.append(batch_embeddings)
-                
-                # Call callback if provided
-                if callback:
-                    callback(batch_idx, batch_embeddings)
-                
-                # Log progress
-                if self.show_progress:
-                    progress = (batch_idx + 1) / total_batches * 100
-                    elapsed = time.time() - start_time
-                    rate = (batch_end) / elapsed if elapsed > 0 else 0
-                    
-                    self.logger.info(
-                        f"Batch {batch_idx + 1}/{total_batches} ({progress:.1f}%) | "
-                        f"Rate: {rate:.1f} texts/s"
-                    )
+            # Update statistics
+            self.total_batches += ((len(texts) + batch_size - 1) // batch_size)
+            self.total_texts   += len(texts)
             
-            except Exception as e:
-                self.logger.error(f"Failed to process batch {batch_idx}: {e}")
-                # Add zero embeddings for failed batch
-                zero_embeddings = np.zeros(
-                    (len(batch_texts), self.embedder.embedding_dim)
-                )
-                all_embeddings.append(zero_embeddings)
-        
-        # Concatenate all batches
-        final_embeddings = np.vstack(all_embeddings) if all_embeddings else np.empty((0, self.embedder.embedding_dim))
-        
-        total_time = time.time() - start_time
-        self.logger.info(
-            f"Completed: {len(texts)} texts in {total_time:.2f}s "
-            f"({len(texts) / total_time:.1f} texts/s)"
-        )
-        
-        return final_embeddings
+            self.logger.debug(f"Successfully generated {len(embeddings)} embeddings")
+            
+            # Convert to list of arrays
+            return list(embeddings)  
+            
+        except Exception as e:
+            self.failed_batches += 1
+            self.logger.error(f"Batch embedding failed: {repr(e)}")
+            raise EmbeddingError(f"Batch processing failed: {repr(e)}")
     
-    def process_chunks(
-        self,
-        chunks: List[DocumentChunk],
-        callback: Optional[Callable[[int, List[DocumentChunk]], None]] = None
-    ) -> List[DocumentChunk]:
+
+    def process_embeddings_with_fallback(self, model: SentenceTransformer, texts: List[str], batch_size: Optional[int] = None, normalize: bool = True) -> List[NDArray]:
         """
-        Process document chunks in batches.
+        Process embeddings with automatic batch size reduction on failure
         
-        Args:
-            chunks: List of chunks to embed
-            callback: Optional callback(batch_idx, chunks) after each batch
+        Arguments:
+        ----------
+            model      { SentenceTransformer } : Embedding model
+
+            texts      { list }                : List of texts
+            
+            batch_size { int }                 : Initial batch size
+            
+            normalize  { bool }                : Normalize embeddings
         
         Returns:
-            Chunks with embeddings added
+        --------
+                 { list }                      : List of embeddings
         """
-        if not chunks:
-            return chunks
+        batch_size = batch_size or settings.EMBEDDING_BATCH_SIZE
         
-        total_batches = (len(chunks) + self.batch_size - 1) // self.batch_size
-        self.logger.info(
-            f"Processing {len(chunks)} chunks in {total_batches} batches"
-        )
+        try:
+            return self.process_embeddings_batch(model      = model,
+                                                 texts      = texts,
+                                                 batch_size = batch_size,
+                                                 normalize  = normalize,
+                                                )
         
-        start_time = time.time()
-        processed_chunks = []
-        
-        for batch_idx in range(total_batches):
-            batch_start = batch_idx * self.batch_size
-            batch_end = min(batch_start + self.batch_size, len(chunks))
-            batch_chunks = chunks[batch_start:batch_end]
+        except (MemoryError, RuntimeError) as e:
+            self.logger.warning(f"Batch size {batch_size} failed, reducing to {batch_size // 2}")
             
-            try:
-                # Extract texts
-                texts = [chunk.text for chunk in batch_chunks]
-                
-                # Generate embeddings
-                embeddings = self.embedder.embed_texts(
-                    texts,
-                    show_progress=False
-                )
-                
-                # Update chunks
-                for chunk, embedding in zip(batch_chunks, embeddings):
-                    chunk.embedding = embedding.tolist()
-                
-                processed_chunks.extend(batch_chunks)
-                
-                # Call callback
-                if callback:
-                    callback(batch_idx, batch_chunks)
-                
-                # Log progress
-                if self.show_progress:
-                    progress = (batch_idx + 1) / total_batches * 100
-                    elapsed = time.time() - start_time
-                    rate = batch_end / elapsed if elapsed > 0 else 0
-                    
-                    self.logger.info(
-                        f"Batch {batch_idx + 1}/{total_batches} ({progress:.1f}%) | "
-                        f"Rate: {rate:.1f} chunks/s"
-                    )
-            
-            except Exception as e:
-                self.logger.error(f"Failed to process chunk batch {batch_idx}: {e}")
-                # Add chunks without embeddings
-                processed_chunks.extend(batch_chunks)
-        
-        total_time = time.time() - start_time
-        self.logger.info(
-            f"Completed: {len(chunks)} chunks in {total_time:.2f}s "
-            f"({len(chunks) / total_time:.1f} chunks/s)"
-        )
-        
-        return processed_chunks
+            # Reduce batch size and retry
+            return self.process_embeddings_batch(model      = model,
+                                                 texts      = texts,
+                                                 batch_size = batch_size // 2,
+                                                 normalize  = normalize,
+                                                )
     
-    def process_generator(
-        self,
-        text_generator: Generator[str, None, None],
-        max_items: Optional[int] = None
-    ) -> Generator[np.ndarray, None, None]:
+
+    def split_into_optimal_batches(self, texts: List[str], target_batch_size: int, max_batch_size: int = 1000) -> List[List[str]]:
         """
-        Process texts from a generator in batches.
-        Yields embeddings as they are generated.
+        Split texts into optimal batches considering token counts
         
-        Args:
-            text_generator: Generator yielding texts
-            max_items: Maximum items to process (None = all)
-        
-        Yields:
-            Embedding arrays for each batch
-        """
-        batch_texts = []
-        processed_count = 0
-        
-        for text in text_generator:
-            batch_texts.append(text)
-            processed_count += 1
+        Arguments:
+        ----------
+            texts            { list } : List of texts
+
+            target_batch_size { int } : Target batch size in texts
             
-            # Process batch when full
-            if len(batch_texts) >= self.batch_size:
-                try:
-                    embeddings = self.embedder.embed_texts(
-                        batch_texts,
-                        show_progress=False
-                    )
-                    yield embeddings
-                except Exception as e:
-                    self.logger.error(f"Failed to process generator batch: {e}")
-                    yield np.zeros((len(batch_texts), self.embedder.embedding_dim))
-                
-                batch_texts = []
-            
-            # Check max items
-            if max_items and processed_count >= max_items:
-                break
-        
-        # Process remaining texts
-        if batch_texts:
-            try:
-                embeddings = self.embedder.embed_texts(
-                    batch_texts,
-                    show_progress=False
-                )
-                yield embeddings
-            except Exception as e:
-                self.logger.error(f"Failed to process final batch: {e}")
-                yield np.zeros((len(batch_texts), self.embedder.embedding_dim))
-    
-    def process_with_retry(
-        self,
-        texts: List[str],
-        max_retries: int = 3,
-        retry_delay: float = 1.0
-    ) -> np.ndarray:
-        """
-        Process texts with automatic retry on failure.
-        
-        Args:
-            texts: Texts to embed
-            max_retries: Maximum retry attempts
-            retry_delay: Delay between retries (seconds)
+            max_batch_size    { int } : Maximum batch size to allow
         
         Returns:
-            Embeddings array
+        --------
+                       { list }       : List of text batches
         """
-        for attempt in range(max_retries):
-            try:
-                return self.process_texts(texts)
-            except Exception as e:
-                self.logger.warning(
-                    f"Attempt {attempt + 1}/{max_retries} failed: {e}"
-                )
-                if attempt < max_retries - 1:
-                    time.sleep(retry_delay)
-                else:
-                    self.logger.error("All retry attempts failed")
-                    raise
-    
-    def get_statistics(
-        self,
-        total_items: int,
-        processed_items: int,
-        failed_items: int,
-        total_time: float
-    ) -> BatchStats:
-        """
-        Calculate processing statistics.
+        if not texts:
+            return []
         
-        Args:
-            total_items: Total items to process
-            processed_items: Successfully processed items
-            failed_items: Failed items
-            total_time: Total processing time (seconds)
+        token_counter  = get_token_counter()
+        batches        = list()
+        current_batch  = list()
+        current_tokens = 0
         
-        Returns:
-            BatchStats object
-        """
-        num_batches = (total_items + self.batch_size - 1) // self.batch_size
+        # Estimate tokens per text (average of first 10 or all if less)
+        sample_size    = min(10, len(texts))
+        sample_tokens  = [token_counter.count_tokens(text) for text in texts[:sample_size]]
+        avg_tokens     = sum(sample_tokens) / len(sample_tokens) if sample_tokens else 100
         
-        return BatchStats(
-            total_items=total_items,
-            processed_items=processed_items,
-            failed_items=failed_items,
-            total_time_seconds=total_time,
-            avg_time_per_batch=total_time / num_batches if num_batches > 0 else 0,
-            items_per_second=processed_items / total_time if total_time > 0 else 0
-        )
-    
-    def estimate_time(self, num_items: int, items_per_second: float = 50) -> float:
-        """
-        Estimate processing time.
+        # Target tokens per batch (approximate)
+        target_tokens  = target_batch_size * avg_tokens
         
-        Args:
-            num_items: Number of items to process
-            items_per_second: Processing rate (default: 50)
-        
-        Returns:
-            Estimated time in seconds
-        """
-        return num_items / items_per_second
-    
-    def optimize_batch_size(
-        self,
-        sample_texts: List[str],
-        target_time_per_batch: float = 1.0
-    ) -> int:
-        """
-        Find optimal batch size for given texts.
-        
-        Args:
-            sample_texts: Sample texts to test
-            target_time_per_batch: Target time per batch (seconds)
-        
-        Returns:
-            Recommended batch size
-        """
-        if len(sample_texts) < 10:
-            self.logger.warning("Need at least 10 sample texts for optimization")
-            return self.batch_size
-        
-        test_sizes = [8, 16, 32, 64, 128]
-        results = []
-        
-        for size in test_sizes:
-            if size > len(sample_texts):
-                break
+        for text in texts:
+            text_tokens = token_counter.count_tokens(text)
             
-            test_batch = sample_texts[:size]
-            
-            start_time = time.time()
-            try:
-                _ = self.embedder.embed_texts(test_batch, show_progress=False)
-                elapsed = time.time() - start_time
-                results.append((size, elapsed))
-            except Exception as e:
-                self.logger.warning(f"Failed to test batch size {size}: {e}")
+            # If single text is too large, put it in its own batch
+            if (text_tokens > (target_tokens * 0.8)):
+                if current_batch:
+                    batches.append(current_batch)
+                    current_batch  = list()
+                    current_tokens = 0
+                
+                batches.append([text])
                 continue
+            
+            # Check if adding this text would exceed limits
+            if (((current_tokens + text_tokens) > target_tokens) and current_batch) or (len(current_batch) >= max_batch_size):
+                batches.append(current_batch)
+                current_batch  = list()
+                current_tokens = 0
+            
+            current_batch.append(text)
+            current_tokens += text_tokens
         
-        if not results:
-            return self.batch_size
+        # Add final batch
+        if current_batch:
+            batches.append(current_batch)
         
-        # Find size closest to target time
-        best_size = min(
-            results,
-            key=lambda x: abs(x[1] - target_time_per_batch)
-        )[0]
+        self.logger.debug(f"Split {len(texts)} texts into {len(batches)} optimal batches")
         
-        self.logger.info(
-            f"Recommended batch size: {best_size} "
-            f"(target: {target_time_per_batch}s/batch)"
-        )
-        
-        return best_size
-
-
-if __name__ == "__main__":
-    # Test batch processor
-    print("=== Batch Processor Tests ===\n")
+        return batches
     
-    try:
-        processor = BatchProcessor(batch_size=8, show_progress=True)
+
+    def process_batches_with_progress(self, model: SentenceTransformer, texts: List[str], batch_size: Optional[int] = None, progress_callback: Optional[callable] = None, **kwargs) -> List[NDArray]:
+        """
+        Process batches with progress reporting
         
-        # Test 1: Process texts
-        print("Test 1: Process texts in batches")
-        test_texts = [
-            f"This is test sentence number {i} for batch processing."
-            for i in range(25)
-        ]
+        Arguments:
+        ----------
+            model            { SentenceTransformer } : Embedding model
+
+            texts            { list }                : List of texts
+            
+            batch_size       { int }                 : Batch size
+            
+            progress_callback { callable }           : Callback for progress updates
+            
+            **kwargs                                 : Additional parameters
         
-        embeddings = processor.process_texts(test_texts)
-        print(f"  Processed {len(test_texts)} texts")
-        print(f"  Embeddings shape: {embeddings.shape}")
-        print()
+        Returns:
+        --------
+                         { list }                    : List of embeddings
+        """
+        if not texts:
+            return []
         
-        # Test 2: Process chunks
-        print("Test 2: Process DocumentChunks")
-        from config.models import DocumentChunk
+        batch_size     = batch_size or settings.EMBEDDING_BATCH_SIZE
         
-        chunks = [
-            DocumentChunk(
-                chunk_id=f"chunk_{i}",
-                document_id="test_doc",
-                text=text,
-                chunk_index=i,
-                start_char=0,
-                end_char=len(text),
-                token_count=len(text.split())
-            )
-            for i, text in enumerate(test_texts[:15])
-        ]
+        # Split into batches
+        batches        = self.split_into_optimal_batches(texts             = texts, 
+                                                         target_batch_size = batch_size,
+                                                        )
         
-        processed_chunks = processor.process_chunks(chunks)
-        embedded_count = sum(1 for c in processed_chunks if c.embedding is not None)
-        print(f"  Processed {len(processed_chunks)} chunks")
-        print(f"  Chunks with embeddings: {embedded_count}")
-        print()
+        all_embeddings = list()
         
-        # Test 3: Callback function
-        print("Test 3: Process with callback")
-        batch_count = [0]
+        for i, batch_texts in enumerate(batches):
+            if progress_callback:
+                progress = (i / len(batches)) * 100
+                progress_callback(progress, f"Processing batch {i + 1}/{len(batches)}")
+            
+            try:
+                batch_embeddings = self.process_embeddings_batch(model      = model,
+                                                                 texts      = batch_texts,
+                                                                 batch_size = len(batch_texts),
+                                                                 **kwargs
+                                                                )
+                
+                all_embeddings.extend(batch_embeddings)
+                
+                self.logger.debug(f"Processed batch {i + 1}/{len(batches)}: {len(batch_texts)} texts")
+            
+            except Exception as e:
+                self.logger.error(f"Failed to process batch {i + 1}: {repr(e)}")
+                
+                # Add None placeholders for failed batch
+                all_embeddings.extend([None] * len(batch_texts))
         
-        def callback(batch_idx, embeddings):
-            batch_count[0] += 1
-            print(f"  Callback: Batch {batch_idx} processed")
+        if progress_callback:
+            progress_callback(100, "Embedding complete")
         
-        embeddings = processor.process_texts(test_texts[:10], callback=callback)
-        print(f"  Callback called {batch_count[0]} times")
-        print()
+        return all_embeddings
+    
+
+    def validate_embeddings_batch(self, embeddings: List[NDArray], expected_count: int) -> bool:
+        """
+        Validate a batch of embeddings
         
-        # Test 4: Statistics
-        print("Test 4: Processing statistics")
-        stats = processor.get_statistics(
-            total_items=25,
-            processed_items=25,
-            failed_items=0,
-            total_time=2.5
-        )
-        print(f"  Items per second: {stats.items_per_second:.1f}")
-        print(f"  Avg time per batch: {stats.avg_time_per_batch:.3f}s")
-        print()
+        Arguments:
+        ----------
+            embeddings     { list } : List of embedding vectors
+
+            expected_count { int }  : Expected number of embeddings
         
-        # Test 5: Time estimation
-        print("Test 5: Time estimation")
-        estimated = processor.estimate_time(1000, items_per_second=50)
-        print(f"  Estimated time for 1000 items: {estimated:.1f}s")
-        print()
+        Returns:
+        --------
+                   { bool }         : True if valid
+        """
+        if (len(embeddings) != expected_count):
+            self.logger.error(f"Embedding count mismatch: expected {expected_count}, got {len(embeddings)}")
+            return False
         
-        print("✓ Batch processor module created successfully!")
+        valid_count = 0
         
-    except Exception as e:
-        print(f"Error: {e}")
-        print("\nNote: This module requires sentence-transformers library")
+        for i, emb in enumerate(embeddings):
+            if emb is None:
+                self.logger.warning(f"None embedding at index {i}")
+                continue
+            
+            if not isinstance(emb, np.ndarray):
+                self.logger.warning(f"Invalid embedding type at index {i}: {type(emb)}")
+                continue
+            
+            if (emb.ndim != 1):
+                self.logger.warning(f"Invalid embedding dimension at index {i}: {emb.ndim}")
+                continue
+            
+            if np.any(np.isnan(emb)):
+                self.logger.warning(f"NaN values in embedding at index {i}")
+                continue
+            
+            valid_count += 1
+        
+        validity_ratio = valid_count / expected_count
+        
+        if (validity_ratio < 0.9):
+            self.logger.warning(f"Low embedding validity: {valid_count}/{expected_count} ({validity_ratio:.1%})")
+            return False
+        
+        return True
+    
+
+    def get_processing_stats(self) -> dict:
+        """
+        Get batch processing statistics
+        
+        Returns:
+        --------
+            { dict }    : Statistics dictionary
+        """
+        success_rate = ((self.total_batches - self.failed_batches) / self.total_batches * 100) if (self.total_batches > 0) else 100
+        
+        stats        = {"total_batches"    : self.total_batches,
+                        "total_texts"      : self.total_texts,
+                        "failed_batches"   : self.failed_batches,
+                        "success_rate"     : success_rate,
+                        "avg_batch_size"   : self.total_texts / self.total_batches if (self.total_batches > 0) else 0,
+                       }
+        
+        return stats
+    
+
+    def reset_stats(self):
+        """
+        Reset processing statistics
+        """
+        self.total_batches  = 0
+        self.total_texts    = 0
+        self.failed_batches = 0
+        
+        self.logger.debug("Reset batch processing statistics")
+
+
+# Global batch processor instance
+_batch_processor = None
+
+
+def get_batch_processor() -> BatchProcessor:
+    """
+    Get global batch processor instance
+    
+    Returns:
+    --------
+        { BatchProcessor } : BatchProcessor instance
+    """
+    global _batch_processor
+
+    if _batch_processor is None:
+        _batch_processor = BatchProcessor()
+    
+    return _batch_processor
+
+
+def process_embeddings_batch(model: SentenceTransformer, texts: List[str], **kwargs) -> List[NDArray]:
+    """
+    Convenience function for batch embedding
+    
+    Arguments:
+    ----------
+        model { SentenceTransformer } : Embedding model
+
+        texts { list }                : List of texts
+        
+        **kwargs                      : Additional arguments
+    
+    Returns:
+    --------
+             { list }                 : List of embeddings
+    """
+    processor = get_batch_processor()
+
+    return processor.process_embeddings_batch(model, texts, **kwargs)

@@ -1,413 +1,309 @@
-"""
-Index Builder
-Coordinates building FAISS, BM25, and metadata indices
-"""
-
-from typing import List, Optional
-from pathlib import Path
+# DEPENDENCIES
 import time
+import faiss
 import numpy as np
-
-from config.logging_config import get_logger
+from typing import List
+from pathlib import Path
+from typing import Optional
+from config.models import DocumentChunk
 from config.settings import get_settings
-from config.models import DocumentChunk, DocumentMetadata, ProcessingStatus
-
-from embeddings import get_embedder, BatchProcessor
-from vector_store.faiss_manager import FAISSManager
+from config.logging_config import get_logger
+from utils.error_handler import handle_errors
+from utils.error_handler import IndexingError
 from vector_store.bm25_index import BM25Index
+from vector_store.faiss_manager import FAISSManager
 from vector_store.metadata_store import MetadataStore
 
-logger = get_logger(__name__)
+
+# Setup Settings and Logging
 settings = get_settings()
+logger   = get_logger(__name__)
 
 
 class IndexBuilder:
     """
-    Coordinates building and managing all indices.
-    Handles FAISS vector index, BM25 keyword index, and metadata store.
+    Main index builder orchestrator: Builds and manages both vector and keyword indexes
+    Coordinates FAISS vector index, BM25 keyword index, and metadata storage
     """
+    def __init__(self, vector_store_dir: Optional[Path] = None):
+        """
+        Initialize index builder
+        
+        Arguments:
+        ----------
+            vector_store_dir { Path } : Directory for index storage
+        """
+        self.logger               = logger
+        self.vector_store_dir     = Path(vector_store_dir or settings.VECTOR_STORE_DIR)
+        
+        # Initialize component managers
+        self.faiss_manager        = FAISSManager(vector_store_dir = self.vector_store_dir)
+        self.bm25_index           = BM25Index()
+        self.metadata_store       = MetadataStore()
+        
+        # Index statistics
+        self.total_chunks_indexed = 0
+        self.last_build_time      = None
+        
+        self.logger.info(f"Initialized IndexBuilder: store_dir={self.vector_store_dir}")
     
-    def __init__(
-        self,
-        embedding_dim: Optional[int] = None,
-        vector_store_dir: Optional[Path] = None,
-        metadata_db_path: Optional[Path] = None
-    ):
+
+    @handle_errors(error_type = IndexingError, log_error = True, reraise = True)
+    def build_indexes(self, chunks: List[DocumentChunk], rebuild: bool = False) -> dict:
         """
-        Initialize index builder.
+        Build both vector and keyword indexes from document chunks - FIXED VERSION
         
-        Args:
-            embedding_dim: Embedding dimension (auto-detected if None)
-            vector_store_dir: Directory for vector indices
-            metadata_db_path: Path to metadata database
-        """
-        self.logger = logger
+        Arguments:
+        ----------
+            chunks  { list } : List of DocumentChunk objects with embeddings
+            
+            rebuild { bool } : Whether to rebuild existing indexes
         
-        # Initialize embedder
-        self.embedder = get_embedder()
-        self.batch_processor = BatchProcessor(self.embedder)
-        
-        # Get embedding dimension
-        self.embedding_dim = embedding_dim or self.embedder.get_embedding_dimension()
-        
-        # Initialize indices
-        self.faiss_manager = FAISSManager(
-            dimension=self.embedding_dim,
-            index_type="auto"
-        )
-        self.bm25_index = BM25Index()
-        self.metadata_store = MetadataStore(db_path=metadata_db_path)
-        
-        # Storage paths
-        self.vector_store_dir = Path(vector_store_dir or settings.VECTOR_STORE_DIR)
-        self.vector_store_dir.mkdir(parents=True, exist_ok=True)
-        
-        self.logger.info(
-            f"IndexBuilder initialized: dim={self.embedding_dim}, "
-            f"store_dir={self.vector_store_dir}"
-        )
-    
-    def build_indices(
-        self,
-        chunks: List[DocumentChunk],
-        metadata: DocumentMetadata,
-        show_progress: bool = True
-    ):
-        """
-        Build all indices for document chunks.
-        
-        Args:
-            chunks: List of document chunks
-            metadata: Document metadata
-            show_progress: Show progress during processing
+        Returns:
+        --------
+               { dict }      : Build statistics
         """
         if not chunks:
-            self.logger.warning("No chunks to index")
-            return
+            raise IndexingError("No chunks provided for indexing")
         
-        self.logger.info(f"Building indices for {len(chunks)} chunks")
-        start_time = time.time()
+        # Validate chunks have embeddings
+        chunks_with_embeddings     = [c for c in chunks if (c.embedding is not None)]
         
+        if (len(chunks_with_embeddings) != len(chunks)):
+            self.logger.warning(f"{len(chunks) - len(chunks_with_embeddings)} chunks missing embeddings")
+        
+        if not chunks_with_embeddings:
+            raise IndexingError("No chunks with embeddings found")
+        
+        self.logger.info(f"Building indexes for {len(chunks_with_embeddings)} chunks (rebuild={rebuild})")
+        
+        start_time                 = time.time()
+        
+        # Extract data for indexing
+        embeddings                 = self._extract_embeddings(chunks = chunks_with_embeddings)
+        texts                      = [chunk.text for chunk in chunks_with_embeddings]
+        chunk_ids                  = [chunk.chunk_id for chunk in chunks_with_embeddings]
+        
+        # Build vector index (FAISS)
+        self.logger.info("Building FAISS vector index...")
+
+        faiss_stats                = self.faiss_manager.build_index(embeddings = embeddings,
+                                                                    chunk_ids  = chunk_ids,
+                                                                    rebuild    = rebuild,
+                                                                   )
+        
+        
+        # Build keyword index (BM25)
+        self.logger.info("Building BM25 keyword index...")
+        bm25_stats                 = self.bm25_index.build_index(texts     = texts,
+                                                                 chunk_ids = chunk_ids,
+                                                                 rebuild   = rebuild,
+                                                                )
+        
+        # Store metadata
+        self.logger.info("Storing chunk metadata...")
+        metadata_stats             = self.metadata_store.store_chunks(chunks  = chunks_with_embeddings,
+                                                                      rebuild = rebuild,
+                                                                     )
+        
+        # Update statistics
+        self.total_chunks_indexed += len(chunks_with_embeddings)
+        self.last_build_time       = time.time()
+        
+        build_time                 = time.time() - start_time
+        
+        stats                      = {"total_chunks"       : len(chunks_with_embeddings),
+                                      "build_time_seconds" : build_time,
+                                      "chunks_per_second"  : len(chunks_with_embeddings) / build_time if build_time > 0 else 0,
+                                      "faiss"              : faiss_stats,
+                                      "bm25"               : bm25_stats,
+                                      "metadata"           : metadata_stats,
+                                      "vector_dimension"   : embeddings.shape[1] if (len(embeddings) > 0) else 0,
+                                     }
+        
+        self.logger.info(f"✓ Index building completed: {len(chunks_with_embeddings)} chunks in {build_time:.2f}s")
+        self.logger.info(f"✓ FAISS index: {faiss_stats.get('vectors', 0)} vectors")
+        self.logger.info(f"✓ BM25 index: {bm25_stats.get('documents', 0)} documents")
+        self.logger.info(f"✓ Metadata: {metadata_stats.get('stored_chunks', 0)} chunks stored")
+        
+        return stats
+    
+
+    def _extract_embeddings(self, chunks: List[DocumentChunk]) -> np.ndarray:
+        """
+        Extract embeddings from chunks as numpy array
+        
+        Arguments:
+        ----------
+            chunks { list } : List of DocumentChunk objects
+        
+        Returns:
+        --------
+               { np.ndarray } : Embeddings matrix
+        """
+        embeddings = []
+        
+        for chunk in chunks:
+            if (chunk.embedding is not None):
+                embeddings.append(chunk.embedding)
+        
+        if not embeddings:
+            raise IndexingError("No embeddings found in chunks")
+        
+        return np.array(embeddings).astype('float32')
+    
+
+    def get_index_stats(self) -> dict:
+        """
+        Get comprehensive index statistics
+        
+        Returns:
+        --------
+            { dict }    : Index statistics
+        """
+        faiss_stats    = self.faiss_manager.get_index_stats()
+        bm25_stats     = self.bm25_index.get_index_stats()
+        metadata_stats = self.metadata_store.get_stats()
+        
+        # Also check VectorSearch stats
         try:
-            # Update document status
-            self.metadata_store.update_document_status(
-                metadata.document_id,
-                ProcessingStatus.PROCESSING
-            )
-            
-            # 1. Generate embeddings
-            self.logger.info("Generating embeddings...")
-            embedded_chunks = self.batch_processor.process_chunks(
-                chunks,
-                callback=None
-            )
-            
-            # Extract embeddings and IDs
-            embeddings = np.array([
-                chunk.embedding for chunk in embedded_chunks
-            ], dtype='float32')
-            chunk_ids = [chunk.chunk_id for chunk in embedded_chunks]
-            
-            # 2. Build FAISS index
-            self.logger.info("Building FAISS index...")
-            self.faiss_manager.add_vectors(embeddings, chunk_ids)
-            
-            # 3. Build BM25 index
-            self.logger.info("Building BM25 index...")
-            texts = [chunk.text for chunk in embedded_chunks]
-            self.bm25_index.add_documents(texts, chunk_ids)
-            
-            # 4. Store metadata
-            self.logger.info("Storing metadata...")
-            self.metadata_store.add_chunks_batch(embedded_chunks)
-            
-            # Update document metadata
-            processing_time = time.time() - start_time
-            metadata.num_chunks = len(chunks)
-            metadata.processing_time_seconds = processing_time
-            metadata.processed_date = None  # Will be set by update_status
-            
-            self.metadata_store.add_document(metadata)
-            self.metadata_store.update_document_status(
-                metadata.document_id,
-                ProcessingStatus.COMPLETED
-            )
-            
-            self.logger.info(
-                f"Indices built successfully in {processing_time:.2f}s"
-            )
+            vector_search = get_vector_search()
+            vector_stats  = vector_search.get_index_stats()
         
         except Exception as e:
-            self.logger.error(f"Failed to build indices: {e}")
-            self.metadata_store.update_document_status(
-                metadata.document_id,
-                ProcessingStatus.FAILED,
-                error_message=str(e)
-            )
-            raise
-    
-    def add_document(
-        self,
-        chunks: List[DocumentChunk],
-        metadata: DocumentMetadata,
-        show_progress: bool = True
-    ):
-        """
-        Add a document to all indices.
-        Alias for build_indices for clarity.
+            vector_stats = {"error": str(e)}
         
-        Args:
-            chunks: Document chunks
-            metadata: Document metadata
-            show_progress: Show progress
-        """
-        self.build_indices(chunks, metadata, show_progress)
-    
-    def search_hybrid(
-        self,
-        query: str,
-        k: int = 10,
-        vector_weight: Optional[float] = None,
-        bm25_weight: Optional[float] = None
-    ) -> List[DocumentChunk]:
-        """
-        Perform hybrid search (vector + BM25).
+        stats = {"total_chunks_indexed" : self.total_chunks_indexed,
+                 "last_build_time"      : self.last_build_time,
+                 "faiss"                : faiss_stats,
+                 "bm25"                 : bm25_stats,
+                 "metadata"             : metadata_stats,
+                 "index_directory"      : str(self.vector_store_dir),
+                }
         
-        Args:
-            query: Search query
-            k: Number of results
-            vector_weight: Weight for vector search (default from settings)
-            bm25_weight: Weight for BM25 search (default from settings)
+        return stats
+    
+
+    def is_index_built(self) -> bool:
+        """
+        Check if indexes are built and ready
         
         Returns:
-            List of DocumentChunk objects with scores
+        --------
+            { bool }    : True if indexes are built
         """
-        vector_weight = vector_weight or settings.VECTOR_WEIGHT
-        bm25_weight = bm25_weight or settings.BM25_WEIGHT
+        faiss_ready    = self.faiss_manager.is_index_built()
+        bm25_ready     = self.bm25_index.is_index_built()
+        metadata_ready = self.metadata_store.is_ready()
         
-        # 1. Vector search
-        query_embedding = self.embedder.embed_query(query)
-        vector_chunk_ids, vector_distances = self.faiss_manager.search(
-            query_embedding,
-            k=k * 2  # Retrieve more for fusion
-        )
-        
-        # 2. BM25 search
-        bm25_chunk_ids, bm25_scores = self.bm25_index.search(
-            query,
-            k=k * 2
-        )
-        
-        # 3. Reciprocal Rank Fusion
-        fused_scores = self._reciprocal_rank_fusion(
-            vector_results=list(zip(vector_chunk_ids, vector_distances)),
-            bm25_results=list(zip(bm25_chunk_ids, bm25_scores)),
-            vector_weight=vector_weight,
-            bm25_weight=bm25_weight,
-            k_param=60
-        )
-        
-        # Get top k results
-        top_chunk_ids = list(fused_scores.keys())[:k]
-        
-        # Retrieve chunks from metadata store
-        chunks = self.metadata_store.get_chunks_batch(top_chunk_ids)
-        
-        # Add scores to chunks
-        for chunk in chunks:
-            if chunk and chunk.chunk_id in fused_scores:
-                chunk.metadata = chunk.metadata or {}
-                chunk.metadata["hybrid_score"] = fused_scores[chunk.chunk_id]
-        
-        return [c for c in chunks if c is not None]
+        return faiss_ready and bm25_ready and metadata_ready
     
-    def _reciprocal_rank_fusion(
-        self,
-        vector_results: List[tuple],
-        bm25_results: List[tuple],
-        vector_weight: float,
-        bm25_weight: float,
-        k_param: int = 60
-    ) -> dict:
+
+    def optimize_indexes(self) -> dict:
         """
-        Combine results using Reciprocal Rank Fusion.
-        
-        Args:
-            vector_results: List of (chunk_id, distance) tuples
-            bm25_results: List of (chunk_id, score) tuples
-            vector_weight: Weight for vector results
-            bm25_weight: Weight for BM25 results
-            k_param: RRF parameter (typically 60)
+        Optimize indexes for better performance
         
         Returns:
-            Dictionary of {chunk_id: score}
+        --------
+            { dict }    : Optimization results
         """
-        scores = {}
+        self.logger.info("Optimizing indexes")
         
-        # Process vector results
-        for rank, (chunk_id, _) in enumerate(vector_results, 1):
-            rrf_score = vector_weight / (k_param + rank)
-            scores[chunk_id] = scores.get(chunk_id, 0) + rrf_score
+        faiss_optimization = self.faiss_manager.optimize_index()
+        bm25_optimization  = self.bm25_index.optimize_index()
         
-        # Process BM25 results
-        for rank, (chunk_id, _) in enumerate(bm25_results, 1):
-            rrf_score = bm25_weight / (k_param + rank)
-            scores[chunk_id] = scores.get(chunk_id, 0) + rrf_score
-        
-        # Sort by score
-        sorted_scores = dict(
-            sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        )
-        
-        return sorted_scores
-    
-    def save_indices(self):
-        """Save all indices to disk"""
-        self.logger.info("Saving indices...")
-        
-        # Save FAISS
-        faiss_dir = self.vector_store_dir / "faiss"
-        self.faiss_manager.save(faiss_dir)
-        
-        # Save BM25
-        bm25_dir = self.vector_store_dir / "bm25"
-        self.bm25_index.save(bm25_dir)
-        
-        self.logger.info(f"Indices saved to {self.vector_store_dir}")
-    
-    def load_indices(self):
-        """Load all indices from disk"""
-        self.logger.info("Loading indices...")
-        
-        # Load FAISS
-        faiss_dir = self.vector_store_dir / "faiss"
-        if faiss_dir.exists():
-            self.faiss_manager.load(faiss_dir)
-        else:
-            self.logger.warning(f"FAISS index not found at {faiss_dir}")
-        
-        # Load BM25
-        bm25_dir = self.vector_store_dir / "bm25"
-        if bm25_dir.exists():
-            self.bm25_index.load(bm25_dir)
-        else:
-            self.logger.warning(f"BM25 index not found at {bm25_dir}")
-        
-        self.logger.info("Indices loaded")
-    
-    def get_statistics(self) -> dict:
-        """
-        Get comprehensive statistics.
-        
-        Returns:
-            Statistics dictionary
-        """
-        return {
-            "faiss": self.faiss_manager.get_statistics(),
-            "bm25": self.bm25_index.get_statistics(),
-            "metadata": self.metadata_store.get_statistics(),
+        optimization_stats = {
+            "faiss"   : faiss_optimization,
+            "bm25"    : bm25_optimization,
+            "message" : "Index optimization completed",
         }
+        
+        return optimization_stats
     
-    def reset_indices(self):
-        """Reset all indices"""
-        self.faiss_manager.reset()
-        self.bm25_index.reset()
-        self.logger.info("All indices reset")
+
+    def clear_indexes(self):
+        """
+        Clear all indexes
+        """
+        self.logger.warning("Clearing all indexes")
+        
+        self.faiss_manager.clear_index()
+        self.bm25_index.clear_index()
+        self.metadata_store.clear()
+        
+        self.total_chunks_indexed = 0
+    
+
+    def get_index_size(self) -> dict:
+        """
+        Get index sizes in memory and disk
+        
+        Returns:
+        --------
+            { dict }    : Size information
+        """
+        faiss_size    = self.faiss_manager.get_index_size()
+        bm25_size     = self.bm25_index.get_index_size()
+        metadata_size = self.metadata_store.get_size()
+        
+        total_memory = (
+            faiss_size.get("memory_mb", 0) + 
+            bm25_size.get("memory_mb", 0) + 
+            metadata_size.get("memory_mb", 0)
+        )
+        
+        total_disk = (
+            faiss_size.get("disk_mb", 0) + 
+            bm25_size.get("disk_mb", 0) + 
+            metadata_size.get("disk_mb", 0)
+        )
+        
+        return {
+            "total_memory_mb" : total_memory,
+            "total_disk_mb"   : total_disk,
+            "faiss"           : faiss_size,
+            "bm25"            : bm25_size,
+            "metadata"        : metadata_size,
+        }
 
 
 # Global index builder instance
-_builder = None
+_index_builder = None
 
 
-def get_index_builder() -> IndexBuilder:
+def get_index_builder(vector_store_dir: Optional[Path] = None) -> IndexBuilder:
     """
-    Get global IndexBuilder instance.
+    Get global index builder instance
+    
+    Arguments:
+    ----------
+        vector_store_dir { Path } : Vector store directory
     
     Returns:
-        IndexBuilder instance
+    --------
+        { IndexBuilder }          : IndexBuilder instance
     """
-    global _builder
-    if _builder is None:
-        _builder = IndexBuilder()
-    return _builder
+    global _index_builder
+    
+    if _index_builder is None:
+        _index_builder = IndexBuilder(vector_store_dir)
+    
+    return _index_builder
 
 
-if __name__ == "__main__":
-    # Test index builder
-    print("=== Index Builder Tests ===\n")
+def build_indexes(chunks: List[DocumentChunk], **kwargs) -> dict:
+    """
+    Convenience function to build indexes
     
-    from config.models import DocumentType
+    Arguments:
+    ----------
+        chunks { list } : List of DocumentChunk objects
+        **kwargs        : Additional arguments
     
-    # Create test data
-    print("Test 1: Create indices")
-    builder = IndexBuilder()
+    Returns:
+    --------
+             { dict }   : Build statistics
+    """
+    builder = get_index_builder()
     
-    # Create test chunks
-    test_chunks = []
-    for i in range(10):
-        chunk = DocumentChunk(
-            chunk_id=f"chunk_test_{i}",
-            document_id="doc_test_001",
-            text=f"This is test chunk number {i} about machine learning and AI.",
-            chunk_index=i,
-            start_char=i*100,
-            end_char=(i+1)*100,
-            token_count=15
-        )
-        test_chunks.append(chunk)
-    
-    # Create metadata
-    metadata = DocumentMetadata(
-        document_id="doc_test_001",
-        filename="test.txt",
-        document_type=DocumentType.TXT,
-        file_size_bytes=5000
-    )
-    
-    # Build indices
-    print("  Building indices...")
-    builder.build_indices(test_chunks, metadata, show_progress=False)
-    print("  ✓ Indices built")
-    print()
-    
-    # Test 2: Search
-    print("Test 2: Hybrid search")
-    query = "machine learning"
-    results = builder.search_hybrid(query, k=5)
-    
-    print(f"  Query: '{query}'")
-    print(f"  Found {len(results)} results:")
-    for i, chunk in enumerate(results, 1):
-        score = chunk.metadata.get("hybrid_score", 0)
-        print(f"    {i}. {chunk.chunk_id} (score: {score:.4f})")
-        print(f"       {chunk.text[:60]}...")
-    print()
-    
-    # Test 3: Statistics
-    print("Test 3: Get statistics")
-    stats = builder.get_statistics()
-    print(f"  FAISS: {stats['faiss']['num_vectors']} vectors")
-    print(f"  BM25: {stats['bm25']['num_documents']} documents")
-    print(f"  Metadata: {stats['metadata']['total_chunks']} chunks")
-    print()
-    
-    # Test 4: Save and load
-    print("Test 4: Save and load indices")
-    test_dir = Path("test_vector_store")
-    builder.vector_store_dir = test_dir
-    builder.save_indices()
-    print(f"  Saved to {test_dir}")
-    
-    # Create new builder and load
-    builder2 = IndexBuilder(vector_store_dir=test_dir)
-    builder2.load_indices()
-    stats2 = builder2.get_statistics()
-    print(f"  Loaded: {stats2['faiss']['num_vectors']} vectors")
-    
-    # Cleanup
-    import shutil
-    shutil.rmtree(test_dir)
-    Path("test_metadata.db").unlink(missing_ok=True)
-    print()
-    
-    print("✓ Index builder module created successfully!")
+    return builder.build_indexes(chunks, **kwargs)

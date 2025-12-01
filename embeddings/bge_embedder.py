@@ -1,512 +1,351 @@
-"""
-BGE Embedder
-Generate embeddings using BGE (BAAI General Embedding) models
-"""
-
-from typing import List, Optional, Union
+# DEPENDENCIES
+import time
 import numpy as np
-from sentence_transformers import SentenceTransformer
-
-from config.logging_config import get_logger
+from typing import List
+from typing import Optional
+from numpy.typing import NDArray
+from config.models import DocumentChunk
 from config.settings import get_settings
-from config.models import DocumentChunk, EmbeddingRequest, EmbeddingResponse
+from config.models import EmbeddingRequest
+from config.models import EmbeddingResponse
+from config.logging_config import get_logger
+from utils.error_handler import handle_errors
+from utils.error_handler import EmbeddingError
 from embeddings.model_loader import get_model_loader
+from embeddings.batch_processor import BatchProcessor
 
-logger = get_logger(__name__)
+
+# Setup Settings and Logging
 settings = get_settings()
+logger   = get_logger(__name__)
 
 
 class BGEEmbedder:
     """
-    BGE embedding generator.
-    Optimized for generating embeddings for RAG applications.
+    BGE (BAAI General Embedding) model wrapper: Optimized for BAAI/bge models with proper normalization and batching
     """
-    
-    def __init__(
-        self,
-        model_name: Optional[str] = None,
-        device: Optional[str] = None,
-        normalize_embeddings: bool = True,
-        batch_size: Optional[int] = None
-    ):
+    def __init__(self, model_name: Optional[str] = None, device: Optional[str] = None):
         """
-        Initialize BGE embedder.
+        Initialize BGE embedder
         
-        Args:
-            model_name: Model name (default from settings)
-            device: Device (cuda, mps, cpu)
-            normalize_embeddings: Normalize to unit length
-            batch_size: Batch size for encoding (default from settings)
+        Arguments:
+        ----------
+            model_name { str } : BGE model name (default from settings)
+            
+            device     { str } : Device to run on
         """
-        self.model_name = model_name or settings.EMBEDDING_MODEL
-        self.device = device
-        self.normalize_embeddings = normalize_embeddings
-        self.batch_size = batch_size or settings.EMBEDDING_BATCH_SIZE
+        self.logger          = logger
+        self.model_name      = model_name or settings.EMBEDDING_MODEL
+        self.device          = device
         
-        self.logger = logger
+        # Initialize components
+        self.model_loader    = get_model_loader()
+        self.batch_processor = BatchProcessor()
         
         # Load model
-        self.loader = get_model_loader()
-        self.model = self.loader.load_model(
-            model_name=self.model_name,
-            device=self.device,
-            normalize_embeddings=self.normalize_embeddings
-        )
+        self.model           = self.model_loader.load_model(model_name = self.model_name, 
+                                                            device     = self.device,
+                                                           )
         
-        # Get embedding dimension
-        self.embedding_dim = self.model.get_sentence_embedding_dimension()
+        # Get model info
+        self.embedding_dim   = self.model.get_sentence_embedding_dimension()
+        self.supports_batch  = True
         
-        self.logger.info(
-            f"BGEEmbedder initialized: model={self.model_name}, "
-            f"dim={self.embedding_dim}, batch_size={self.batch_size}"
-        )
+        self.logger.info(f"Initialized BGEEmbedder: model={self.model_name}, dim={self.embedding_dim}, device={self.model.device}")
     
-    def embed_text(
-        self,
-        text: str,
-        normalize: Optional[bool] = None
-    ) -> np.ndarray:
+
+    @handle_errors(error_type = EmbeddingError, log_error = True, reraise = True)
+    def embed_text(self, text: str, normalize: bool = True) -> NDArray:
         """
-        Generate embedding for a single text.
+        Embed single text string
         
-        Args:
-            text: Input text
-            normalize: Override normalization setting
+        Arguments:
+        ----------
+            text      { str } : Input text
+
+            normalize { bool } : Normalize embeddings to unit length
         
         Returns:
-            Embedding vector (numpy array)
+        --------
+               { NDArray }     : Embedding vector
         """
         if not text or not text.strip():
-            self.logger.warning("Empty text provided, returning zero vector")
-            return np.zeros(self.embedding_dim)
+            raise EmbeddingError("Cannot embed empty text")
         
         try:
-            embedding = self.model.encode(
-                text,
-                normalize_embeddings=normalize if normalize is not None else self.normalize_embeddings,
-                show_progress_bar=False,
-                convert_to_numpy=True
-            )
+            # Encode single text
+            embedding = self.model.encode([text],
+                                          normalize_embeddings = normalize,
+                                          show_progress_bar    = False,
+                                         )
             
-            return embedding
-        
+            # Return single vector
+            return embedding[0]  
+            
         except Exception as e:
-            self.logger.error(f"Failed to generate embedding: {e}")
-            raise
+            self.logger.error(f"Failed to embed text: {repr(e)}")
+            raise EmbeddingError(f"Text embedding failed: {repr(e)}")
     
-    def embed_texts(
-        self,
-        texts: List[str],
-        batch_size: Optional[int] = None,
-        show_progress: bool = False,
-        normalize: Optional[bool] = None
-    ) -> np.ndarray:
+
+    @handle_errors(error_type = EmbeddingError, log_error = True, reraise = True)
+    def embed_texts(self, texts: List[str], batch_size: Optional[int] = None, normalize: bool = True) -> List[NDArray]:
         """
-        Generate embeddings for multiple texts.
+        Embed multiple texts with batching
         
-        Args:
-            texts: List of input texts
-            batch_size: Batch size (default: from init)
-            show_progress: Show progress bar
-            normalize: Override normalization setting
+        Arguments:
+        ----------
+            texts      { list } : List of text strings
+
+            batch_size { int }  : Batch size (default from settings)
+            
+            normalize  { bool } : Normalize embeddings
         
         Returns:
-            Array of embeddings (shape: [num_texts, embedding_dim])
+        --------
+                 { list }       : List of embedding vectors
         """
         if not texts:
-            self.logger.warning("Empty text list provided")
-            return np.empty((0, self.embedding_dim))
+            return []
         
-        # Filter out empty texts
-        valid_indices = [i for i, text in enumerate(texts) if text and text.strip()]
-        valid_texts = [texts[i] for i in valid_indices]
+        # Filter empty texts
+        valid_texts = [t for t in texts if t and t.strip()]
+        
+        if (len(valid_texts) != len(texts)):
+            self.logger.warning(f"Filtered {len(texts) - len(valid_texts)} empty texts")
         
         if not valid_texts:
-            self.logger.warning("All texts are empty")
-            return np.zeros((len(texts), self.embedding_dim))
+            return []
         
-        batch_size = batch_size or self.batch_size
+        batch_size = batch_size or settings.EMBEDDING_BATCH_SIZE
         
         try:
-            self.logger.debug(f"Generating embeddings for {len(valid_texts)} texts")
+            # Use batch processing for efficiency
+            embeddings = self.batch_processor.process_embeddings_batch(model      = self.model,
+                                                                       texts      = valid_texts,
+                                                                       batch_size = batch_size,
+                                                                       normalize  = normalize,
+                                                                      )
             
-            embeddings = self.model.encode(
-                valid_texts,
-                batch_size=batch_size,
-                normalize_embeddings=normalize if normalize is not None else self.normalize_embeddings,
-                show_progress_bar=show_progress,
-                convert_to_numpy=True
-            )
-            
-            # Handle empty texts by inserting zero vectors
-            if len(valid_indices) < len(texts):
-                full_embeddings = np.zeros((len(texts), self.embedding_dim))
-                full_embeddings[valid_indices] = embeddings
-                embeddings = full_embeddings
-            
-            self.logger.debug(f"Generated embeddings shape: {embeddings.shape}")
+            self.logger.debug(f"Generated {len(embeddings)} embeddings for {len(texts)} texts")
             
             return embeddings
-        
+            
         except Exception as e:
-            self.logger.error(f"Failed to generate batch embeddings: {e}")
-            raise
+            self.logger.error(f"Batch embedding failed: {repr(e)}")
+            raise EmbeddingError(f"Batch embedding failed: {repr(e)}")
     
-    def embed_chunks(
-        self,
-        chunks: List[DocumentChunk],
-        batch_size: Optional[int] = None,
-        show_progress: bool = False
-    ) -> List[DocumentChunk]:
+
+    @handle_errors(error_type = EmbeddingError, log_error = True, reraise = True)
+    def embed_chunks(self, chunks: List[DocumentChunk], batch_size: Optional[int] = None, normalize: bool = True) -> List[DocumentChunk]:
         """
-        Generate embeddings for document chunks and update them in-place.
+        Embed document chunks and update them with embeddings
         
-        Args:
-            chunks: List of DocumentChunk objects
-            batch_size: Batch size
-            show_progress: Show progress bar
+        Arguments:
+        ----------
+            chunks     { list } : List of DocumentChunk objects
+
+            batch_size { int }  : Batch size
+            
+            normalize  { bool } : Normalize embeddings
         
         Returns:
-            Updated chunks with embeddings
+        --------
+                 { list }       : Chunks with embeddings added
         """
         if not chunks:
-            return chunks
+            return []
         
-        self.logger.info(f"Generating embeddings for {len(chunks)} chunks")
-        
-        # Extract texts
-        texts = [chunk.text for chunk in chunks]
+        # Extract texts from chunks
+        texts      = [chunk.text for chunk in chunks]
         
         # Generate embeddings
-        embeddings = self.embed_texts(
-            texts,
-            batch_size=batch_size,
-            show_progress=show_progress
-        )
+        embeddings = self.embed_texts(texts       = texts,
+                                      batch_size  = batch_size,
+                                      normalize   = normalize,
+                                     )
         
         # Update chunks with embeddings
         for chunk, embedding in zip(chunks, embeddings):
-            chunk.embedding = embedding.tolist()
+            # Convert numpy to list for serialization
+            chunk.embedding = embedding.tolist()  
         
-        self.logger.info(f"Successfully embedded {len(chunks)} chunks")
+        self.logger.info(f"Embedded {len(chunks)} document chunks")
         
         return chunks
     
-    def embed_query(self, query: str) -> np.ndarray:
+
+    def process_embedding_request(self, request: EmbeddingRequest) -> EmbeddingResponse:
         """
-        Generate embedding for a search query.
-        Some models use different embeddings for queries vs documents.
+        Process embedding request from API
         
-        Args:
-            query: Search query
+        Arguments:
+        ----------
+            request { EmbeddingRequest } : Embedding request
         
         Returns:
-            Query embedding
+        --------
+            { EmbeddingResponse }        : Embedding response
         """
-        # For BGE models, we can add "Represent this sentence for searching relevant passages: "
-        # but the model handles this internally, so we just encode normally
-        return self.embed_text(query)
+        start_time      = time.time()
+        
+        # Generate embeddings
+        embeddings      = self.embed_texts(texts      = request.texts,
+                                           batch_size = request.batch_size,
+                                           normalize  = request.normalize,
+                                          )
+        
+        # Convert to milliseconds
+        processing_time = (time.time() - start_time) * 1000  
+        
+        # Convert to list for serialization
+        embedding_list  = [emb.tolist() for emb in embeddings]
+        
+        response        = EmbeddingResponse(embeddings         = embedding_list,
+                                            dimension          = self.embedding_dim,
+                                            num_embeddings     = len(embeddings),
+                                            processing_time_ms = processing_time,
+                                           )
+         
+        return response
     
-    def compute_similarity(
-        self,
-        embedding1: np.ndarray,
-        embedding2: np.ndarray
-    ) -> float:
-        """
-        Compute cosine similarity between two embeddings.
-        
-        Args:
-            embedding1: First embedding
-            embedding2: Second embedding
-        
-        Returns:
-            Similarity score (0-1 if normalized, -1 to 1 otherwise)
-        """
-        # If embeddings are normalized, dot product = cosine similarity
-        if self.normalize_embeddings:
-            return float(np.dot(embedding1, embedding2))
-        else:
-            # Compute cosine similarity
-            norm1 = np.linalg.norm(embedding1)
-            norm2 = np.linalg.norm(embedding2)
-            
-            if norm1 == 0 or norm2 == 0:
-                return 0.0
-            
-            return float(np.dot(embedding1, embedding2) / (norm1 * norm2))
-    
-    def compute_similarities(
-        self,
-        query_embedding: np.ndarray,
-        document_embeddings: np.ndarray
-    ) -> np.ndarray:
-        """
-        Compute similarities between query and multiple documents.
-        
-        Args:
-            query_embedding: Query embedding (1D array)
-            document_embeddings: Document embeddings (2D array)
-        
-        Returns:
-            Array of similarity scores
-        """
-        if self.normalize_embeddings:
-            # Simple dot product for normalized vectors
-            similarities = np.dot(document_embeddings, query_embedding)
-        else:
-            # Compute cosine similarities
-            query_norm = np.linalg.norm(query_embedding)
-            doc_norms = np.linalg.norm(document_embeddings, axis=1)
-            
-            # Avoid division by zero
-            doc_norms[doc_norms == 0] = 1e-10
-            
-            similarities = np.dot(document_embeddings, query_embedding) / (doc_norms * query_norm)
-        
-        return similarities
-    
+
     def get_embedding_dimension(self) -> int:
         """
-        Get embedding dimension.
+        Get embedding dimension
         
         Returns:
-            Embedding dimension
+        --------
+            { int }    : Embedding vector dimension
         """
         return self.embedding_dim
     
-    def estimate_tokens(self, text: str) -> int:
+
+    def cosine_similarity(self, emb1: NDArray, emb2: NDArray) -> float:
         """
-        Estimate token count for text.
+        Calculate cosine similarity between two embeddings
         
-        Args:
-            text: Input text
+        Arguments:
+        ----------
+            emb1 { NDArray } : First embedding
+
+            emb2 { NDArray } : Second embedding
         
         Returns:
-            Estimated token count
+        --------
+               { float }     : Cosine similarity (-1 to 1)
         """
-        # Rough estimate: ~4 characters per token
-        return len(text) // 4
+        # Ensure embeddings are normalized
+        emb1_norm = emb1 / np.linalg.norm(emb1)
+        emb2_norm = emb2 / np.linalg.norm(emb2)
+        
+        return float(np.dot(emb1_norm, emb2_norm))
     
-    def truncate_text(self, text: str, max_tokens: Optional[int] = None) -> str:
+
+    def validate_embedding(self, embedding: NDArray) -> bool:
         """
-        Truncate text to fit within model's max sequence length.
+        Validate embedding vector
         
-        Args:
-            text: Input text
-            max_tokens: Maximum tokens (default: model's max)
+        Arguments:
+        ----------
+            embedding { NDArray } : Embedding vector
         
         Returns:
-            Truncated text
+        --------
+                 { bool }         : True if valid
         """
-        max_tokens = max_tokens or self.model.max_seq_length
+        if (embedding is None):
+            return False
         
-        # Estimate current tokens
-        estimated_tokens = self.estimate_tokens(text)
+        if (not isinstance(embedding, np.ndarray)):
+            return False
         
-        if estimated_tokens <= max_tokens:
-            return text
+        if (embedding.shape != (self.embedding_dim,)):
+            return False
         
-        # Truncate to approximate character count
-        chars_per_token = len(text) / estimated_tokens
-        max_chars = int(max_tokens * chars_per_token)
+        if (np.all(embedding == 0)):
+            return False
         
-        truncated = text[:max_chars]
+        if (np.any(np.isnan(embedding))):
+            return False
         
-        self.logger.debug(
-            f"Truncated text from {estimated_tokens} to ~{max_tokens} tokens"
-        )
-        
-        return truncated
+        return True
     
-    def create_embedding_request(
-        self,
-        texts: List[str],
-        batch_size: Optional[int] = None,
-        normalize: bool = True
-    ) -> EmbeddingRequest:
+
+    def get_model_info(self) -> dict:
         """
-        Create embedding request object.
-        
-        Args:
-            texts: Texts to embed
-            batch_size: Batch size
-            normalize: Normalize embeddings
+        Get embedder information
         
         Returns:
-            EmbeddingRequest object
+        --------
+            { dict }    : Embedder information
         """
-        return EmbeddingRequest(
-            texts=texts,
-            batch_size=batch_size or self.batch_size,
-            normalize=normalize
-        )
-    
-    def process_embedding_request(
-        self,
-        request: EmbeddingRequest
-    ) -> EmbeddingResponse:
-        """
-        Process embedding request.
-        
-        Args:
-            request: EmbeddingRequest object
-        
-        Returns:
-            EmbeddingResponse object
-        """
-        import time
-        
-        start_time = time.time()
-        
-        embeddings = self.embed_texts(
-            texts=request.texts,
-            batch_size=request.batch_size,
-            normalize=request.normalize
-        )
-        
-        processing_time = (time.time() - start_time) * 1000  # Convert to ms
-        
-        return EmbeddingResponse(
-            embeddings=embeddings.tolist(),
-            dimension=self.embedding_dim,
-            num_embeddings=len(embeddings),
-            processing_time_ms=processing_time
-        )
+        return {"model_name"        : self.model_name,
+                "embedding_dim"     : self.embedding_dim,
+                "device"            : str(self.model.device),
+                "supports_batch"    : self.supports_batch,
+                "normalize_default" : True,
+               }
 
 
 # Global embedder instance
 _embedder = None
 
 
-def get_embedder(
-    model_name: Optional[str] = None,
-    device: Optional[str] = None
-) -> BGEEmbedder:
+def get_embedder(model_name: Optional[str] = None, device: Optional[str] = None) -> BGEEmbedder:
     """
-    Get global BGEEmbedder instance.
+    Get global embedder instance
     
-    Args:
-        model_name: Model name
-        device: Device
+    Arguments:
+    ----------
+        model_name { str } : Model name
+        
+        device     { str } : Device
     
     Returns:
-        BGEEmbedder instance
+    --------
+        { BGEEmbedder }    : BGEEmbedder instance
     """
     global _embedder
-    if _embedder is None or (model_name and model_name != _embedder.model_name):
-        _embedder = BGEEmbedder(model_name=model_name, device=device)
+
+    if _embedder is None:
+        _embedder = BGEEmbedder(model_name, device)
+    
     return _embedder
 
 
-def embed_text(text: str) -> np.ndarray:
+def embed_texts(texts: List[str], **kwargs) -> List[NDArray]:
     """
-    Convenience function to embed single text.
+    Convenience function to embed texts
     
-    Args:
-        text: Input text
+    Arguments:
+    ----------
+        texts { list } : List of texts
+        
+        **kwargs       : Additional arguments for BGEEmbedder
     
     Returns:
-        Embedding vector
+    --------
+             { list }  : List of embeddings
     """
     embedder = get_embedder()
-    return embedder.embed_text(text)
+
+    return embedder.embed_texts(texts, **kwargs)
 
 
-def embed_texts(texts: List[str], show_progress: bool = False) -> np.ndarray:
+def embed_chunks(chunks: List[DocumentChunk], **kwargs) -> List[DocumentChunk]:
     """
-    Convenience function to embed multiple texts.
+    Convenience function to embed document chunks
     
-    Args:
-        texts: Input texts
-        show_progress: Show progress bar
+    Arguments:
+    ----------
+        chunks { list } : List of DocumentChunk objects
+        
+        **kwargs        : Additional arguments
     
     Returns:
-        Embeddings array
+    --------
+              { list }  : Chunks with embeddings
     """
     embedder = get_embedder()
-    return embedder.embed_texts(texts, show_progress=show_progress)
 
-
-if __name__ == "__main__":
-    # Test BGE embedder
-    print("=== BGE Embedder Tests ===\n")
-    
-    try:
-        embedder = BGEEmbedder()
-        
-        # Test 1: Single text embedding
-        print("Test 1: Single text embedding")
-        text = "This is a test sentence for embedding."
-        embedding = embedder.embed_text(text)
-        print(f"  Text: {text}")
-        print(f"  Embedding shape: {embedding.shape}")
-        print(f"  Embedding norm: {np.linalg.norm(embedding):.4f}")
-        print(f"  First 5 values: {embedding[:5]}")
-        print()
-        
-        # Test 2: Batch embedding
-        print("Test 2: Batch embedding")
-        texts = [
-            "Artificial intelligence is transforming technology.",
-            "Machine learning enables computers to learn from data.",
-            "Natural language processing helps machines understand text."
-        ]
-        embeddings = embedder.embed_texts(texts)
-        print(f"  Embedded {len(texts)} texts")
-        print(f"  Embeddings shape: {embeddings.shape}")
-        print()
-        
-        # Test 3: Similarity computation
-        print("Test 3: Similarity computation")
-        query = "AI and machine learning"
-        query_emb = embedder.embed_query(query)
-        
-        similarities = embedder.compute_similarities(query_emb, embeddings)
-        print(f"  Query: {query}")
-        for i, (text, sim) in enumerate(zip(texts, similarities)):
-            print(f"  Doc {i} (sim={sim:.4f}): {text[:50]}...")
-        print()
-        
-        # Test 4: DocumentChunk embedding
-        print("Test 4: DocumentChunk embedding")
-        from config.models import DocumentChunk
-        
-        chunks = [
-            DocumentChunk(
-                chunk_id=f"chunk_{i}",
-                document_id="test_doc",
-                text=text,
-                chunk_index=i,
-                start_char=0,
-                end_char=len(text),
-                token_count=len(text.split())
-            )
-            for i, text in enumerate(texts)
-        ]
-        
-        embedded_chunks = embedder.embed_chunks(chunks)
-        print(f"  Embedded {len(embedded_chunks)} chunks")
-        print(f"  First chunk has embedding: {embedded_chunks[0].embedding is not None}")
-        print(f"  Embedding length: {len(embedded_chunks[0].embedding)}")
-        print()
-        
-        # Test 5: Convenience functions
-        print("Test 5: Convenience functions")
-        test_embedding = embed_text("Quick test")
-        print(f"  Convenience embed shape: {test_embedding.shape}")
-        print()
-        
-        # Test 6: Truncation
-        print("Test 6: Text truncation")
-        long_text = "This is a test sentence. " * 1000
-        truncated = embedder.truncate_text(long_text, max_tokens=100)
-        print(f"  Original length: {len(long_text)} chars")
-        print(f"  Truncated length: {len(truncated)} chars")
-        print()
-        
-        print("✓ BGE embedder module created successfully!")
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        print("\nNote: This module requires sentence-transformers library")
-        print("Install with: pip install sentence-transformers")
+    return embedder.embed_chunks(chunks, **kwargs)

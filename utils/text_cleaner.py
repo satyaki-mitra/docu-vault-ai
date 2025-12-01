@@ -119,7 +119,7 @@ class TextCleaner:
             text = text.lower()
         
         # Final cleanup
-        text = text.strip()
+        text           = text.strip()
         
         # Log cleaning stats
         cleaned_length = len(text)
@@ -247,7 +247,7 @@ class TextCleaner:
             { list }     : List of sentences
         """
         # Common abbreviations that shouldn't trigger sentence breaks
-        abbreviations  = {'Dr.', 'Mr.', 'Mrs.', 'Ms.', 'Jr.', 'Sr.', 'Prof.', 'Inc.', 'Ltd.', 'Corp.', 'Co.', 'vs.', 'etc.', 'e.g.', 'i.e.', 'Ph.D.', 'M.D.', 'B.A.', 'M.A.', 'U.S.', 'U.K.'}
+        abbreviations    = {'Dr.', 'Mr.', 'Mrs.', 'Ms.', 'Jr.', 'Sr.', 'Prof.', 'Inc.', 'Ltd.', 'Corp.', 'Co.', 'vs.', 'etc.', 'e.g.', 'i.e.', 'Ph.D.', 'M.D.', 'B.A.', 'M.A.', 'U.S.', 'U.K.'}
         
         # Protect abbreviations
         protected_text = text
@@ -459,49 +459,3 @@ def clean_for_rag(text: str) -> str:
                              remove_extra_newlines = True,
                              preserve_structure    = True,   # Important for chunking
                             )
-
-
-
-if __name__ == "__main__":
-    # Test text cleaner
-    print("=== Text Cleaner Tests ===\n")
-    
-    # Test HTML removal
-    html_text  = "<p>This is <strong>bold</strong> text with a <a href='url'>link</a>.</p>"
-    clean_text = TextCleaner.clean(html_text, remove_html = True)
-    
-    print(f"HTML removal:\n{html_text}\n-> {clean_text}\n")
-    
-    # Test whitespace normalization
-    messy_text = "This    has     multiple   spaces\n\n\n\nand  \n\n  newlines"
-    clean_text = TextCleaner.clean(messy_text, normalize_whitespace = True)
-    
-    print(f"Whitespace normalization:\n{messy_text!r}\n-> {clean_text!r}\n")
-    
-    # Test quotation normalization
-    fancy_text = "He said "hello" and she replied 'hi'"
-    clean_text = TextCleaner.clean(fancy_text, normalize_quotes = True)
-    
-    print(f"Quote normalization:\n{fancy_text}\n-> {clean_text}\n")
-    
-    # Test sentence extraction
-    text       = "Dr. Smith works at Inc. Corp. He is from the U.S. He has a Ph.D."
-    sentences  = TextCleaner.extract_sentences(text)
-
-    print("Sentence extraction:")
-    for i, sent in enumerate(sentences, 1):
-        print(f"  {i}. {sent}")
-    
-    # Test token counting
-    text       = "This is a sample text for token counting estimation."
-    tokens     = TextCleaner.count_tokens_estimate(text)
-    
-    print(f"\nToken estimate: '{text}' -> ~{tokens} tokens")
-    
-    # Test truncation
-    long_text  = "This is a very long piece of text that needs to be truncated at some point."
-    truncated  = TextCleaner.truncate(long_text, max_length = 30, word_boundary = True)
-    
-    print(f"\nTruncation:\n{long_text}\n-> {truncated}")
-    
-    print("\n✓ All text cleaner tests passed!")

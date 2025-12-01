@@ -17,48 +17,59 @@ class ErrorCode(str, Enum):
     Standardized error codes
     """
     # File errors (1xxx)
-    FILE_NOT_FOUND         = "FILE_1001"
-    FILE_TOO_LARGE         = "FILE_1002"
-    INVALID_FILE_TYPE      = "FILE_1003"
-    FILE_CORRUPTED         = "FILE_1004"
-    FILE_UPLOAD_FAILED     = "FILE_1005"
+    FILE_NOT_FOUND            = "FILE_1001"
+    FILE_TOO_LARGE            = "FILE_1002"
+    INVALID_FILE_TYPE         = "FILE_1003"
+    FILE_CORRUPTED            = "FILE_1004"
+    FILE_UPLOAD_FAILED        = "FILE_1005"
     
     # Parsing errors (2xxx)
-    PARSE_ERROR            = "PARSE_2001"
-    PDF_PARSE_ERROR        = "PARSE_2002"
-    DOCX_PARSE_ERROR       = "PARSE_2003"
-    TEXT_ENCODING_ERROR    = "PARSE_2004"
+    PARSE_ERROR               = "PARSE_2001"
+    PDF_PARSE_ERROR           = "PARSE_2002"
+    DOCX_PARSE_ERROR          = "PARSE_2003"
+    TEXT_ENCODING_ERROR       = "PARSE_2004"
     
     # Processing errors (3xxx)
-    CHUNKING_ERROR         = "PROC_3001"
-    EMBEDDING_ERROR        = "PROC_3002"
-    INDEXING_ERROR         = "PROC_3003"
+    CHUNKING_ERROR            = "PROC_3001"
+    EMBEDDING_ERROR           = "PROC_3002"
+    INDEXING_ERROR            = "PROC_3003"
     
-    # Retrieval errors (4xxx)
-    RETRIEVAL_ERROR        = "RETR_4001"
-    VECTOR_SEARCH_ERROR    = "RETR_4002"
-    BM25_SEARCH_ERROR      = "RETR_4003"
-    NO_RESULTS_FOUND       = "RETR_4004"
     
     # LLM errors (5xxx)
-    LLM_ERROR              = "LLM_5001"
-    OLLAMA_NOT_AVAILABLE   = "LLM_5002"
-    GENERATION_TIMEOUT     = "LLM_5003"
-    CONTEXT_TOO_LONG       = "LLM_5004"
+    LLM_ERROR                 = "LLM_4001"
+    OLLAMA_NOT_AVAILABLE      = "LLM_4002"
+    GENERATION_TIMEOUT        = "LLM_4003"
+    CONTEXT_TOO_LONG          = "LLM_4004"
     
     # Validation errors (6xxx)
-    VALIDATION_ERROR       = "VAL_6001"
-    INVALID_INPUT          = "VAL_6002"
-    MISSING_REQUIRED_FIELD = "VAL_6003"
+    VALIDATION_ERROR          = "VAL_5001"
+    INVALID_INPUT             = "VAL_5002"
+    MISSING_REQUIRED_FIELD    = "VAL_5003"
     
     # System errors (7xxx)
-    SYSTEM_ERROR           = "SYS_7001"
-    DATABASE_ERROR         = "SYS_7002"
-    CACHE_ERROR            = "SYS_7003"
-    CONFIGURATION_ERROR    = "SYS_7004"
+    SYSTEM_ERROR              = "SYS_6001"
+    DATABASE_ERROR            = "SYS_6002"
+    CACHE_ERROR               = "SYS_6003"
+    CONFIGURATION_ERROR       = "SYS_6004"
+    
+    # Vector Search
+    VECTOR_SEARCH_ERROR       = "RETR_7001"
+    KEYWORD_SEARCH_ERROR      = "RETR_7002"
+    RERANKING_ERROR           = "RETR_7003"
+    CITATION_ERROR            = "RETR_7004"
+    CONTEXT_ASSEMBLY_ERROR    = "RETR_7005"
+    HYBRID_RETRIEVAL_ERROR    = "RETR_7006"
+
+    # LLM Generation
+    TOKEN_MANAGEMENT_ERROR    = "GEN_8001"
+    TEMPERATURE_CONTROL_ERROR = "GEN_8002"
+    CITATION_FORMATTING_ERROR = "GEN_8003"
+    PROMPT_BUILDING_ERROR     = "GEN_8004"
+    LLM_CLIENT_ERROR          = "GEN_8005"
+    RESPONSE_GENERATION_ERROR = "GEN_8006"
     
     # Generic
-    UNKNOWN_ERROR          = "ERR_9999"
+    UNKNOWN_ERROR             = "ERR_9999"
 
 
 class RAGException(Exception):
@@ -186,6 +197,20 @@ class TextEncodingError(ParsingException):
                         )
 
 
+class OCRException(RAGException):
+    """
+    OCR-specific exceptions
+    """
+    pass
+
+
+class ArchiveException(RAGException):
+    """
+    Archive-specific exceptions
+    """
+    pass
+
+
 class ProcessingException(RAGException):
     """
     Processing errors
@@ -229,14 +254,91 @@ class IndexingError(ProcessingException):
                         )
 
 
-class RetrievalException(RAGException):
+class VectorSearchError(RAGException):
     """
-    Retrieval errors
+    Vector search errors
     """
     pass
 
 
-class NoResultsFoundError(RetrievalException):
+class KeywordSearchError(RAGException):
+    """
+    Keyword search errors
+    """
+    pass
+
+
+class RerankingError(RAGException):
+    """
+    Reranking errors
+    """
+    pass
+
+
+class CitationError(RAGException):
+    """
+    Citation tracking errors
+    """
+    pass
+
+
+class ContextAssemblyError(RAGException):
+    """
+    Context assembly errors
+    """
+    pass
+
+
+class HybridRetrievalError(RAGException):
+    """
+    Hybrid retrieval errors
+    """
+    pass
+
+
+class TokenManagementError(RAGException):
+    """
+    Token management errors
+    """
+    pass
+
+
+class TemperatureControlError(RAGException):
+    """
+    Temperature control errors
+    """
+    pass
+
+
+class CitationFormattingError(RAGException):
+    """
+    Citation formatting errors
+    """
+    pass
+
+
+class PromptBuildingError(RAGException):
+    """
+    Prompt building errors
+    """
+    pass
+
+
+class LLMClientError(RAGException):
+    """
+    LLM client errors
+    """
+    pass
+
+
+class ResponseGenerationError(RAGException):
+    """
+    Response generation errors
+    """
+    pass
+
+
+class NoResultsFoundError(RAGException):
     """
     No results found
     """
@@ -337,9 +439,13 @@ def safe_execute(func, *args, default = None, log_errors: bool = True, **kwargs)
     Arguments:
     ----------
         func       : Function to execute
+
         *args      : Function arguments
+        
         default    : Default value on error
+        
         log_errors : Whether to log errors
+        
         **kwargs   : Function keyword arguments
     
     Returns:
@@ -432,45 +538,30 @@ def format_error_message(error: Exception, include_traceback: bool = False) -> s
     else:
         message = f"{type(error).__name__}: {str(error)}"
     
-    if include_traceback:    
+    if include_traceback:
         message += f"\n\nTraceback:\n{''.join(traceback.format_tb(error.__traceback__))}"
     
     return message
 
 
+class EvaluationError(RAGException):
+    """
+    Custom exception for evaluation-related errors
+    """
+    def __init__(self, message: str, original_error: Optional[Exception] = None):
+        super().__init__(error_type     = "EvaluationError",
+                         message        = message,
+                         original_error = original_error,
+                         status_code    = 500,
+                        )
 
-if __name__ == "__main__":
-    # Test error handling
-    print("=== Error Handler Tests ===\n")
+        self.evaluation_context = None
     
-    # Test custom exceptions
-    try:
-        raise FileTooLargeError(file_size=100_000_000, max_size=50_000_000)
-    
-    except RAGException as e:
-        print("FileTooLargeError:")
-        print(f"  Code: {e.error_code}")
-        print(f"  Message: {e.message}")
-        print(f"  Details: {e.details}")
-        print(f"  Dict: {e.to_dict()}\n")
-    
-    # Test error context
-    print("Testing ErrorContext:")
-    with ErrorContext("test operation", raise_on_error=False, test_param="value") as ctx:
-        raise ValueError("Something went wrong")
-    
-    print(f"  Error captured: {ctx.error}\n")
-    
-    # Test safe execute
-    def risky_function(x):
-        if x < 0:
-            raise ValueError("Negative value")
-        return x * 2
-    
-    result = safe_execute(risky_function, -5, default=0)
-    print(f"Safe execute with error: {result}")
-    
-    result = safe_execute(risky_function, 5, default=0)
-    print(f"Safe execute success: {result}")
-    
-    print("\n✓ All error handler tests passed!")
+
+    def with_context(self, context: Dict[str, Any]) -> 'EvaluationError':
+        """
+        Add evaluation context to the error
+        """
+        self.evaluation_context = context
+
+        return self

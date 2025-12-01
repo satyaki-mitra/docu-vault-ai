@@ -1,464 +1,331 @@
-"""
-Embedding Cache
-In-memory caching for embeddings to avoid recomputation
-"""
-
-from typing import Optional, List, Dict
-import hashlib
-import time
-from collections import OrderedDict
+# DEPENDENCIES
 import numpy as np
-
-from config.logging_config import get_logger
+from typing import List
+from typing import Optional
+from numpy.typing import NDArray
 from config.settings import get_settings
+from config.logging_config import get_logger
+from utils.error_handler import handle_errors
+from utils.cache_manager import EmbeddingCache as BaseEmbeddingCache
 
-logger = get_logger(__name__)
+
+# Setup Settings and Logging
 settings = get_settings()
+logger   = get_logger(__name__)
 
 
 class EmbeddingCache:
     """
-    LRU cache for embeddings.
-    Stores embeddings with text hash as key for fast retrieval.
+    Embedding cache with numpy array support and statistics: Wraps the base cache with embedding-specific features
     """
-    
-    def __init__(
-        self,
-        max_size: Optional[int] = None,
-        ttl_seconds: Optional[int] = None
-    ):
+    def __init__(self, max_size: int = None, ttl: int = None):
         """
-        Initialize embedding cache.
+        Initialize embedding cache
         
-        Args:
-            max_size: Maximum number of cached embeddings
-            ttl_seconds: Time-to-live for cache entries (None = no expiry)
-        """
-        self.max_size = max_size or settings.CACHE_MAX_SIZE
-        self.ttl_seconds = ttl_seconds or settings.CACHE_TTL
-        
-        # OrderedDict for LRU behavior
-        self._cache: OrderedDict[str, tuple[np.ndarray, float]] = OrderedDict()
-        
-        # Statistics
-        self._hits = 0
-        self._misses = 0
-        
-        self.logger = logger
-        self.logger.info(
-            f"EmbeddingCache initialized: max_size={self.max_size}, "
-            f"ttl={self.ttl_seconds}s"
-        )
-    
-    def _hash_text(self, text: str) -> str:
-        """
-        Generate hash for text.
-        
-        Args:
-            text: Input text
-        
-        Returns:
-            Hash string
-        """
-        return hashlib.md5(text.encode('utf-8')).hexdigest()
-    
-    def _is_expired(self, timestamp: float) -> bool:
-        """
-        Check if cache entry is expired.
-        
-        Args:
-            timestamp: Entry timestamp
-        
-        Returns:
-            True if expired
-        """
-        if self.ttl_seconds is None:
-            return False
-        
-        return (time.time() - timestamp) > self.ttl_seconds
-    
-    def get(self, text: str) -> Optional[np.ndarray]:
-        """
-        Get embedding from cache.
-        
-        Args:
-            text: Text to lookup
-        
-        Returns:
-            Cached embedding or None
-        """
-        key = self._hash_text(text)
-        
-        if key in self._cache:
-            embedding, timestamp = self._cache[key]
+        Arguments:
+        ----------
+            max_size { int } : Maximum cache size
             
-            # Check expiry
-            if self._is_expired(timestamp):
-                del self._cache[key]
-                self._misses += 1
-                return None
-            
-            # Move to end (LRU)
-            self._cache.move_to_end(key)
-            self._hits += 1
-            
-            return embedding
+            ttl      { int } : Time to live in seconds
+        """
+        self.logger               = logger
+        self.max_size             = max_size or settings.CACHE_MAX_SIZE
+        self.ttl                  = ttl or settings.CACHE_TTL
         
-        self._misses += 1
-        return None
+        # Initialize base cache
+        self.base_cache           = BaseEmbeddingCache(max_size = self.max_size,
+                                                       ttl      = self.ttl,
+                                                      )
+        
+        # Enhanced statistics
+        self.hits                 = 0
+        self.misses               = 0
+        self.embeddings_generated = 0
+        
+        self.logger.info(f"Initialized EmbeddingCache: max_size={self.max_size}, ttl={self.ttl}")
     
-    def set(self, text: str, embedding: np.ndarray):
-        """
-        Store embedding in cache.
-        
-        Args:
-            text: Text key
-            embedding: Embedding to cache
-        """
-        key = self._hash_text(text)
-        
-        # Remove if exists (for LRU reordering)
-        if key in self._cache:
-            del self._cache[key]
-        
-        # Add to cache
-        self._cache[key] = (embedding, time.time())
-        
-        # Evict oldest if over size limit
-        while len(self._cache) > self.max_size:
-            self._cache.popitem(last=False)  # Remove oldest
-    
-    def get_batch(self, texts: List[str]) -> tuple[List[Optional[np.ndarray]], List[int]]:
-        """
-        Get multiple embeddings from cache.
-        
-        Args:
-            texts: List of texts
-        
-        Returns:
-            Tuple of (embeddings_or_none, missing_indices)
-        """
-        results = []
-        missing_indices = []
-        
-        for i, text in enumerate(texts):
-            embedding = self.get(text)
-            results.append(embedding)
-            
-            if embedding is None:
-                missing_indices.append(i)
-        
-        return results, missing_indices
-    
-    def set_batch(self, texts: List[str], embeddings: np.ndarray):
-        """
-        Store multiple embeddings in cache.
-        
-        Args:
-            texts: List of texts
-            embeddings: Array of embeddings
-        """
-        for text, embedding in zip(texts, embeddings):
-            self.set(text, embedding)
-    
-    def invalidate(self, text: str) -> bool:
-        """
-        Remove specific entry from cache.
-        
-        Args:
-            text: Text to invalidate
-        
-        Returns:
-            True if entry was found and removed
-        """
-        key = self._hash_text(text)
-        
-        if key in self._cache:
-            del self._cache[key]
-            return True
-        
-        return False
-    
-    def clear(self):
-        """Clear entire cache"""
-        self._cache.clear()
-        self._hits = 0
-        self._misses = 0
-        self.logger.info("Cache cleared")
-    
-    def get_statistics(self) -> dict:
-        """
-        Get cache statistics.
-        
-        Returns:
-            Statistics dictionary
-        """
-        total_requests = self._hits + self._misses
-        hit_rate = (self._hits / total_requests * 100) if total_requests > 0 else 0
-        
-        return {
-            "size": len(self._cache),
-            "max_size": self.max_size,
-            "hits": self._hits,
-            "misses": self._misses,
-            "total_requests": total_requests,
-            "hit_rate_percent": hit_rate,
-            "ttl_seconds": self.ttl_seconds,
-        }
-    
-    def resize(self, new_max_size: int):
-        """
-        Resize cache.
-        
-        Args:
-            new_max_size: New maximum size
-        """
-        self.max_size = new_max_size
-        
-        # Evict oldest entries if needed
-        while len(self._cache) > self.max_size:
-            self._cache.popitem(last=False)
-        
-        self.logger.info(f"Cache resized to {new_max_size}")
-    
-    def prune_expired(self) -> int:
-        """
-        Remove all expired entries.
-        
-        Returns:
-            Number of entries removed
-        """
-        if self.ttl_seconds is None:
-            return 0
-        
-        expired_keys = [
-            key for key, (_, timestamp) in self._cache.items()
-            if self._is_expired(timestamp)
-        ]
-        
-        for key in expired_keys:
-            del self._cache[key]
-        
-        if expired_keys:
-            self.logger.info(f"Pruned {len(expired_keys)} expired entries")
-        
-        return len(expired_keys)
-    
-    def get_memory_usage(self) -> dict:
-        """
-        Estimate memory usage.
-        
-        Returns:
-            Memory usage dictionary
-        """
-        if not self._cache:
-            return {
-                "total_bytes": 0,
-                "total_mb": 0,
-                "avg_bytes_per_entry": 0,
-            }
-        
-        # Sample first entry to estimate
-        sample_embedding = next(iter(self._cache.values()))[0]
-        bytes_per_embedding = sample_embedding.nbytes
-        
-        total_bytes = len(self._cache) * bytes_per_embedding
-        total_mb = total_bytes / (1024 * 1024)
-        
-        return {
-            "total_bytes": total_bytes,
-            "total_mb": total_mb,
-            "avg_bytes_per_entry": bytes_per_embedding,
-            "num_entries": len(self._cache),
-        }
-    
-    def __len__(self) -> int:
-        """Get number of cached entries"""
-        return len(self._cache)
-    
-    def __contains__(self, text: str) -> bool:
-        """Check if text is in cache"""
-        key = self._hash_text(text)
-        return key in self._cache
 
-
-class CachedEmbedder:
-    """
-    Wrapper that adds caching to an embedder.
-    """
-    
-    def __init__(
-        self,
-        embedder,
-        cache: Optional[EmbeddingCache] = None
-    ):
+    def get_embedding(self, text: str) -> Optional[NDArray]:
         """
-        Initialize cached embedder.
+        Get embedding from cache
         
-        Args:
-            embedder: Base embedder (BGEEmbedder)
-            cache: Cache instance (creates new if None)
-        """
-        self.embedder = embedder
-        self.cache = cache or EmbeddingCache()
-        self.logger = logger
-    
-    def embed_text(self, text: str) -> np.ndarray:
-        """
-        Embed text with caching.
-        
-        Args:
-            text: Input text
+        Arguments:
+        ----------
+            text { str }   : Input text
         
         Returns:
-            Embedding vector
+        --------
+               { NDArray } : Cached embedding or None
         """
-        # Check cache
-        cached = self.cache.get(text)
+        cached = self.base_cache.get_embedding(text)
+        
         if cached is not None:
-            return cached
+            self.hits += 1
+            
+            # Convert list back to numpy array
+            return np.array(cached)
         
-        # Generate embedding
-        embedding = self.embedder.embed_text(text)
-        
-        # Store in cache
-        self.cache.set(text, embedding)
-        
-        return embedding
+        else:
+            self.misses += 1
+            return None
     
-    def embed_texts(
-        self,
-        texts: List[str],
-        show_progress: bool = False
-    ) -> np.ndarray:
+
+    def set_embedding(self, text: str, embedding: NDArray):
         """
-        Embed multiple texts with caching.
+        Store embedding in cache
         
-        Args:
-            texts: List of texts
-            show_progress: Show progress bar
+        Arguments:
+        ----------
+            text      { str }     : Input text
+
+            embedding { NDArray } : Embedding vector
+        """
+        # Convert numpy array to list for serialization
+        embedding_list             = embedding.tolist()
+        
+        self.base_cache.set_embedding(text, embedding_list)
+
+        self.embeddings_generated += 1
+    
+
+    def batch_get_embeddings(self, texts: List[str]) -> tuple[List[Optional[NDArray]], List[str]]:
+        """
+        Get multiple embeddings from cache
+        
+        Arguments:
+        ----------
+            texts { list } : List of texts
         
         Returns:
-            Array of embeddings
+        --------
+             { tuple }     : Tuple of (cached_embeddings, missing_texts)
         """
-        # Check cache for all texts
-        cached_results, missing_indices = self.cache.get_batch(texts)
+        cached_embeddings = list()
+        missing_texts     = list()
         
-        if not missing_indices:
-            # All cached
-            return np.array([emb for emb in cached_results])
-        
-        # Generate embeddings for missing texts
-        missing_texts = [texts[i] for i in missing_indices]
-        new_embeddings = self.embedder.embed_texts(
-            missing_texts,
-            show_progress=show_progress
-        )
-        
-        # Update cache
-        self.cache.set_batch(missing_texts, new_embeddings)
-        
-        # Combine cached and new embeddings
-        final_embeddings = []
-        new_idx = 0
-        
-        for i, cached in enumerate(cached_results):
-            if cached is not None:
-                final_embeddings.append(cached)
+        for text in texts:
+            embedding = self.get_embedding(text)
+            
+            if embedding is not None:
+                cached_embeddings.append(embedding)
+            
             else:
-                final_embeddings.append(new_embeddings[new_idx])
-                new_idx += 1
+                missing_texts.append(text)
+                cached_embeddings.append(None)
         
-        return np.array(final_embeddings)
+        return cached_embeddings, missing_texts
     
-    def get_cache_stats(self) -> dict:
-        """Get cache statistics"""
-        return self.cache.get_statistics()
+
+    def batch_set_embeddings(self, texts: List[str], embeddings: List[NDArray]):
+        """
+        Store multiple embeddings in cache
+        
+        Arguments:
+        ----------
+            texts      { list } : List of texts
+
+            embeddings { list } : List of embedding vectors
+        """
+        if (len(texts) != len(embeddings)):
+            raise ValueError("Texts and embeddings must have same length")
+        
+        for text, embedding in zip(texts, embeddings):
+            self.set_embedding(text, embedding)
+    
+
+    def get_cached_embeddings(self, texts: List[str], embed_function: callable, batch_size: Optional[int] = None) -> List[NDArray]:
+        """
+        Smart embedding getter: uses cache for existing, generates for missing
+        
+        Arguments:
+        ----------
+            texts          { list }     : List of texts
+
+            embed_function { callable } : Function to generate embeddings for missing texts
+            
+            batch_size     { int }      : Batch size for generation
+        
+        Returns:
+        --------
+                       { list }         : List of embeddings
+        """
+        # Get cached embeddings
+        cached_embeddings, missing_texts = self.batch_get_embeddings(texts = texts)
+        
+        if not missing_texts:
+            self.logger.debug(f"All {len(texts)} embeddings found in cache")
+            return cached_embeddings
+        
+        # Generate missing embeddings
+        self.logger.info(f"Generating {len(missing_texts)} embeddings ({(len(missing_texts)/len(texts))*100:.1f}% cache miss)")
+        
+        missing_embeddings               = embed_function(missing_texts, batch_size = batch_size)
+        
+        # Store new embeddings in cache
+        self.batch_set_embeddings(missing_texts, missing_embeddings)
+        
+        # Combine results
+        result_embeddings = list()
+        missing_idx       = 0
+        
+        for emb in cached_embeddings:
+            if emb is not None:
+                result_embeddings.append(emb)
+            
+            else:
+                result_embeddings.append(missing_embeddings[missing_idx])
+                missing_idx += 1
+        
+        return result_embeddings
+    
+
+    def clear(self):
+        """
+        Clear entire cache
+        """
+        self.base_cache.clear()
+        self.hits                  = 0
+        self.misses                = 0
+        self.embeddings_generated  = 0
+        
+        self.logger.info("Cleared embedding cache")
+    
+
+    def get_stats(self) -> dict:
+        """
+        Get cache statistics
+        
+        Returns:
+        --------
+            { dict }    : Statistics dictionary
+        """
+        base_stats     = self.base_cache.get_stats()
+        
+        total_requests = self.hits + self.misses
+        hit_rate       = (self.hits / total_requests * 100) if (total_requests > 0) else 0
+        
+        stats = {**base_stats,
+                 "hits"                  : self.hits,
+                 "misses"                : self.misses,
+                 "hit_rate_percentage"   : hit_rate,
+                 "embeddings_generated"  : self.embeddings_generated,
+                 "cache_size"            : self.base_cache.cache.size(),
+                 "max_size"              : self.max_size,
+                }
+        
+        return stats
+    
+
+    def save_to_file(self, file_path: str) -> bool:
+        """
+        Save cache to file
+        
+        Arguments:
+        ----------
+            file_path { str } : Path to save file
+        
+        Returns:
+        --------
+               { bool }       : True if successful
+        """
+        return self.base_cache.save_to_file(file_path)
+    
+
+    def load_from_file(self, file_path: str) -> bool:
+        """
+        Load cache from file
+        
+        Arguments:
+        ----------
+            file_path { str } : Path to load file
+        
+        Returns:
+        --------
+               { bool }       : True if successful
+        """
+        return self.base_cache.load_from_file(file_path)
+    
+
+    def warm_cache(self, texts: List[str], embed_function: callable, batch_size: Optional[int] = None):
+        """
+        Pre-populate cache with embeddings
+        
+        Arguments:
+        ----------
+            texts            { list }   : List of texts to warm cache with
+
+            embed_function { callable } : Embedding generation function
+            
+            batch_size       { int }    : Batch size
+        """
+        # Check which texts are not in cache
+        _, missing_texts = self.batch_get_embeddings(texts = texts)
+        
+        if not missing_texts:
+            self.logger.info("Cache already warm for all texts")
+            return
+        
+        self.logger.info(f"Warming cache with {len(missing_texts)} embeddings")
+        
+        # Generate and cache embeddings
+        embeddings = embed_function(missing_texts, batch_size = batch_size)
+
+        self.batch_set_embeddings(missing_texts, embeddings)
+        
+        self.logger.info(f"Cache warming complete: added {len(missing_texts)} embeddings")
 
 
-# Global cache instance
-_global_cache = None
+# Global embedding cache instance
+_embedding_cache = None
 
 
-def get_global_cache() -> EmbeddingCache:
+def get_embedding_cache() -> EmbeddingCache:
     """
-    Get global cache instance.
+    Get global embedding cache instance
     
     Returns:
-        EmbeddingCache instance
+    --------
+        { EmbeddingCache } : EmbeddingCache instance
     """
-    global _global_cache
-    if _global_cache is None:
-        _global_cache = EmbeddingCache()
-    return _global_cache
+    global _embedding_cache
+
+    if _embedding_cache is None:
+        _embedding_cache = EmbeddingCache()
+    
+    return _embedding_cache
 
 
-if __name__ == "__main__":
-    # Test embedding cache
-    print("=== Embedding Cache Tests ===\n")
+def cache_embeddings(texts: List[str], embeddings: List[NDArray]):
+    """
+    Convenience function to cache embeddings
     
-    cache = EmbeddingCache(max_size=10, ttl_seconds=None)
+    Arguments:
+    ----------
+        texts      { list } : List of texts
+
+        embeddings { list } : List of embeddings
+    """
+    cache = get_embedding_cache()
+
+    cache.batch_set_embeddings(texts, embeddings)
+
+
+def get_cached_embeddings(texts: List[str], embed_function: callable, **kwargs) -> List[NDArray]:
+    """
+    Convenience function to get cached embeddings
     
-    # Test 1: Basic set/get
-    print("Test 1: Basic cache operations")
-    test_text = "This is a test sentence."
-    test_embedding = np.random.rand(384)  # Fake embedding
+    Arguments:
+    ----------
+        texts          { list } : List of texts
+
+        embed_function { callable } : Embedding function
+        
+        **kwargs                   : Additional arguments
     
-    cache.set(test_text, test_embedding)
-    retrieved = cache.get(test_text)
-    
-    print(f"  Set embedding: shape={test_embedding.shape}")
-    print(f"  Retrieved: shape={retrieved.shape}")
-    print(f"  Match: {np.allclose(test_embedding, retrieved)}")
-    print()
-    
-    # Test 2: Cache hit/miss
-    print("Test 2: Cache hit/miss")
-    _ = cache.get(test_text)  # Hit
-    _ = cache.get("Not in cache")  # Miss
-    
-    stats = cache.get_statistics()
-    print(f"  Hits: {stats['hits']}")
-    print(f"  Misses: {stats['misses']}")
-    print(f"  Hit rate: {stats['hit_rate_percent']:.1f}%")
-    print()
-    
-    # Test 3: Batch operations
-    print("Test 3: Batch operations")
-    texts = [f"Sentence {i}" for i in range(5)]
-    embeddings = np.random.rand(5, 384)
-    
-    cache.set_batch(texts, embeddings)
-    cached, missing = cache.get_batch(texts)
-    
-    print(f"  Cached {len(texts)} texts")
-    print(f"  Retrieved: {len([c for c in cached if c is not None])}")
-    print(f"  Missing: {len(missing)}")
-    print()
-    
-    # Test 4: LRU eviction
-    print("Test 4: LRU eviction")
-    for i in range(15):
-        cache.set(f"Text {i}", np.random.rand(384))
-    
-    stats = cache.get_statistics()
-    print(f"  Added 15 items to cache with max_size=10")
-    print(f"  Current size: {stats['size']}")
-    print()
-    
-    # Test 5: Memory usage
-    print("Test 5: Memory usage")
-    memory = cache.get_memory_usage()
-    print(f"  Total memory: {memory['total_mb']:.2f} MB")
-    print(f"  Entries: {memory['num_entries']}")
-    print(f"  Avg per entry: {memory['avg_bytes_per_entry']:,} bytes")
-    print()
-    
-    # Test 6: Clear cache
-    print("Test 6: Clear cache")
-    cache.clear()
-    stats = cache.get_statistics()
-    print(f"  Size after clear: {stats['size']}")
-    print()
-    
-    print("✓ Embedding cache module created successfully!")
+    Returns:
+    --------
+                 { list }          : List of embeddings
+    """
+    cache = get_embedding_cache()
+
+    return cache.get_cached_embeddings(texts, embed_function, **kwargs)

@@ -145,6 +145,9 @@ def setup_logging(log_level: str = "INFO", log_dir: Optional[Path] = None, log_f
     logging.getLogger("transformers").setLevel(logging.WARNING)
     logging.getLogger("torch").setLevel(logging.WARNING)
     logging.getLogger("playwright").setLevel(logging.WARNING)
+    logging.getLogger("faiss").setLevel(logging.WARNING)
+    logging.getLogger("llama_index").setLevel(logging.WARNING)
+    logging.getLogger("langchain").setLevel(logging.WARNING)
     
     logger.info(f"Logging configured: level={log_level}, console={enable_console}, file={enable_file}")
     
@@ -292,48 +295,7 @@ def log_exceptions(logger: Optional[logging.Logger] = None, reraise: bool = True
 
 
 # Initialize logging on module import (with defaults) : This will be overridden by app.py with actual settings
-_default_logger = setup_logging(log_level      = "INFO",
+_default_logger = setup_logging(log_level      = "DEBUG",
                                 enable_console = True,
-                                enable_file    = False, 
+                                enable_file    = True, 
                                )
-
-
-if __name__ == "__main__":
-    # Test logging configuration
-    from config.settings import settings
-    
-    # Setup with actual settings
-    logger      = setup_logging(log_level      = settings.LOG_LEVEL,
-                                log_dir        = settings.LOG_DIR,
-                                log_format     = settings.LOG_FORMAT,
-                                enable_console = True,
-                                enable_file    = True,
-                               )
-    
-    # Test different log levels
-    test_logger = get_logger(__name__)
-
-    test_logger.debug("This is a debug message")
-    test_logger.info("This is an info message")
-    test_logger.warning("This is a warning message")
-    test_logger.error("This is an error message")
-    test_logger.critical("This is a critical message")
-    
-    # Test context logger
-    ctx_logger  = get_context_logger(__name__, request_id = "test123", user = "admin")
-
-    ctx_logger.info("Processing with context")
-    
-    # Test timed logger
-    with TimedLogger(test_logger, "test_operation"):
-        import time
-        time.sleep(0.1)
-    
-    # Test decorator
-    @log_execution(test_logger)
-    def test_function():
-        return "success"
-    
-    result = test_function()
-    
-    print(f"\nFunction result: {result}")

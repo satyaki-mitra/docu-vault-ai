@@ -16,7 +16,7 @@ from utils.error_handler import handle_errors
 from utils.error_handler import DOCXParseError
 
 
-# Setup Logger
+# Setup Logging
 logger = get_logger(__name__)
 
 
@@ -98,7 +98,7 @@ class DOCXParser:
             # Clean text
             if clean_text:
                 text_content = TextCleaner.clean(text_content,
-                                                 remove_html          = False,  # DOCX doesn't have HTML
+                                                 remove_html          = False, 
                                                  normalize_whitespace = True,
                                                  preserve_structure   = True,
                                                 )
@@ -272,12 +272,12 @@ class DOCXParser:
         file_size       = file_path.stat().st_size
         
         # Generate document ID
-        doc_hash        = hashlib.md5(str(file_path).encode()).hexdigest()[:8]
+        doc_hash        = hashlib.md5(str(file_path).encode()).hexdigest()
         doc_id          = f"doc_{int(datetime.now().timestamp())}_{doc_hash}"
         
         # Count paragraphs and estimate pages
-
         num_paragraphs  = len(doc.paragraphs)
+        
         # Rough estimate: 500 words per page, 5-10 words per paragraph
         estimated_pages = max(1, num_paragraphs // 50)
         
@@ -423,48 +423,3 @@ class DOCXParser:
         except Exception as e:
             self.logger.error(f"Failed to extract heading sections: {repr(e)}")
             raise DOCXParseError(str(file_path), original_error = e)
-
-
-if __name__ == "__main__":
-    # Test DOCX parser
-    print("=== DOCX Parser Tests ===\n")
-    
-    parser    = DOCXParser()
-    
-    # Create a test DOCX (you'll need an actual DOCX file for this)
-    test_docx = Path("test_document.docx")
-    
-    if test_docx.exists():
-        # Test basic parsing
-        print("Test 1: Basic parsing")
-        text, metadata = parser.parse(test_docx)
-        
-        print(f"  Extracted: {len(text)} characters")
-        print(f"  Paragraphs: {metadata.extra.get('num_paragraphs', 0)}")
-        print(f"  Tables: {metadata.extra.get('num_tables', 0)}")
-        print(f"  Title: {metadata.title}")
-        print(f"  Author: {metadata.author}")
-        print()
-        
-        # Test paragraph count
-        print("Test 2: Paragraph count")
-        para_count = parser.get_paragraph_count(test_docx)
-        
-        print(f"  Total paragraphs: {para_count}")
-        print()
-        
-        # Test heading sections
-        print("Test 3: Heading sections")
-        sections = parser.extract_heading_sections(test_docx)
-        
-        print(f"  Found {len(sections)} sections:")
-        for heading in sections.keys():
-            print(f"    - {heading}")
-        
-        print()
-
-    else:
-        print(f"Test DOCX not found: {test_docx}")
-        print("Please create a test DOCX file to run tests")
-    
-    print("✓ DOCX parser module created successfully!")
