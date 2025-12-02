@@ -104,6 +104,21 @@ class Reranker:
             
             # Get cross-encoder scores
             scores   = self.model.predict(pairs)
+
+            # Normalize Cross-encoder scores
+            if (len(scores) > 0):
+                # Cross-encoder outputs logits that can be negative: Apply min-max normalization to [0, 1]
+                min_score   = min(scores)
+                max_score   = max(scores)
+                score_range = max_score - min_score
+                
+                # Avoid division by zero
+                if (score_range > 1e-6):  
+                    scores = [(s - min_score) / score_range for s in scores]
+                    
+                else:
+                    # All scores are the same, set to 0.5
+                    scores = [0.5] * len(scores)
             
             # Update scores and rerank
             reranked = list()
