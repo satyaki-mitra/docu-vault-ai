@@ -184,7 +184,7 @@ class ResponseGenerator:
             self.generation_count      += 1
             self.total_generation_time += total_time
             
-            self.logger.info(f"✓ Response generated successfully in {total_time:.0f}ms")
+            self.logger.info(f"Response generated successfully in {total_time:.0f}ms")
             
             return response
             

@@ -1040,8 +1040,8 @@ async def get_configuration():
                                "is_ready"          : state.is_ready,
                                "llm_healthy"       : health_status["llm"],
                               },
-            "health"        : health_status
-        }
+            "health"        : health_status,
+           }
 
 
 @app.post("/api/configuration")

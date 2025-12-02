@@ -121,10 +121,10 @@ class IndexBuilder:
                                       "vector_dimension"   : embeddings.shape[1] if (len(embeddings) > 0) else 0,
                                      }
         
-        self.logger.info(f"✓ Index building completed: {len(chunks_with_embeddings)} chunks in {build_time:.2f}s")
-        self.logger.info(f"✓ FAISS index: {faiss_stats.get('vectors', 0)} vectors")
-        self.logger.info(f"✓ BM25 index: {bm25_stats.get('documents', 0)} documents")
-        self.logger.info(f"✓ Metadata: {metadata_stats.get('stored_chunks', 0)} chunks stored")
+        self.logger.info(f"Index building completed: {len(chunks_with_embeddings)} chunks in {build_time:.2f}s")
+        self.logger.info(f"FAISS index: {faiss_stats.get('vectors', 0)} vectors")
+        self.logger.info(f"BM25 index: {bm25_stats.get('documents', 0)} documents")
+        self.logger.info(f"Metadata: {metadata_stats.get('stored_chunks', 0)} chunks stored")
         
         return stats
     
