@@ -213,13 +213,9 @@ class ChunkWithScore(BaseModel):
     Chunk with retrieval score
     """
     chunk            : DocumentChunk
-    score            : float                                             = Field(..., ge = 0.0, le = 1.0, description = "Relevance score")
-    rank             : int                                               = Field(..., ge = 1, description = "Rank in results")
-    retrieval_method : Literal['vector', 'bm25', 'hybrid', 'reranked',
-                               'hybrid_weighted', 'hybrid_rrf',
-                               'hybrid_comb_sum', 'hybrid_diversified',
-                               'vector_diversified', 'bm25_diversified',
-                               'reranked_diversified', 'test']           = 'vector'
+    score            : float          = Field(..., description = "Relevance score (can be any real number)")
+    rank             : int            = Field(..., ge = 1, description = "Rank in results")
+    retrieval_method : str            = Field('vector', description = "Retrieval method used")
     
 
     @property
@@ -492,7 +488,7 @@ class SystemStats(BaseModel):
     # Query stats
     total_queries       : int            = Field(0, ge = 0)
     avg_query_time_ms   : float          = Field(0.0, ge = 0.0)
-    avg_retrieval_score : float          = Field(0.0, ge = 0.0, le = 1.0)
+    avg_retrieval_score : float          = Field(0.0, ge = 0.0)
     
     # Timestamp
     generated_at        : datetime       = Field(default_factory = datetime.now)

@@ -41,6 +41,44 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        /* Improve chat readability */
+        .chat-message p {
+            margin-bottom: 0.75rem;
+            line-height: 1.6;
+        }
+
+        .chat-message ul {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .chat-message li {
+            margin-bottom: 0.25rem;
+        }
+
+        .chat-message strong {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .prose {
+            max-width: 65ch;
+        }
+
+        .prose-sm {
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        /* Source cards */
+        .source-card {
+            transition: all 0.2s ease;
+        }
+
+        .source-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -687,6 +725,41 @@
                                         <i class="fas fa-save mr-2"></i>Save Configuration
                                     </button>
                                 </div>
+
+                                <!-- Configuration Status -->
+                                <div class="mt-8 pt-6 border-t">
+                                    <h4 class="font-medium mb-4 text-gray-700">Current System Status</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                            <div class="flex justify-between mb-2">
+                                                <span class="text-gray-600">LLM Health:</span>
+                                                <span id="config-llm-health" class="font-medium">-</span>
+                                            </div>
+                                            <div class="flex justify-between mb-2">
+                                                <span class="text-gray-600">Vector Store:</span>
+                                                <span id="config-vector-store" class="font-medium">-</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-600">Embeddings:</span>
+                                                <span id="config-embeddings" class="font-medium">-</span>
+                                            </div>
+                                        </div>
+                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                            <div class="flex justify-between mb-2">
+                                                <span class="text-gray-600">Retrieval:</span>
+                                                <span id="config-retrieval" class="font-medium">-</span>
+                                            </div>
+                                            <div class="flex justify-between mb-2">
+                                                <span class="text-gray-600">Generation:</span>
+                                                <span id="config-generation" class="font-medium">-</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-600">Overall Status:</span>
+                                                <span id="config-overall" class="font-medium">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -694,9 +767,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Hidden file input -->
-    <input type="file" id="file-input" multiple style="display: none;">
 
     <script>
         // API Service for backend communication
@@ -825,6 +895,16 @@
                 
                 if (!response.ok) {
                     throw new Error(`System info fetch failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async getHealth() {
+                const response = await fetch(`${this.baseURL}/api/health`);
+                
+                if (!response.ok) {
+                    throw new Error(`Health check failed: ${response.statusText}`);
                 }
                 
                 return await response.json();
@@ -1112,9 +1192,12 @@
             
             // Enable chat
             document.getElementById('send-btn').disabled = false;
+            document.getElementById('chat-input').disabled = false;
             document.getElementById('system-status').textContent = 'Ready';
             document.getElementById('system-status').className = 'font-medium text-green-600';
+            document.getElementById('progress-bar').style.width = '100%';
             document.getElementById('progress-bar').className = 'bg-green-600 h-2 rounded-full progress-bar';
+            document.getElementById('status-details').textContent = 'System ready for queries';
             
             // Show chat section automatically
             setTimeout(() => {
@@ -1125,24 +1208,56 @@
             showNotification('Knowledge base setup complete! You can now chat with your documents.', 'success');
         }
 
+        async function updateSystemStatus() {
+            try {
+                const systemInfo = await apiService.getSystemInfo();
+                const health = await apiService.getHealth();
+                
+                // Update system status
+                const systemStatus = document.getElementById('system-status');
+                if (systemInfo.system_state && systemInfo.system_state.is_ready) {
+                    systemStatus.textContent = 'Ready';
+                    systemStatus.className = 'font-medium text-green-600';
+                    
+                    // Update progress bar
+                    document.getElementById('progress-bar').style.width = '100%';
+                    document.getElementById('progress-bar').className = 'bg-green-600 h-2 rounded-full progress-bar';
+                    systemReady = true;
+                } else {
+                    systemStatus.textContent = 'Not Ready';
+                    systemStatus.className = 'font-medium text-red-600';
+                    document.getElementById('progress-bar').style.width = '0%';
+                    systemReady = false;
+                }
+                
+                // Update status details
+                const statusDetails = document.getElementById('status-details');
+                if (health.components && health.components.llm === false) {
+                    statusDetails.textContent = 'LLM service unavailable';
+                } else if (systemInfo.system_state && !systemInfo.system_state.is_ready) {
+                    statusDetails.textContent = 'Please upload and process documents';
+                } else {
+                    statusDetails.textContent = 'All systems operational';
+                }
+                
+            } catch (error) {
+                console.error('System status check error:', error);
+                document.getElementById('system-status').textContent = 'Offline';
+                document.getElementById('system-status').className = 'font-medium text-red-600';
+                document.getElementById('progress-bar').style.width = '0%';
+                document.getElementById('status-details').textContent = 'Cannot connect to backend';
+                systemReady = false;
+            }
+        }
+
         function startStatusPolling() {
             setInterval(async () => {
                 try {
-                    const systemInfo = await apiService.getSystemInfo();
-                    updateSystemStatus(systemInfo);
+                    await updateSystemStatus();
                 } catch (error) {
                     console.error('Status polling error:', error);
                 }
-            }, 5000);
-        }
-
-        function updateSystemStatus(systemInfo) {
-            const status = systemInfo.system_state;
-            document.getElementById('system-status').textContent = status.is_ready ? 'Ready' : 
-                                                                  status.processing_status === 'processing' ? 'Processing' : 'Setting up';
-            document.getElementById('system-status').className = status.is_ready ? 
-                'font-medium text-green-600' : 
-                'font-medium text-yellow-600';
+            }, 10000); // Check every 10 seconds
         }
 
         function showAppSection(section) {
@@ -1305,23 +1420,42 @@
         function addChatMessage(role, content, sources = [], metrics = {}) {
             const chatMessages = document.getElementById('chat-messages');
             const messageDiv = document.createElement('div');
-            messageDiv.className = `chat-message ${role === 'user' ? 'bg-white border' : 'bg-gray-50 border'} rounded-lg p-4`;
+            messageDiv.className = `chat-message ${role === 'user' ? 'bg-white border' : 'bg-gray-50 border'} rounded-lg p-4 mb-4`;
             
             let sourcesHTML = '';
             if (sources && sources.length > 0) {
                 sourcesHTML = `
-                    <div class="mt-3 pt-3 border-t border-gray-200">
-                        <div class="text-xs font-medium text-gray-600 mb-2">Sources:</div>
-                        <div class="space-y-1">
-                            ${sources.map(source => {
-                                // Handle different source formats
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-file-alt text-gray-500 mr-2"></i>
+                            <span class="text-sm font-medium text-gray-700">Sources</span>
+                        </div>
+                        <div class="space-y-3">
+                            ${sources.map((source, index) => {
                                 const textPreview = source.text_preview || source.text || 'Source content';
                                 const score = source.score !== undefined ? source.score : 0;
+                                const documentId = source.document_id || 'Unknown';
+                                const scoreColor = score > 0.7 ? 'bg-green-100 text-green-800' : 
+                                                score > 0.4 ? 'bg-yellow-100 text-yellow-800' : 
+                                                'bg-blue-100 text-blue-800';
+                                
                                 return `
-                                    <div class="text-xs text-gray-500">
-                                        <i class="fas fa-file-alt mr-1"></i>
-                                        ${textPreview}
-                                        <span class="text-gray-400 ml-2">(Score: ${score.toFixed(3)})</span>
+                                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div class="flex items-center">
+                                                <span class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-1 rounded mr-2">[${index + 1}]</span>
+                                                <span class="text-xs font-medium text-gray-600">${documentId.substring(0, 20)}${documentId.length > 20 ? '...' : ''}</span>
+                                            </div>
+                                            <span class="text-xs font-medium px-2 py-1 rounded ${scoreColor}">${score.toFixed(3)}</span>
+                                        </div>
+                                        <div class="text-sm text-gray-700 leading-relaxed">
+                                            ${this.escapeHtml(textPreview)}
+                                        </div>
+                                        ${source.page_number ? 
+                                            `<div class="text-xs text-gray-500 mt-2">
+                                                <i class="fas fa-file text-gray-400 mr-1"></i>Page ${source.page_number}
+                                            </div>` : ''
+                                        }
                                     </div>
                                 `;
                             }).join('')}
@@ -1332,27 +1466,61 @@
             
             let metricsHTML = '';
             if (metrics && Object.keys(metrics).length > 0) {
+                const retrievalTime = metrics.retrieval_time || 0;
+                const generationTime = metrics.generation_time || 0;
+                const totalTime = metrics.total_time || 0;
+                const tokensUsed = metrics.tokens_used || 0;
+                
                 metricsHTML = `
-                    <div class="mt-2 text-xs text-gray-500">
-                        ${metrics.retrieval_time ? `Retrieval: ${metrics.retrieval_time}ms` : ''}
-                        ${metrics.generation_time ? ` • Generation: ${metrics.generation_time}ms` : ''}
-                        ${metrics.tokens_used ? ` • Tokens: ${metrics.tokens_used}` : ''}
-                        ${metrics.total_time ? ` • Total: ${metrics.total_time}ms` : ''}
+                    <div class="mt-4 pt-3 border-t border-gray-200">
+                        <div class="flex flex-wrap gap-3 text-xs text-gray-600">
+                            ${retrievalTime ? `
+                                <div class="flex items-center">
+                                    <i class="fas fa-search text-blue-500 mr-1"></i>
+                                    <span>Retrieval: <span class="font-medium">${retrievalTime}ms</span></span>
+                                </div>` : ''
+                            }
+                            ${generationTime ? `
+                                <div class="flex items-center">
+                                    <i class="fas fa-robot text-purple-500 mr-1"></i>
+                                    <span>Generation: <span class="font-medium">${generationTime}ms</span></span>
+                                </div>` : ''
+                            }
+                            ${tokensUsed ? `
+                                <div class="flex items-center">
+                                    <i class="fas fa-code text-green-500 mr-1"></i>
+                                    <span>Tokens: <span class="font-medium">${tokensUsed}</span></span>
+                                </div>` : ''
+                            }
+                            ${totalTime ? `
+                                <div class="flex items-center">
+                                    <i class="fas fa-clock text-orange-500 mr-1"></i>
+                                    <span>Total: <span class="font-medium">${totalTime}ms</span></span>
+                                </div>` : ''
+                            }
+                        </div>
                     </div>
                 `;
             }
+            
+            // Format the content with better spacing
+            const formattedContent = this.formatChatContent(content);
             
             messageDiv.innerHTML = `
                 <div class="flex items-start space-x-3">
                     <div class="w-8 h-8 ${role === 'user' ? 'bg-indigo-100' : 'bg-gray-200'} rounded-full flex items-center justify-center flex-shrink-0">
                         <i class="fas ${role === 'user' ? 'fa-user text-indigo-600' : 'fa-robot text-gray-600'}"></i>
                     </div>
-                    <div class="flex-1">
-                        <div class="font-medium ${role === 'user' ? 'text-indigo-900' : 'text-gray-900'}">${role === 'user' ? 'You' : 'AI Assistant'}</div>
-                        <div class="${role === 'user' ? 'text-gray-800' : 'text-gray-700'} mt-1">${content}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium ${role === 'user' ? 'text-indigo-900' : 'text-gray-900'} mb-2">${role === 'user' ? 'You' : 'AI Assistant'}</div>
+                        <div class="${role === 'user' ? 'text-gray-800' : 'text-gray-700'} leading-relaxed prose prose-sm max-w-none">
+                            ${formattedContent}
+                        </div>
                         ${sourcesHTML}
                         ${metricsHTML}
-                        <div class="text-xs ${role === 'user' ? 'text-indigo-600' : 'text-gray-500'} mt-2">${new Date().toLocaleTimeString()}</div>
+                        <div class="text-xs ${role === 'user' ? 'text-indigo-600' : 'text-gray-500'} mt-3">
+                            <i class="far fa-clock mr-1"></i>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </div>
                     </div>
                 </div>
             `;
@@ -1360,7 +1528,51 @@
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
-        
+
+        // Add these helper functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatChatContent(content) {
+            if (!content) return '';
+            
+            // Replace markdown-like formatting
+            let formatted = escapeHtml(content);
+            
+            // Format lists (lines starting with numbers or bullets)
+            formatted = formatted.replace(/(\d+\.\s+[^\n]+)/g, '<li class="ml-4 mb-1">$1</li>');
+            formatted = formatted.replace(/(•\s+[^\n]+)/g, '<li class="ml-4 mb-1">$1</li>');
+            formatted = formatted.replace(/(-\s+[^\n]+)/g, '<li class="ml-4 mb-1">$1</li>');
+            
+            // Wrap lists
+            if (formatted.includes('<li class="ml-4 mb-1">')) {
+                formatted = formatted.replace(/<li class="ml-4 mb-1">/g, '<ul class="list-disc pl-5 my-2 space-y-1"><li class="ml-4 mb-1">');
+                formatted = formatted.replace(/<\/li>/g, '</li></ul>');
+            }
+            
+            // Format comparisons and numbered points
+            formatted = formatted.replace(/(Comparison:|In summary:|Summary:|Conclusion:)/g, '<strong class="font-semibold text-gray-900 block mt-3 mb-2">$1</strong>');
+            
+            // Format source references [1], [2], etc.
+            formatted = formatted.replace(/\[(\d+)\]/g, '<span class="bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded">[$1]</span>');
+            
+            // Format section headers (lines ending with colon)
+            formatted = formatted.replace(/^([^:\n]+:)(?=\s)/gm, '<strong class="font-semibold text-gray-900">$1</strong>');
+            
+            // Add paragraph spacing
+            formatted = formatted.split('\n\n').map(para => {
+                if (para.trim()) {
+                    return `<p class="mb-3">${para.trim()}</p>`;
+                }
+                return '';
+            }).join('');
+            
+            return formatted;
+        }
+
         function updateTokenCount() {
             const input = document.getElementById('chat-input');
             const tokenCount = Math.ceil(input.value.length / 4); // Rough estimate
@@ -1383,25 +1595,61 @@
         }
 
         function updateAnalyticsUI(analytics) {
-            // Update basic stats
-            document.getElementById('total-sessions').textContent = analytics.total_sessions || '0';
-            document.getElementById('total-messages').textContent = analytics.total_messages || '0';
-            document.getElementById('total-documents').textContent = uploadedFiles.length.toString();
-            document.getElementById('avg-response-time').textContent = analytics.average_response_time ? `${analytics.average_response_time}ms` : '-';
+            // Handle new analytics structure
+            const performanceMetrics = analytics.performance_metrics || {};
+            const qualityMetrics = analytics.quality_metrics || {};
+            const systemInfo = analytics.system_information || {};
+            const documentStats = analytics.document_statistics || {};
+            const sessionStats = analytics.session_statistics || {};
+            const healthStatus = analytics.health_status || {};
             
-            // Update Ragas metrics
-            const ragas = analytics.ragas_metrics || {};
-            document.getElementById('answer-relevancy').textContent = ragas.answer_relevancy ? ragas.answer_relevancy.toFixed(2) : '-';
-            document.getElementById('faithfulness').textContent = ragas.faithfulness ? ragas.faithfulness.toFixed(2) : '-';
-            document.getElementById('context-precision').textContent = ragas.context_precision ? ragas.context_precision.toFixed(2) : '-';
-            document.getElementById('overall-score').textContent = ragas.overall_score ? ragas.overall_score.toFixed(2) : '-';
+            // Update performance metrics
+            document.getElementById('total-sessions').textContent = sessionStats.total_sessions || '0';
+            document.getElementById('total-messages').textContent = sessionStats.total_messages || '0';
+            document.getElementById('total-documents').textContent = documentStats.total_documents || '0';
+            document.getElementById('avg-response-time').textContent = performanceMetrics.avg_response_time ? `${performanceMetrics.avg_response_time}ms` : '-';
+            
+            // Update Ragas metrics from quality_metrics
+            document.getElementById('answer-relevancy').textContent = qualityMetrics.answer_relevancy ? qualityMetrics.answer_relevancy.toFixed(2) : '-';
+            document.getElementById('faithfulness').textContent = qualityMetrics.faithfulness ? qualityMetrics.faithfulness.toFixed(2) : '-';
+            document.getElementById('context-precision').textContent = qualityMetrics.context_precision ? qualityMetrics.context_precision.toFixed(2) : '-';
+            document.getElementById('overall-score').textContent = qualityMetrics.overall_score ? qualityMetrics.overall_score.toFixed(2) : '-';
             
             // Update system info
-            document.getElementById('vector-store-status').textContent = systemReady ? 'Ready' : 'Not Ready';
-            document.getElementById('vector-store-status').className = systemReady ? 'font-medium text-green-600' : 'font-medium text-red-600';
-            document.getElementById('current-model').textContent = 'Mistral 7B Instruct';
-            document.getElementById('current-chunking').textContent = 'Fixed Size';
-            document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+            document.getElementById('vector-store-status').textContent = systemInfo.vector_store_status || 'Not Ready';
+            document.getElementById('vector-store-status').className = systemInfo.vector_store_status && systemInfo.vector_store_status.includes('Ready') ? 
+                'font-medium text-green-600' : 'font-medium text-red-600';
+            
+            document.getElementById('current-model').textContent = systemInfo.current_model || '-';
+            document.getElementById('current-chunking').textContent = systemInfo.chunking_strategy || '-';
+            document.getElementById('last-updated').textContent = systemInfo.last_updated ? 
+                new Date(systemInfo.last_updated).toLocaleTimeString() : '-';
+            
+            // Update system status indicator
+            const systemStatusDiv = document.getElementById('system-status');
+            if (healthStatus.overall === 'healthy') {
+                systemStatusDiv.textContent = 'Healthy';
+                systemStatusDiv.className = 'font-medium text-green-600';
+            } else if (healthStatus.overall === 'degraded') {
+                systemStatusDiv.textContent = 'Degraded';
+                systemStatusDiv.className = 'font-medium text-yellow-600';
+            } else if (healthStatus.overall === 'unhealthy') {
+                systemStatusDiv.textContent = 'Unhealthy';
+                systemStatusDiv.className = 'font-medium text-red-600';
+            }
+            
+            // Update progress bar based on health
+            const progressBar = document.getElementById('progress-bar');
+            if (healthStatus.overall === 'healthy') {
+                progressBar.style.width = '100%';
+                progressBar.className = 'bg-green-600 h-2 rounded-full progress-bar';
+            } else if (healthStatus.overall === 'degraded') {
+                progressBar.style.width = '60%';
+                progressBar.className = 'bg-yellow-600 h-2 rounded-full progress-bar';
+            } else {
+                progressBar.style.width = '20%';
+                progressBar.className = 'bg-red-600 h-2 rounded-full progress-bar';
+            }
         }
 
         async function loadConfiguration() {
@@ -1418,22 +1666,93 @@
         async function loadConfigurationUI() {
             try {
                 const config = await apiService.getConfiguration();
+                const health = await apiService.getHealth();
+                
                 if (config.configuration) {
                     // Populate form with current configuration
-                    Object.keys(config.configuration).forEach(key => {
-                        const element = document.querySelector(`[name="${key}"]`);
-                        if (element) {
+                    const formElements = document.getElementById('config-form').elements;
+                    
+                    // Map backend config names to form field names
+                    const fieldMap = {
+                        'inference_model': 'inference_model',
+                        'embedding_model': 'embedding_model',
+                        'chunking_strategy': 'chunking_strategy',
+                        'chunk_size': 'chunk_size',
+                        'chunk_overlap': 'chunk_overlap',
+                        'retrieval_top_k': 'retrieval_top_k',
+                        'vector_weight': 'vector_weight',
+                        'bm25_weight': 'bm25_weight',
+                        'temperature': 'temperature',
+                        'max_tokens': 'max_tokens',
+                        'enable_reranking': 'enable_reranking'
+                    };
+                    
+                    Object.keys(fieldMap).forEach(backendKey => {
+                        const formKey = fieldMap[backendKey];
+                        const element = formElements[formKey];
+                        if (element && config.configuration[backendKey] !== undefined) {
                             if (element.type === 'checkbox') {
-                                element.checked = config.configuration[key];
+                                element.checked = config.configuration[backendKey];
+                            } else if (element.type === 'select-one') {
+                                element.value = config.configuration[backendKey];
                             } else {
-                                element.value = config.configuration[key];
+                                element.value = config.configuration[backendKey];
                             }
                         }
                     });
+                    
+                    // Also load health status
+                    if (config.health) {
+                        const healthStatus = document.getElementById('system-status');
+                        if (config.health.overall === 'healthy') {
+                            healthStatus.textContent = 'Healthy';
+                            healthStatus.className = 'font-medium text-green-600';
+                        } else if (config.health.overall === 'degraded') {
+                            healthStatus.textContent = 'Degraded';
+                            healthStatus.className = 'font-medium text-yellow-600';
+                        } else {
+                            healthStatus.textContent = 'Unhealthy';
+                            healthStatus.className = 'font-medium text-red-600';
+                        }
+                    }
                 }
+                
+                if (health) {
+                    updateConfigurationStatus(health);
+                }
+                
             } catch (error) {
                 console.error('Configuration UI load error:', error);
             }
+        }
+
+        function updateConfigurationStatus(health) {
+            if (!health || !health.components) return;
+            
+            const statusMap = {
+                'config-llm-health': health.components.llm,
+                'config-vector-store': health.components.vector_store,
+                'config-embeddings': health.components.embeddings,
+                'config-retrieval': health.components.retrieval,
+                'config-generation': health.components.generation,
+                'config-overall': health.status
+            };
+            
+            Object.keys(statusMap).forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    const value = statusMap[id];
+                    if (typeof value === 'boolean') {
+                        element.textContent = value ? '✓ Healthy' : '✗ Unhealthy';
+                        element.className = value ? 'font-medium text-green-600' : 'font-medium text-red-600';
+                    } else {
+                        element.textContent = value || '-';
+                        element.className = value === 'healthy' ? 'font-medium text-green-600' : 
+                                       value === 'degraded' ? 'font-medium text-yellow-600' : 
+                                       'font-medium text-gray-600';
+                    }
+                }
+            });
         }
 
         async function saveConfiguration(e) {
@@ -1494,7 +1813,8 @@
         async function checkSystemStatus() {
             try {
                 const systemInfo = await apiService.getSystemInfo();
-                updateSystemStatus(systemInfo);
+                const health = await apiService.getHealth();
+                updateSystemStatus(systemInfo, health);
             } catch (error) {
                 console.error('System status check error:', error);
                 document.getElementById('system-status').textContent = 'Offline';
@@ -1524,9 +1844,12 @@
             `;
             document.body.appendChild(notification);
             
+            // Auto-remove after 30 seconds
             setTimeout(() => {
-                notification.remove();
-            }, 5000);
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 30000);
         }
 
         // Initialize when page loads

@@ -340,8 +340,8 @@ class ContextAssembler:
                 if (remaining >= 200):
                     self.logger.info(f"Attempting partial chunk {i} with {remaining} available tokens")
                     
-                    partial_chunk = self._create_partial_chunk(chunk             = chunk, 
-                                                               availabale_tokens = remaining,
+                    partial_chunk = self._create_partial_chunk(chunk             = chunk,
+                                                               available_tokens  = remaining,
                                                               )
                     
                     if partial_chunk:
