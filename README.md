@@ -1,3 +1,5 @@
+<div align="center">
+
 # AI Universal Knowledge Ingestion System
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -5,6 +7,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **Enterprise-Grade RAG Platform with Multi-Source Ingestion, Hybrid Retrieval, and Zero API Costs**
+
+</div>
+
+---
 
 A production-ready Retrieval-Augmented Generation (RAG) system that enables organizations to unlock knowledge trapped across documents, websites, and archives while maintaining complete data privacy and eliminating costly API dependencies.
 
@@ -887,20 +893,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 📞 Contact
+## 📞 Author
 
-**Author:** Satyaki Mitra  
-**Location:** Kolkata, West Bengal, India  
-**GitHub:** [@satyaki-mitra](https://github.com/satyaki-mitra)  
-
-**For questions, issues, or suggestions, please open an issue on GitHub.**
-
+Satyaki Mitra | Data Scientist 
 ---
 
 <div align="center">
 
 **Built with ❤️ for the open-source community**
-
-[⭐ Star this repo](https://github.com/yourusername/universal_rag) | [🐛 Report Bug](https://github.com/yourusername/universal_rag/issues) | [💡 Request Feature](https://github.com/yourusername/universal_rag/issues)
 
 </div>
