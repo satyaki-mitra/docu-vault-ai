@@ -19,6 +19,22 @@
             color: #4f46e5;
             font-weight: 600;
         }
+        
+        /* Chat message animations - UPDATED */
+        .chat-message {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(10px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
 
         /* Chat message bubbles */
         .chat-bubble-user {
@@ -41,10 +57,11 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
 
-        /* Chat container adjustments */
+        /* Chat container adjustments - UPDATED */
         .chat-message {
             display: flex;
             margin-bottom: 1rem;
+            animation: fadeIn 0.3s ease-in; /* Keep animation here too */
         }
 
         .chat-message.user {
@@ -80,19 +97,9 @@
             margin-top: 4px;
         }
 
-        .chat-message {
-            animation: fadeIn 0.3s ease-in;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
         .progress-bar {
             transition: width 0.5s ease-in-out;
         }
-
         .loading-spinner {
             border: 2px solid #f3f3f3;
             border-top: 2px solid #3498db;
@@ -101,110 +108,11 @@
             height: 20px;
             animation: spin 1s linear infinite;
         }
-
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-
-        /* Improvement of chat readability */
-        .chat-message p {
-            margin-bottom: 0.75rem;
-            line-height: 1.6;
-        }
-
-        .chat-message ul {
-            margin: 0.5rem 0;
-            padding-left: 1.5rem;
-        }
-
-        .chat-message li {
-            margin-bottom: 0.25rem;
-        }
-
-        .chat-message strong {
-            font-weight: 600;
-            color: #374151;
-        }
-
-        .prose {
-            max-width: 65ch;
-        }
-
-        .prose-sm {
-            font-size: 0.875rem;
-            line-height: 1.6;
-        }
-
-        .query-type-indicator {
-            font-size: 12px;
-            color: #666;
-            margin-top: 10px;
-            padding: 5px;
-            background: #f5f5f5;
-            border-radius: 4px;
-        }
-
-        /* Source cards */
-        .source-card {
-            transition: all 0.2s ease;
-        }
-
-        .source-card:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-
-        /* RAGAS table styling */
-        .ragas-good {
-            background-color: #d1fae5;
-            color: #065f46;
-        }
-
-        .ragas-fair {
-            background-color: #fef3c7;
-            color: #92400e;
-        }
-
-        .ragas-poor {
-            background-color: #fee2e2;
-            color: #991b1b;
-        }
-
-        .ragas-cell {
-            border-radius: 4px;
-            padding: 4px 8px;
-            font-weight: 600;
-            font-size: 0.75rem;
-            text-align: center;
-            min-width: 60px;
-        }
-
-        /* Collapsible sources */
-        .collapsible-header {
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .collapsible-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-        }
-
-        .collapsible-content.expanded {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-
-        .chevron {
-            transition: transform 0.3s ease;
-        }
-
-        .chevron.expanded {
-            transform: rotate(180deg);
-        }
-
+        
         /* Query type badges */
         .query-type-badge {
             font-size: 11px;
@@ -271,6 +179,69 @@
 
         .classification-mixed {
             border-left-color: #f59e0b;
+        }
+
+        /* RAGAS table styling */
+        .ragas-good {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .ragas-fair {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .ragas-poor {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .ragas-cell {
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-align: center;
+            min-width: 60px;
+        }
+
+        /* Collapsible sources */
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.expanded {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .chevron {
+            transition: transform 0.3s ease;
+        }
+
+        .chevron.expanded {
+            transform: rotate(180deg);
+        }
+
+        /* Improve prose readability in chat bubbles */
+        .prose-invert p {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .prose-invert strong {
+            color: white;
+        }
+
+        .prose-invert ul {
+            color: rgba(255, 255, 255, 0.8);
         }
     </style>
 </head>
@@ -549,7 +520,7 @@
                 <!-- Logo -->
                 <div class="p-4 border-b">
                     <div class="flex items-center">
-                        <div class="relative">
+                        <div class="flex-shrink-0">
                             <i class="fas fa-brain text-xl text-indigo-600 mr-2"></i>
                             <div class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></div>
                         </div>
@@ -1801,25 +1772,26 @@
             }
             
             const welcomeMsg = document.createElement('div');
-            welcomeMsg.className = 'chat-message welcome-message bg-blue-50 border border-blue-200 rounded-lg p-4';
+            welcomeMsg.className = 'chat-message assistant';
             welcomeMsg.innerHTML = `
-                <div class="flex items-start space-x-3">
-                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <i class="fas fa-robot text-blue-600"></i>
-                    </div>
-                    <div class="flex-1">
-                        <div class="font-medium text-blue-900">AI Assistant</div>
-                        <div class="text-blue-800 mt-1">
-                            <p>Hello! I'm ready to help you explore your documents. You can ask me questions like:</p>
-                            <ul class="list-disc list-inside mt-2 space-y-1 text-sm">
-                                <li>What are the main points in the uploaded documents?</li>
-                                <li>Can you summarize the key findings?</li>
-                                <li>Compare information across different documents</li>
-                                <li>Find specific details or statistics</li>
-                            </ul>
-                            <p class="mt-2">What would you like to know?</p>
+                <div class="chat-bubble-assistant">
+                    <div class="chat-bubble-content">
+                        <div class="text-gray-800">
+                            <div class="font-medium text-gray-900 mb-2">AI Assistant</div>
+                            <div class="text-gray-700">
+                                <p>Hello! I'm ready to help you explore your documents. You can ask me questions like:</p>
+                                <ul class="list-disc list-inside mt-2 space-y-1 text-sm text-gray-600">
+                                    <li>What are the main points in the uploaded documents?</li>
+                                    <li>Can you summarize the key findings?</li>
+                                    <li>Compare information across different documents</li>
+                                    <li>Find specific details or statistics</li>
+                                </ul>
+                                <p class="mt-2 text-gray-700">What would you like to know?</p>
+                            </div>
+                            <div class="chat-bubble-timestamp text-gray-500 mt-3">
+                                <i class="far fa-clock mr-1"></i>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
                         </div>
-                        <div class="text-xs text-blue-600 mt-2">System ready • ${new Date().toLocaleTimeString()}</div>
                     </div>
                 </div>
             `;
@@ -1892,15 +1864,11 @@
         function addLoadingMessage() {
             const chatMessages = document.getElementById('chat-messages');
             const loadingMsg = document.createElement('div');
-            loadingMsg.className = 'chat-message bg-gray-50 border rounded-lg p-4';
+            loadingMsg.className = 'chat-message assistant';
             loadingMsg.innerHTML = `
-                <div class="flex items-start space-x-3">
-                    <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
-                        <i class="fas fa-robot text-gray-600"></i>
-                    </div>
-                    <div class="flex-1">
-                        <div class="font-medium text-gray-900">AI Assistant</div>
-                        <div class="text-gray-700 mt-1 flex items-center">
+                <div class="chat-bubble-assistant">
+                    <div class="chat-bubble-content">
+                        <div class="flex items-center text-gray-700">
                             <div class="loading-spinner mr-2"></div>
                             Thinking...
                         </div>
@@ -1915,28 +1883,28 @@
         function addChatMessage(role, content, sources = [], metrics = {}, ragasMetrics = {}, queryType = 'rag_document', usedRag = true) {
             const chatMessages = document.getElementById('chat-messages');
             const messageDiv = document.createElement('div');
-            messageDiv.className = `chat-message ${role === 'user' ? 'bg-white border' : 'bg-gray-50 border'} rounded-lg p-4 mb-4`;
+            messageDiv.className = `chat-message ${role}`;
             
-            // Create query type badge
+            // Create query type badge for user messages
             let queryTypeBadge = '';
             if (role === 'user') {
                 const badgeClass = getQueryTypeBadgeClass(queryType);
                 queryTypeBadge = `
-                    <div class="flex items-center mt-2">
-                        <span class="query-type-badge ${badgeClass}">
+                    <div class="flex items-center mt-3">
+                        <span class="query-type-badge ${badgeClass} text-xs">
                             ${getQueryTypeLabel(queryType)} (RAG: ${usedRag ? 'Yes' : 'No'})
                         </span>
                     </div>
                 `;
             }
             
-            // Create collapsible sources section
+            // Create collapsible sources section for assistant messages
             let sourcesHTML = '';
-            if (sources && sources.length > 0) {
+            if (role === 'assistant' && sources && sources.length > 0) {
                 const sourcesId = `sources-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                 
                 sourcesHTML = `
-                    <div class="mt-4 pt-4 border-t border-gray-200">
+                    <div class="mt-4 pt-4 border-t border-gray-200 border-opacity-50">
                         <div class="collapsible-header flex items-center justify-between cursor-pointer" onclick="toggleSources('${sourcesId}')">
                             <div class="flex items-center">
                                 <i class="fas fa-file-alt text-gray-500 mr-2"></i>
@@ -1983,15 +1951,16 @@
                 `;
             }
             
+            // Create metrics HTML for assistant messages
             let metricsHTML = '';
-            if (metrics && Object.keys(metrics).length > 0) {
+            if (role === 'assistant' && metrics && Object.keys(metrics).length > 0) {
                 const retrievalTime = metrics.retrieval_time || 0;
                 const generationTime = metrics.generation_time || 0;
                 const totalTime = metrics.total_time || 0;
                 const tokensUsed = metrics.tokens_used || 0;
                 
                 metricsHTML = `
-                    <div class="mt-3 pt-3 border-t border-gray-200">
+                    <div class="mt-3 pt-3 border-t border-gray-200 border-opacity-50">
                         <div class="flex flex-wrap gap-3 text-xs text-gray-600">
                             ${retrievalTime ? `
                                 <div class="flex items-center">
@@ -2022,9 +1991,9 @@
                 `;
             }
             
-            // Add RAGAS metrics if available
+            // Create RAGAS metrics for assistant messages
             let ragasHTML = '';
-            if (ragasMetrics && Object.keys(ragasMetrics).length > 0 && ragasMetrics.answer_relevancy !== undefined) {
+            if (role === 'assistant' && ragasMetrics && Object.keys(ragasMetrics).length > 0 && ragasMetrics.answer_relevancy !== undefined) {
                 const relevancy = ragasMetrics.answer_relevancy || 0;
                 const faithfulness = ragasMetrics.faithfulness || 0;
                 const contextUtilization = ragasMetrics.context_utilization || 0; 
@@ -2038,7 +2007,7 @@
                 };
                 
                 ragasHTML = `
-                    <div class="mt-3 pt-3 border-t border-gray-200">
+                    <div class="mt-3 pt-3 border-t border-gray-200 border-opacity-50">
                         <div class="flex items-center mb-2">
                             <i class="fas fa-chart-line text-indigo-500 mr-2"></i>
                             <span class="text-sm font-medium text-gray-700">Quality Metrics</span>
@@ -2065,32 +2034,55 @@
                 `;
             }
             
-            // Format the content with better spacing
-            const formattedContent = formatChatContent(content);
+            // Format the content
+            const formattedContent = formatChatContent(content, role === 'user');
             
-            messageDiv.innerHTML = `
-                <div class="flex items-start space-x-3">
-                    <div class="w-8 h-8 ${role === 'user' ? 'bg-indigo-100' : 'bg-gray-200'} rounded-full flex items-center justify-center flex-shrink-0">
-                        <i class="fas ${role === 'user' ? 'fa-user text-indigo-600' : 'fa-robot text-gray-600'}"></i>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="font-medium ${role === 'user' ? 'text-indigo-900' : 'text-gray-900'} mb-2">${role === 'user' ? 'You' : 'AI Assistant'}</div>
-                        <div class="${role === 'user' ? 'text-gray-800' : 'text-gray-700'} leading-relaxed prose prose-sm max-w-none">
-                            ${formattedContent}
-                        </div>
-                        ${queryTypeBadge}
-                        ${ragasHTML}
-                        ${sourcesHTML}
-                        ${metricsHTML}
-                        <div class="text-xs ${role === 'user' ? 'text-indigo-600' : 'text-gray-500'} mt-3">
-                            <i class="far fa-clock mr-1"></i>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            // Create message HTML based on role
+            if (role === 'user') {
+                // User message (right-aligned bubble)
+                messageDiv.innerHTML = `
+                    <div class="chat-bubble-user">
+                        <div class="chat-bubble-content">
+                            <div class="text-white leading-relaxed prose prose-sm max-w-none prose-invert">
+                                ${formattedContent}
+                            </div>
+                            ${queryTypeBadge}
+                            <div class="chat-bubble-timestamp text-white text-opacity-80">
+                                <i class="far fa-clock mr-1"></i>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                // Assistant message (left-aligned bubble)
+                messageDiv.innerHTML = `
+                    <div class="chat-bubble-assistant">
+                        <div class="chat-bubble-content">
+                            <div class="text-gray-800 leading-relaxed prose prose-sm max-w-none">
+                                ${formattedContent}
+                            </div>
+                            ${ragasHTML}
+                            ${sourcesHTML}
+                            ${metricsHTML}
+                            <div class="chat-bubble-timestamp text-gray-500 mt-3">
+                                <i class="far fa-clock mr-1"></i>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
             
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Store message for history
+            chatMessages.push({
+                role: role,
+                content: content,
+                timestamp: new Date().toISOString(),
+                queryType: queryType,
+                usedRag: usedRag
+            });
         }
 
         // Helper functions
@@ -2130,7 +2122,7 @@
             return div.innerHTML;
         }
 
-        function formatChatContent(content) {
+        function formatChatContent(content, isUser = false) {
             if (!content) return '';
             
             // Replace markdown-like formatting
@@ -2148,13 +2140,13 @@
             }
             
             // Format comparisons and numbered points
-            formatted = formatted.replace(/(Comparison:|In summary:|Summary:|Conclusion:)/g, '<strong class="font-semibold text-gray-900 block mt-3 mb-2">$1</strong>');
+            formatted = formatted.replace(/(Comparison:|In summary:|Summary:|Conclusion:)/g, '<strong class="font-semibold block mt-3 mb-2">$1</strong>');
             
             // Format source references [1], [2], etc.
             formatted = formatted.replace(/\[(\d+)\]/g, '<span class="bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded">[$1]</span>');
             
             // Format section headers (lines ending with colon)
-            formatted = formatted.replace(/^([^:\n]+:)(?=\s)/gm, '<strong class="font-semibold text-gray-900">$1</strong>');
+            formatted = formatted.replace(/^([^:\n]+:)(?=\s)/gm, '<strong class="font-semibold">$1</strong>');
             
             // Add paragraph spacing
             formatted = formatted.split('\n\n').map(para => {
@@ -2313,7 +2305,7 @@
                             </div>
                             
                             <div>
-                                <h5 class="font-medium text-gray-700 mb-2">Actions</h5>
+                                <h5 class="font-medium mb-2 text-gray-700">Actions</h5>
                                 <div class="space-y-2">
                                     <button onclick="loadSessionIntoChat('${sessionId}')" class="w-full bg-indigo-100 text-indigo-700 px-3 py-2 rounded hover:bg-indigo-200 transition duration-200 text-sm">
                                         <i class="fas fa-history mr-2"></i>Load into Chat
@@ -2349,9 +2341,12 @@
                 const chatMessagesDiv = document.getElementById('chat-messages');
                 chatMessagesDiv.innerHTML = '';
                 
+                // Clear local chat messages array
+                chatMessages = [];
+                
                 // Add history messages
                 history.history.forEach(item => {
-                    addChatMessage('user', item.query, item.sources || [], item.metrics || {}, item.ragas_metrics || {}, item.query_type, item.used_rag);
+                    addChatMessage('user', item.query, [], {}, {}, item.query_type, item.used_rag);
                     addChatMessage('assistant', item.response, item.sources || [], item.metrics || {}, item.ragas_metrics || {}, item.query_type, item.used_rag);
                 });
                 
@@ -2653,73 +2648,6 @@
             } catch (error) {
                 console.error('Export RAGAS data error:', error);
                 showNotification(`Failed to export RAGAS data: ${error.message}`, 'error');
-            }
-        }
-
-        async function loadAnalytics() {
-            try {
-                const analytics = await apiService.getAnalytics();
-                updateAnalyticsUI(analytics);
-            } catch (error) {
-                console.error('Analytics load error:', error);
-                showNotification(`Failed to load analytics: ${error.message}`, 'error');
-            }
-        }
-
-        async function refreshAnalytics() {
-            await loadAnalytics();
-            showNotification('Analytics refreshed', 'success');
-        }
-
-        function updateAnalyticsUI(analytics) {
-            // Handle new analytics structure
-            const performanceMetrics = analytics.performance_metrics || {};
-            const qualityMetrics = analytics.quality_metrics || {};
-            const systemInfo = analytics.system_information || {};
-            const documentStats = analytics.document_statistics || {};
-            const sessionStats = analytics.session_statistics || {};
-            const healthStatus = analytics.health_status || {};
-            
-            // Update performance metrics
-            document.getElementById('total-sessions').textContent = sessionStats.total_sessions || '0';
-            document.getElementById('total-messages').textContent = sessionStats.total_messages || '0';
-            document.getElementById('total-documents').textContent = documentStats.total_documents || '0';
-            document.getElementById('avg-response-time').textContent = performanceMetrics.avg_response_time ? `${performanceMetrics.avg_response_time}ms` : '-';
-            
-            // Update system info
-            document.getElementById('vector-store-status').textContent = systemInfo.vector_store_status || 'Not Ready';
-            document.getElementById('vector-store-status').className = systemInfo.vector_store_status && systemInfo.vector_store_status.includes('Ready') ? 
-                'font-medium text-green-600' : 'font-medium text-red-600';
-            
-            document.getElementById('current-model').textContent = systemInfo.current_model || '-';
-            document.getElementById('current-chunking').textContent = systemInfo.chunking_strategy || '-';
-            document.getElementById('last-updated').textContent = systemInfo.last_updated ? 
-                new Date(systemInfo.last_updated).toLocaleTimeString() : '-';
-            
-            // Update system status indicator
-            const systemStatusDiv = document.getElementById('system-status');
-            if (healthStatus.overall === 'healthy') {
-                systemStatusDiv.textContent = 'Healthy';
-                systemStatusDiv.className = 'font-medium text-green-600';
-            } else if (healthStatus.overall === 'degraded') {
-                systemStatusDiv.textContent = 'Degraded';
-                systemStatusDiv.className = 'font-medium text-yellow-600';
-            } else if (healthStatus.overall === 'unhealthy') {
-                systemStatusDiv.textContent = 'Unhealthy';
-                systemStatusDiv.className = 'font-medium text-red-600';
-            }
-            
-            // Update progress bar based on health
-            const progressBar = document.getElementById('progress-bar');
-            if (healthStatus.overall === 'healthy') {
-                progressBar.style.width = '100%';
-                progressBar.className = 'bg-green-600 h-2 rounded-full progress-bar';
-            } else if (healthStatus.overall === 'degraded') {
-                progressBar.style.width = '60%';
-                progressBar.className = 'bg-yellow-600 h-2 rounded-full progress-bar';
-            } else {
-                progressBar.style.width = '20%';
-                progressBar.className = 'bg-red-600 h-2 rounded-full progress-bar';
             }
         }
 
