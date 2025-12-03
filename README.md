@@ -6,17 +6,17 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **Enterprise-Grade RAG Platform with Multi-Source Ingestion, Hybrid Retrieval, and Zero API Costs**
+> **Enterprise-Grade RAG Platform with Multi-Format Document Ingestion, Hybrid Retrieval, and Zero API Costs**
 
 </div>
 
 ---
 
-A production-ready Retrieval-Augmented Generation (RAG) system that enables organizations to unlock knowledge trapped across documents, websites, and archives while maintaining complete data privacy and eliminating costly API dependencies.
+A production-ready Retrieval-Augmented Generation (RAG) system that enables organizations to unlock knowledge trapped across documents and archives while maintaining complete data privacy and eliminating costly API dependencies.
 
 ---
 
-## 📑 Table of Contents
+## 📋 Table of Contents
 
 - [Overview](#-overview)
 - [Key Features](#-key-features)
@@ -27,6 +27,7 @@ A production-ready Retrieval-Augmented Generation (RAG) system that enables orga
 - [Core Components](#-core-components)
 - [API Documentation](#-api-documentation)
 - [Configuration](#-configuration)
+- [RAGAS Evaluation](#-ragas-evaluation)
 - [Performance Benchmarks](#-performance-benchmarks)
 - [Troubleshooting](#-troubleshooting)
 - [License](#-license)
@@ -43,8 +44,8 @@ The AI Universal Knowledge Ingestion System addresses a critical enterprise pain
 |---------|----------------------|------------|
 | **Privacy** | Cloud-based (data leaves premises) | 100% on-premise processing |
 | **Cost** | $49-99/user/month + API fees | Zero API costs (local inference) |
-| **Input Types** | PDF only | PDF, DOCX, TXT, URLs, ZIP archives |
-| **Quality Metrics** | Black box (no visibility) | Ragas evaluation + LangSmith monitoring |
+| **Input Types** | PDF only | PDF, DOCX, TXT, ZIP archives |
+| **Quality Metrics** | Black box (no visibility) | RAGAS evaluation with detailed metrics |
 | **Retrieval** | Vector-only | Hybrid (Vector + BM25 + Reranking) |
 | **Chunking** | Fixed size | Adaptive (3 strategies) |
 
@@ -58,11 +59,11 @@ The AI Universal Knowledge Ingestion System addresses a critical enterprise pain
 
 ## ✨ Key Features
 
-### **1. Multi-Source Document Ingestion**
+### **1. Multi-Format Document Ingestion**
 - **Supported Formats**: PDF, DOCX, TXT
 - **Archive Processing**: ZIP files up to 2GB with recursive extraction
 - **Batch Upload**: Process multiple documents simultaneously
-- **OCR Support**: Extract text from scanned documents and images (EasyOCR)
+- **OCR Support**: Extract text from scanned documents and images (PaddleOCR or EasyOCR)
 
 ### **2. Intelligent Document Processing**
 - **Adaptive Chunking**: Automatically selects optimal strategy based on document size
@@ -95,14 +96,16 @@ graph LR
 - **Citation Tracking**: Automatic source attribution with validation
 - **Streaming Support**: Token-by-token response generation
 
-### **5. Quality Assurance**
-- **Ragas Evaluation**: Answer relevancy, faithfulness, context precision/recall
-- **LangSmith Monitoring**: Real-time tracing, latency tracking, cost analysis
-- **Citation Validation**: Ensures all sources are properly referenced
+### **5. RAGAS Quality Assurance**
+- **Real-Time Evaluation**: Answer relevancy, faithfulness, context precision/recall
+- **Automatic Metrics**: Computed for every query-response pair
+- **Analytics Dashboard**: Track quality trends over time
+- **Export Capability**: Download evaluation data for analysis
+- **Session Statistics**: Aggregate metrics across conversation sessions
 
 ---
 
-## 🏗️ System Architecture
+## 🗂️ System Architecture
 
 ### **High-Level Architecture**
 
@@ -126,18 +129,23 @@ graph TB
         F[FAISS Vector DB<br/>~10M vectors]
         G[BM25 Keyword Index]
         H[SQLite Metadata<br/>Documents & Chunks]
+        I[LRU Cache<br/>Embeddings]
     end
     
     subgraph "Retrieval Engine"
-        I[Hybrid Retriever<br/>Vector + BM25]
-        J[Cross-Encoder<br/>Reranker]
-        K[Context Assembler]
+        J[Hybrid Retriever<br/>Vector + BM25]
+        K[Cross-Encoder<br/>Reranker]
+        L[Context Assembler]
     end
     
     subgraph "Generation Engine"
-        L[Ollama LLM<br/>Mistral-7B]
-        M[Prompt Builder]
-        N[Citation Formatter]
+        M[Ollama LLM<br/>Mistral-7B]
+        N[Prompt Builder]
+        O[Citation Formatter]
+    end
+    
+    subgraph "Evaluation Engine"
+        P[RAGAS Evaluator<br/>Quality Metrics]
     end
     
     A --> B
@@ -147,17 +155,22 @@ graph TB
     E --> F
     E --> G
     D --> H
+    E --> I
     
-    B --> I
-    I --> F
-    I --> G
-    I --> J
+    B --> J
+    J --> F
+    J --> G
     J --> K
+    K --> L
     
-    K --> M
-    M --> L
     L --> N
-    N --> A
+    N --> M
+    M --> O
+    O --> A
+    
+    M --> P
+    P --> H
+    P --> A
 ```
 
 ### **Why This Architecture?**
@@ -170,14 +183,14 @@ Each component is independent and replaceable:
 
 #### **Separation of Concerns**
 ```
-Ingestion → Storage → Retrieval → Generation
+Ingestion → Storage → Retrieval → Generation → Evaluation
 ```
 Each stage has clear inputs/outputs and single responsibility.
 
 #### **Performance Optimization**
 - **Async Processing**: Non-blocking I/O for uploads and LLM calls
 - **Batch Operations**: Embed 32 chunks simultaneously
-- **Caching**: Query embeddings and frequent retrievals cached
+- **Local Caching**: LRU cache for query embeddings and frequent retrievals
 - **Indexing**: FAISS ANN for O(log n) search vs O(n) brute force
 
 ---
@@ -196,8 +209,10 @@ Each stage has clear inputs/outputs and single responsibility.
 | **Document Parsing** | PyPDF2, python-docx | Latest | Industry standard, reliable |
 | **Chunking** | LlamaIndex | 0.9+ | Advanced semantic splitting |
 | **Reranking** | Cross-Encoder | Latest | +15% accuracy, minimal latency |
+| **Evaluation** | RAGAS | 0.1.9 | Automated RAG quality metrics |
 | **Frontend** | Alpine.js | 3.x | Lightweight reactivity, no build step |
 | **Database** | SQLite | 3.x | Zero-config, sufficient for metadata |
+| **Caching** | In-Memory LRU | Python functools | Fast, no external dependencies |
 
 ### **Python Dependencies**
 
@@ -214,6 +229,8 @@ python-docx>=0.8.11
 pydantic>=2.0.0
 aiohttp>=3.9.0
 tiktoken>=0.5.0
+ragas==0.1.9
+datasets==2.14.6
 ```
 
 ---
@@ -230,8 +247,8 @@ tiktoken>=0.5.0
 ### **Step 1: Clone Repository**
 
 ```bash
-git clone https://github.com/yourusername/universal_rag.git
-cd universal_rag
+git clone https://github.com/satyaki-mitra/docu-vault-ai.git
+cd docu-vault-ai
 ```
 
 ### **Step 2: Create Virtual Environment**
@@ -292,6 +309,11 @@ BM25_WEIGHT=0.4
 ENABLE_RERANKING=True
 TOP_K_RETRIEVE=10
 
+# RAGAS Evaluation
+ENABLE_RAGAS=True
+RAGAS_ENABLE_GROUND_TRUTH=False
+OPENAI_API_KEY=your_openai_api_key_here  # Required for RAGAS
+
 # Performance
 EMBEDDING_BATCH_SIZE=32
 MAX_WORKERS=4
@@ -331,7 +353,7 @@ Open browser to: **http://localhost:8000**
 
 1. Click **"Upload Documents"**
 2. Select PDF/DOCX/TXT files (or ZIP archives)
-3. Click **"Start Processing"**
+3. Click **"Start Building"**
 4. Wait for indexing to complete (progress bar shows status)
 
 ### **5. Query Your Documents**
@@ -346,6 +368,12 @@ Response: The Q3 report highlights three key findings:
 
 Sources:
 [1] Q3_Financial_Report.pdf (Page 3, Executive Summary)
+
+RAGAS Metrics:
+- Answer Relevancy: 0.89
+- Faithfulness: 0.94
+- Context Utilization: 0.87
+- Overall Score: 0.90
 ```
 
 ---
@@ -370,95 +398,30 @@ graph TD
     D -->|No| F[Hierarchical Chunking<br/>Parent 2048, Child 512]
 ```
 
-**Why Adaptive?**
-- **Small docs**: Fixed chunking is fast and sufficient
-- **Medium docs**: Semantic preserves topic coherence
-- **Large docs**: Hierarchical balances granularity with context
-
 ### **2. Hybrid Retrieval Engine**
 
 **Retrieval Flow:**
 
 ```python
 # Pseudocode
-def hybrid_retrieve(query, top_k=10):
-    # Step 1: Dual retrieval
+def hybrid_retrieve(query: str, top_k: int = 10):
+    # Dual retrieval
     query_embedding = embedder.embed(query)
-    vector_results = faiss_index.search(query_embedding, top_k * 2)
-    bm25_results = bm25_index.search(query, top_k * 2)
+    vector_results  = faiss_index.search(query_embedding, top_k * 2)
+    bm25_results    = bm25_index.search(query, top_k * 2)
     
-    # Step 2: Fusion (RRF)
-    fused_results = reciprocal_rank_fusion(
-        vector_results, 
-        bm25_results,
-        weights=(0.6, 0.4)
-    )
+    # Fusion (RRF)
+    fused_results   = reciprocal_rank_fusion(vector_results, 
+                                             bm25_results,
+                                             weights = (0.6, 0.4))
     
-    # Step 3: Reranking
-    reranked = cross_encoder.rerank(query, fused_results, top_k)
+    # Reranking
+    reranked        = cross_encoder.rerank(query, fused_results, top_k)
     
     return reranked
 ```
 
-**Why Hybrid?**
-
-| Method | Strength | Weakness |
-|--------|----------|----------|
-| **Vector Search** | Semantic understanding, handles synonyms | Misses exact keywords, expensive |
-| **BM25** | Fast, exact keyword matching | No semantic understanding |
-| **Hybrid** | Best of both worlds | Slight complexity increase |
-
-**Fusion Methods:**
-
-1. **Weighted Fusion** (Default):
-   ```
-   score = 0.6 × vector_score + 0.4 × bm25_score
-   ```
-
-2. **Reciprocal Rank Fusion (RRF)**:
-   ```
-   RRF(d) = Σ 1/(k + rank_i(d)), where k=60
-   ```
-
-3. **CombSum**:
-   ```
-   score = normalize(vector_score) × 0.6 + normalize(bm25_score) × 0.4
-   ```
-
-### **3. Context Assembly**
-
-**Token Management:**
-
-```python
-# Intelligent context assembly
-def assemble_context(chunks, max_tokens=7192):
-    selected = []
-    total_tokens = 0
-    
-    for chunk in sorted_chunks:
-        # Calculate tokens on-the-fly if missing
-        chunk_tokens = chunk.token_count or count_tokens(chunk.text)
-        
-        if (total_tokens + chunk_tokens + 50) <= max_tokens:
-            selected.append(chunk)
-            total_tokens += chunk_tokens + 50  # 50 for formatting
-        else:
-            # Try partial chunk
-            available = max_tokens - total_tokens - 50
-            if available > 100:
-                selected.append(truncate_chunk(chunk, available))
-            break
-    
-    return format_with_citations(selected)
-```
-
-**Why This Matters:**
-- **Mistral-7B context window**: 8192 tokens
-- **Reserve for prompt**: ~1000 tokens
-- **Available for context**: ~7192 tokens
-- **Ensures**: LLM never runs out of context mid-generation
-
-### **4. Response Generation**
+### **3. Response Generation**
 
 **Temperature Control:**
 
@@ -471,35 +434,26 @@ graph LR
     D -->|Low| F[High Temp<br/>0.6-0.8]
 ```
 
-**Adaptive Strategy:**
-- **Factual queries**: Temperature 0.1 (deterministic)
-- **Analytical queries**: Temperature 0.3 (balanced)
-- **Creative queries**: Temperature 0.7 (exploratory)
-- **Poor context**: +0.15 temperature (compensate with creativity)
+### **4. RAGAS Evaluation Module**
 
-**Citation Tracking:**
+**Automatic Quality Assessment:**
 
 ```python
-# Citations automatically injected
-Answer: "The report shows revenue of $45.2M [1] and 
-a 23% growth rate [1]. Customer satisfaction 
-increased to 4.8/5 [2]."
+# After each query-response
+ragas_result = ragas_evaluator.evaluate_single(query              = user_query,
+                                               answer             = generated_answer,
+                                               contexts           = retrieved_chunks,
+                                               retrieval_time_ms  = retrieval_time,
+                                               generation_time_ms = generation_time,
+                                              )
 
-Sources:
-[1] Q3_Financial_Report.pdf, Page 3
-[2] Customer_Survey_Results.pdf, Page 12
+# Metrics computed:
+- Answer Relevancy (0-1)
+- Faithfulness (0-1)
+- Context Utilization (0-1)
+- Context Relevancy (0-1)
+- Overall Score (weighted average)
 ```
-
-### **5. Quality Assurance**
-
-**Ragas Metrics:**
-
-| Metric | Definition | Target | Why It Matters |
-|--------|-----------|--------|----------------|
-| **Answer Relevancy** | Does answer address question? | > 0.85 | Measures usefulness |
-| **Faithfulness** | Is answer grounded in context? | > 0.90 | Prevents hallucination |
-| **Context Precision** | Are relevant chunks ranked high? | > 0.80 | Retrieval quality |
-| **Context Recall** | Was all needed info retrieved? | > 0.85 | Completeness check |
 
 ---
 
@@ -536,39 +490,10 @@ Content-Type: multipart/form-data
 files: [file1.pdf, file2.docx]
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Successfully uploaded 2 files",
-  "files": [
-    {
-      "filename": "report_q3.pdf",
-      "size": 1048576,
-      "status": "uploaded"
-    }
-  ]
-}
-```
-
 #### **3. Start Processing**
 
 ```bash
 POST /api/start-processing
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "status": "ready",
-  "documents_processed": 2,
-  "total_chunks": 145,
-  "index_stats": {
-    "vector_count": 145,
-    "bm25_indexed": true
-  }
-}
 ```
 
 #### **4. Query (Chat)**
@@ -583,58 +508,44 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+**Response includes RAGAS metrics:**
 ```json
 {
   "session_id": "session_123",
-  "response": "Revenue for Q3 was $45.2M [1], representing...",
-  "sources": [
-    {
-      "rank": 1,
-      "score": 0.89,
-      "document_id": "doc_001",
-      "text_preview": "Q3 revenue reached $45.2M...",
-      "page_number": 3
-    }
-  ],
+  "response": "Revenue for Q3 was $45.2M [1]...",
+  "sources": [...],
   "metrics": {
     "retrieval_time": 245,
     "generation_time": 3100,
-    "total_time": 3350,
-    "chunks_retrieved": 10,
-    "tokens_used": 487
+    "total_time": 3350
+  },
+  "ragas_metrics": {
+    "answer_relevancy": 0.89,
+    "faithfulness": 0.94,
+    "context_utilization": 0.87,
+    "context_relevancy": 0.91,
+    "overall_score": 0.90
   }
 }
 ```
 
-#### **5. Configuration**
+#### **5. RAGAS Endpoints**
 
 ```bash
-GET /api/configuration
-```
+# Get evaluation history
+GET /api/ragas/history
 
-**Response:**
-```json
-{
-  "configuration": {
-    "inference_model": "mistral:7b",
-    "embedding_model": "BAAI/bge-small-en-v1.5",
-    "retrieval_top_k": 10,
-    "vector_weight": 0.6,
-    "bm25_weight": 0.4,
-    "temperature": 0.1,
-    "enable_reranking": true
-  }
-}
-```
+# Get session statistics
+GET /api/ragas/statistics
 
-**Update Configuration:**
+# Clear evaluation history
+POST /api/ragas/clear
 
-```bash
-POST /api/configuration
-Content-Type: application/x-www-form-urlencoded
+# Export evaluation data
+GET /api/ragas/export
 
-temperature=0.2&retrieval_top_k=15&vector_weight=0.7
+# Get RAGAS configuration
+GET /api/ragas/config
 ```
 
 ---
@@ -647,56 +558,74 @@ temperature=0.2&retrieval_top_k=15&vector_weight=0.7
 
 #### **LLM Settings**
 ```python
-OLLAMA_MODEL = "mistral:7b"          # Model name
-DEFAULT_TEMPERATURE = 0.1             # Generation randomness (0-1)
-MAX_TOKENS = 1000                     # Max output length
-CONTEXT_WINDOW = 8192                 # Model context limit
+OLLAMA_MODEL        = "mistral:7b"
+DEFAULT_TEMPERATURE = 0.1
+MAX_TOKENS          = 1000
+CONTEXT_WINDOW      = 8192
 ```
 
-#### **Embedding Settings**
+#### **RAGAS Settings**
 ```python
-EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-EMBEDDING_DIMENSION = 384
-EMBEDDING_DEVICE = "cpu"              # "cuda" for GPU
-EMBEDDING_BATCH_SIZE = 32
+ENABLE_RAGAS              = True
+RAGAS_ENABLE_GROUND_TRUTH = False
+RAGAS_METRICS             = ["answer_relevancy",
+                             "faithfulness",
+                             "context_utilization",
+                             "context_relevancy"
+                            ]
+RAGAS_EVALUATION_TIMEOUT  = 60
+RAGAS_BATCH_SIZE          = 10
 ```
 
-#### **Chunking Settings**
+#### **Caching Settings**
 ```python
-FIXED_CHUNK_SIZE = 512                # Tokens per chunk
-FIXED_CHUNK_OVERLAP = 50              # Overlap between chunks
-SMALL_DOC_THRESHOLD = 50_000          # Use fixed chunking
-LARGE_DOC_THRESHOLD = 500_000         # Use hierarchical chunking
+ENABLE_EMBEDDING_CACHE = True
+CACHE_MAX_SIZE         = 1000  # LRU cache size
+CACHE_TTL              = 3600  # Time to live in seconds
 ```
 
-#### **Retrieval Settings**
-```python
-TOP_K_RETRIEVE = 10                   # Initial retrieval count
-TOP_K_FINAL = 5                       # After reranking
-VECTOR_WEIGHT = 0.6                   # Hybrid fusion weight
-BM25_WEIGHT = 0.4                     # Must sum to 1.0
-ENABLE_RERANKING = True               # Cross-encoder reranking
+---
+
+## 📊 RAGAS Evaluation
+
+### **What is RAGAS?**
+
+RAGAS (Retrieval-Augmented Generation Assessment) is a framework for evaluating RAG systems using automated metrics. Our implementation provides real-time quality assessment for every query-response pair.
+
+### **Metrics Explained**
+
+| Metric | Definition | Target | Interpretation |
+|--------|-----------|--------|----------------|
+| **Answer Relevancy** | How well the answer addresses the question | > 0.85 | Measures usefulness to user |
+| **Faithfulness** | Is the answer grounded in retrieved context? | > 0.90 | Prevents hallucinations |
+| **Context Utilization** | How well the context is used in the answer | > 0.80 | Retrieval effectiveness |
+| **Context Relevancy** | Are retrieved chunks relevant to the query? | > 0.85 | Search quality |
+| **Overall Score** | Weighted average of all metrics | > 0.85 | System performance |
+
+### **Using the Analytics Dashboard**
+
+1. Navigate to **Analytics & Quality** section
+2. View real-time RAGAS metrics table
+3. Monitor session statistics (averages, trends)
+4. Export evaluation data for offline analysis
+
+### **Example Evaluation Output**
+
 ```
+Query: "What were the Q3 revenue trends?"
+Answer: "Q3 revenue increased 23% YoY to $45.2M..."
 
-#### **Performance Settings**
-```python
-MAX_WORKERS = 4                       # Parallel processing
-ASYNC_BATCH_SIZE = 10                 # Async operations
-MAX_FILE_SIZE_MB = 100                # Upload limit
-```
+RAGAS Evaluation:
+├─ Answer Relevancy: 0.89 ✓ (Good)
+├─ Faithfulness: 0.94 ✓ (Excellent)
+├─ Context Utilization: 0.87 ✓ (Good)
+├─ Context Relevancy: 0.91 ✓ (Excellent)
+└─ Overall Score: 0.90 ✓ (Excellent)
 
-### **Environment Variables**
-
-Create `.env` file:
-
-```bash
-# Override any setting
-OLLAMA_MODEL=llama2:7b
-DEFAULT_TEMPERATURE=0.2
-VECTOR_WEIGHT=0.7
-BM25_WEIGHT=0.3
-ENABLE_RERANKING=False
-LOG_LEVEL=DEBUG
+Performance:
+├─ Retrieval Time: 245ms
+├─ Generation Time: 3100ms
+└─ Total Time: 3345ms
 ```
 
 ---
@@ -720,7 +649,8 @@ LOG_LEVEL=DEBUG
 | Hybrid Retrieval | 80 ms | 200 ms |
 | Reranking | 150 ms | 300 ms |
 | LLM Generation | 3-5 seconds | 8-10 seconds |
-| **Total Query** | **3.5 seconds** | **8.5 seconds** |
+| RAGAS Evaluation | 500-1000 ms | 2-3 seconds |
+| **Total Query** | **4-6 seconds** | **10-13 seconds** |
 
 ### **Accuracy Metrics (Tested on MS MARCO)**
 
@@ -730,142 +660,52 @@ LOG_LEVEL=DEBUG
 | Recall@10 | 0.68 | 0.62 | 0.79 | **0.85** |
 | Precision@5 | 0.54 | 0.48 | 0.61 | **0.72** |
 
-**Key Takeaways:**
-- Hybrid retrieval improves MRR by **+19%** vs vector-only
-- Reranking provides additional **+18%** boost
-- Total improvement: **+41%** over baseline
-
-### **Resource Usage**
-
-**Idle State:**
-- RAM: ~1 GB
-- CPU: < 5%
-- Disk: ~2 GB (models + indexes)
-
-**Processing (1000 pages):**
-- RAM: ~4-6 GB (peak)
-- CPU: 60-80% (multi-core)
-- Disk I/O: 100-200 MB/s
-
-**Query State:**
-- RAM: +500 MB per concurrent query
-- CPU: 40-60% during LLM generation
-- GPU: Optional (3x faster embedding generation)
-
 ---
 
-## 🔍 Troubleshooting
+## 🔧 Troubleshooting
 
 ### **Common Issues**
 
-#### **1. "Ollama model not found"**
+#### **1. "RAGAS evaluation failed"**
 
-**Error:**
-```
-LLMClientError: Ollama API error: 404 - model 'mistral:7b' not found
-```
+**Cause:** OpenAI API key not configured
 
 **Solution:**
 ```bash
-# List available models
-ollama list
+# Add to .env file
+OPENAI_API_KEY=your_openai_api_key_here
 
-# Pull the model
-ollama pull mistral:7b
-
-# Verify
-ollama list | grep mistral
+# Or disable RAGAS if not needed
+ENABLE_RAGAS=False
 ```
 
 #### **2. "Context assembly returning 0 chunks"**
 
-**Symptoms:** Logs show "Token selection complete: 0 chunks selected"
-
 **Cause:** Missing token counts in chunks
 
-**Solution:** Already fixed in updated `context_assembler.py`. Tokens calculated on-the-fly.
+**Solution:** Already fixed in `context_assembler.py`. Tokens calculated on-the-fly if missing.
 
-#### **3. "Out of memory during processing"**
-
-**Symptoms:** System crashes or slows during large document processing
+#### **3. "Slow query responses"**
 
 **Solutions:**
-```python
-# Reduce batch size in config/settings.py
-EMBEDDING_BATCH_SIZE = 16  # Down from 32
-MAX_WORKERS = 2            # Down from 4
+- Enable embedding cache : `ENABLE_EMBEDDING_CACHE=True`
+- Reduce retrieval count : `TOP_K_RETRIEVE=5`
+- Disable reranking      : `ENABLE_RERANKING=False`
 
-# Or use smaller model
-OLLAMA_MODEL = "mistral:7b-instruct-q4_0"  # Quantized version
-```
-
-#### **4. "Slow query responses"**
-
-**Symptoms:** Queries take > 15 seconds
-
-**Diagnosis:**
-```bash
-# Check Ollama is using GPU (if available)
-ollama ps
-
-# Check system resources
-top -o %MEM
-
-# Review logs for bottlenecks
-tail -f logs/app.log | grep "time_ms"
-```
-
-**Solutions:**
-- Use GPU for embeddings: `EMBEDDING_DEVICE = "cuda"`
-- Reduce retrieval count: `TOP_K_RETRIEVE = 5`
-- Disable reranking: `ENABLE_RERANKING = False`
 - Use quantized model for faster inference
 
-#### **5. "Citations not appearing"**
+#### **4. "RAGAS metrics not appearing"**
 
-**Symptoms:** Answers lack [1], [2] markers
-
-**Cause:** LLM not following citation instructions
+**Symptoms:** Chat responses lack quality metrics
 
 **Solution:**
 ```python
-# Lower temperature for more instruction-following
-DEFAULT_TEMPERATURE = 0.05  # Down from 0.1
+# Verify RAGAS is enabled in settings
+ENABLE_RAGAS = True
 
-# Or use stronger prompt in generation/prompt_builder.py
-```
-
-#### **6. "Port 8000 already in use"**
-
-**Error:**
-```
-ERROR: [Errno 48] Address already in use
-```
-
-**Solution:**
-```bash
-# Find process using port 8000
-lsof -i :8000
-
-# Kill the process
-kill -9 <PID>
-
-# Or use different port
-PORT=8001 python app.py
-```
-
-### **Debug Mode**
-
-Enable detailed logging:
-
-```python
-# config/settings.py
-LOG_LEVEL = "DEBUG"
-```
-
-Then check logs:
-```bash
-tail -f logs/app.log
+# Check OpenAI API key is valid
+# View logs for RAGAS evaluation errors
+tail -f logs/app.log | grep "RAGAS"
 ```
 
 ---
@@ -884,18 +724,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [FAISS](https://github.com/facebookresearch/faiss) - Vector similarity search
 - [LlamaIndex](https://www.llamaindex.ai/) - Document chunking
 - [Sentence Transformers](https://www.sbert.net/) - Embedding models
-- [Ragas](https://github.com/explodinggradients/ragas) - RAG evaluation
+- [RAGAS](https://github.com/explodinggradients/ragas) - RAG evaluation
 
 **Research Papers:**
 - Karpukhin et al. (2020) - Dense Passage Retrieval
 - Robertson & Zaragoza (2009) - The Probabilistic Relevance Framework: BM25
 - Lewis et al. (2020) - Retrieval-Augmented Generation
+- Es et al. (2023) - RAGAS: Automated Evaluation of RAG
 
 ---
 
 ## 📞 Author
 
-Satyaki Mitra | Data Scientist 
+Satyaki Mitra | Data Scientist | Gen-AI Enthusiast
+
 ---
 
 <div align="center">
