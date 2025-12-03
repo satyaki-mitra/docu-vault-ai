@@ -18,6 +18,8 @@ from generation.llm_client import get_llm_client
 from utils.error_handler import ResponseGenerationError
 from generation.prompt_builder import get_prompt_builder
 from retrieval.hybrid_retriever import get_hybrid_retriever
+from generation.query_classifier import get_query_classifier
+from generation.general_responder import get_general_responder
 from generation.citation_formatter import get_citation_formatter
 from generation.temperature_controller import get_temperature_controller
 
@@ -29,8 +31,12 @@ logger   = get_logger(__name__)
 
 class ResponseGenerator:
     """
-    Main orchestrator for RAG response generation: Coordinates retrieval, prompt building, LLM generation, and citation formatting
-    Implements the complete RAG pipeline: Query → Retrieval → Context Assembly → Prompt Building → LLM Generation → Citation Formatting
+    Main orchestrator for RAG response generation with intelligent query routing: 
+    - Coordinates retrieval, 
+    - prompt building, 
+    - LLM generation, 
+    - citation formatting, and 
+    - decides between RAG and general conversation modes
     """
     def __init__(self, provider: LLMProvider = None, model_name: str = None):
         """
@@ -56,9 +62,18 @@ class ResponseGenerator:
         self.citation_formatter     = get_citation_formatter()
         self.temperature_controller = get_temperature_controller()
         
+        # NEW: Initialize query routing components
+        self.query_classifier       = get_query_classifier()
+        self.general_responder      = get_general_responder(provider   = self.provider, 
+                                                            model_name = self.model_name,
+                                                           )
+        
         # Statistics
         self.generation_count       = 0
         self.total_generation_time  = 0.0
+        
+        # NEW: Conversation history tracking
+        self.conversation_histories = {} 
         
         self.logger.info(f"Initialized ResponseGenerator: provider={self.provider.value}, model={self.model_name}")
     
@@ -66,7 +81,7 @@ class ResponseGenerator:
     @handle_errors(error_type = ResponseGenerationError, log_error = True, reraise = True)
     async def generate_response(self, request: QueryRequest) -> QueryResponse:
         """
-        Generate complete RAG response from query request
+        Generate complete response from query request with intelligent routing
         
         Arguments:
         ----------
@@ -81,116 +96,267 @@ class ResponseGenerator:
         self.logger.info(f"Generating response for query: '{request.query}'")
         
         try:
-            # Retrieve relevant context
-            self.logger.debug("Retrieving context...")
-            retrieval_start  = time.time()
+            # Classify the query
+            classification = self.query_classifier.classify(request.query)
+            self.logger.debug(f"Query classification: {classification}")
             
-            retrieval_result = self.hybrid_retriever.retrieve_with_context(query             = request.query,
-                                                                           top_k             = request.top_k or self.settings.TOP_K_RETRIEVE,
-                                                                           enable_reranking  = request.enable_reranking,
-                                                                           include_citations = request.include_sources,
-                                                                          )
-            
-            retrieval_time   = (time.time() - retrieval_start) * 1000
-            
-            chunks           = retrieval_result["chunks"]
-            context          = retrieval_result["context"]
-            
-            if not chunks:
-                self.logger.warning("No relevant context found for query")
-                return self._create_no_results_response(request           = request, 
-                                                        retrieval_time_ms = retrieval_time,
+            # Route based on classification
+            if (classification["suggested_action"] == "respond_with_general_llm"):
+                return await self._handle_general_query(request           = request, 
+                                                        classification    = classification,
+                                                        start_time        = start_time,
                                                        )
             
-            self.logger.info(f"Retrieved {len(chunks)} chunks in {retrieval_time:.0f}ms")
+            elif (classification["suggested_action"] == "respond_with_rag"):
+                return await self._handle_rag_query(request        = request, 
+                                                    classification = classification,
+                                                    start_time     = start_time,
+                                                   )
             
-            # Determine prompt type and temperature
-            self.logger.debug("Determining prompt strategy...")
-            prompt_type = self._infer_prompt_type(query = request.query)
-            
-            temperature = self._get_adaptive_temperature(request          = request,
-                                                         query            = request.query,
-                                                         context          = context,
-                                                         retrieval_scores = [chunk.score for chunk in chunks],
-                                                         prompt_type      = prompt_type,
-                                                        )
-            
-            self.logger.debug(f"Prompt type: {prompt_type.value}, Temperature: {temperature}")
-            
-            # Build optimized prompt
-            self.logger.debug("Building prompt...")
-            prompt      = self.prompt_builder.build_prompt(query                 = request.query,
-                                                           context               = context,
-                                                           sources               = chunks,
-                                                           prompt_type           = prompt_type,
-                                                           include_citations     = request.include_sources,
-                                                           max_completion_tokens = request.max_tokens or self.settings.MAX_TOKENS,
-                                                          )
-            
-            # Generate LLM response
-            self.logger.debug("Generating LLM response...")
-            generation_start = time.time()
-            
-            messages         = [{"role": "system", "content": prompt["system"]},
-                                {"role": "user", "content": prompt["user"]},
-                               ]
-            
-            llm_response     = await self.llm_client.generate(messages    = messages,
-                                                              temperature = temperature,
-                                                              top_p       = request.top_p or self.settings.TOP_P,
-                                                              max_tokens  = request.max_tokens or self.settings.MAX_TOKENS,
-                                                             )
-            
-            generation_time  = (time.time() - generation_start) * 1000
-            
-            answer           = llm_response["content"]
-            
-            self.logger.info(f"Generated response in {generation_time:.0f}ms ({llm_response['usage']['completion_tokens']} tokens)")
-            
-            # Format citations (if enabled)
-            if request.include_sources:
-                self.logger.debug("Formatting citations...")
-                
-                answer = self._post_process_citations(answer  = answer, 
-                                                      sources = chunks,
-                                                     )
-            
-            # Create response object
-            total_time = (time.time() - start_time) * 1000
-            
-            response   = QueryResponse(query              = request.query,
-                                       answer             = answer,
-                                       sources            = chunks if request.include_sources else [],
-                                       retrieval_time_ms  = retrieval_time,
-                                       generation_time_ms = generation_time,
-                                       total_time_ms      = total_time,
-                                       tokens_used        = {"input"  : llm_response["usage"]["prompt_tokens"],
-                                                             "output" : llm_response["usage"]["completion_tokens"],
-                                                             "total"  : llm_response["usage"]["total_tokens"],
-                                                            },
-                                        model_used        = self.model_name,
-                                        timestamp         = datetime.now(),
-                                       )
-            
-            # Add quality metrics if requested
-            if request.include_metrics:
-                response.metrics = self._calculate_quality_metrics(query    = request.query,
-                                                                   answer   = answer,
-                                                                   context  = context,
-                                                                   sources  = chunks,
-                                                                  )
-            
-            # Update statistics
-            self.generation_count      += 1
-            self.total_generation_time += total_time
-            
-            self.logger.info(f"Response generated successfully in {total_time:.0f}ms")
-            
-            return response
+            else:
+                # Try RAG first
+                try:
+                    response = await self._handle_rag_query(request        = request, 
+                                                            classification = classification,
+                                                            start_time     = start_time,
+                                                           )
+                    
+                    # If RAG returns no results or low confidence, check if we should fallback
+                    if ((not response.sources) or (len(response.sources) == 0) or (response.answer.startswith("I couldn't find"))):  
+                        # Fallback to general
+                        self.logger.info("RAG returned no results, falling back to general response")
+                        
+                        return await self._handle_general_query(request        = request, 
+                                                                classification = classification,
+                                                                start_time     = start_time,
+                                                               )
+                    
+                    return response
+                    
+                except Exception as e:
+                    self.logger.warning(f"RAG failed, falling back to general: {repr(e)}")
+                    
+                    return await self._handle_general_query(request        = request, 
+                                                            classification = classification,
+                                                            start_time     = start_time,
+                                                           )
             
         except Exception as e:
             self.logger.error(f"Response generation failed: {repr(e)}", exc_info = True)
             raise ResponseGenerationError(f"Response generation failed: {repr(e)}")
+    
+
+    async def _handle_general_query(self, request: QueryRequest, classification: Dict, start_time: float) -> QueryResponse:
+        """
+        Handle general/conversational query
+        
+        Arguments:
+        ----------
+            request        { QueryRequest } : Query request
+
+            classification { dict }         : Query classification
+            
+            start_time     { float }        : Start time for timing
+        
+        Returns:
+        --------
+            { QueryResponse }               : General response
+        """
+        self.logger.debug(f"Handling as general query: {request.query}")
+        
+        # Get or create conversation history for this session
+        session_id = getattr(request, 'session_id', 'default')
+        
+        if session_id not in self.conversation_histories:
+            self.conversation_histories[session_id] = []
+        
+        # Get response from general responder
+        general_response = await self.general_responder.respond(query                = request.query,
+                                                                conversation_history = self.conversation_histories[session_id],
+                                                               )
+        
+        # Update conversation history
+        self.conversation_histories[session_id].append({"role"    : "user", 
+                                                        "content" : request.query,
+                                                       })
+
+        self.conversation_histories[session_id].append({"role"    : "assistant", 
+                                                        "content" : general_response["answer"],
+                                                       })
+        
+        # Keep history manageable (last 20 messages)
+        if (len(self.conversation_histories[session_id]) > 20):
+            self.conversation_histories[session_id] = self.conversation_histories[session_id][-20:]
+        
+        # Calculate timing
+        total_time                  = (time.time() - start_time) * 1000
+        
+        # Create QueryResponse object
+        response                    = QueryResponse(query              = request.query,
+                                                    answer             = general_response["answer"],
+                                                    sources            = [],  # No sources for general queries
+                                                    retrieval_time_ms  = 0,
+                                                    generation_time_ms = total_time,
+                                                    total_time_ms      = total_time,
+                                                    tokens_used        = general_response.get("tokens_used", {"input"  : 0, 
+                                                                                                              "output" : 0, 
+                                                                                                              "total"  : 0,
+                                                                                                             }
+                                                                                             ),
+                                                    model_used         = general_response.get("model", self.model_name),
+                                                    timestamp          = datetime.now(),
+                                                   )
+        
+        # Add classification metadata
+        response.metadata           = {"query_type"                  : "general_conversation",
+                                       "classification"              : classification,
+                                       "used_rag"                    : False,
+                                       "conversation_history_length" : len(self.conversation_histories[session_id]),
+                                      }
+        
+        # Update statistics
+        self.generation_count      += 1
+        self.total_generation_time += total_time
+        
+        self.logger.info(f"General response generated in {total_time:.0f}ms")
+        
+        return response
+    
+
+    async def _handle_rag_query(self, request: QueryRequest, classification: Dict, start_time: float) -> QueryResponse:
+        """
+        Handle RAG/document-based query
+        
+        Arguments:
+        ----------
+            request        { QueryRequest } : Query request
+
+            classification { dict }         : Query classification
+            
+            start_time     { float }        : Start time for timing
+        
+        Returns:
+        --------
+            { QueryResponse }               : RAG response
+        """
+        self.logger.debug(f"Handling as RAG query: {request.query}")
+        
+        # Retrieve relevant context
+        self.logger.debug("Retrieving context...")
+
+        retrieval_start  = time.time()
+        
+        retrieval_result = self.hybrid_retriever.retrieve_with_context(query             = request.query,
+                                                                       top_k             = request.top_k or self.settings.TOP_K_RETRIEVE,
+                                                                       enable_reranking  = request.enable_reranking,
+                                                                       include_citations = request.include_sources,
+                                                                      )
+        
+        retrieval_time   = (time.time() - retrieval_start) * 1000
+        
+        chunks           = retrieval_result["chunks"]
+        context          = retrieval_result["context"]
+        
+        if not chunks:
+            self.logger.warning("No relevant context found for query")
+            
+            return self._create_no_results_response(request           = request, 
+                                                    retrieval_time_ms = retrieval_time,
+                                                   )
+        
+        self.logger.info(f"Retrieved {len(chunks)} chunks in {retrieval_time:.0f}ms")
+        
+        # Determine prompt type and temperature
+        self.logger.debug("Determining prompt strategy...")
+        prompt_type = self._infer_prompt_type(query = request.query)
+        
+        temperature = self._get_adaptive_temperature(request          = request,
+                                                     query            = request.query,
+                                                     context          = context,
+                                                     retrieval_scores = [chunk.score for chunk in chunks],
+                                                     prompt_type      = prompt_type,
+                                                    )
+        
+        self.logger.debug(f"Prompt type: {prompt_type.value}, Temperature: {temperature}")
+        
+        # Build optimized prompt
+        self.logger.debug("Building prompt...")
+        prompt      = self.prompt_builder.build_prompt(query                 = request.query,
+                                                       context               = context,
+                                                       sources               = chunks,
+                                                       prompt_type           = prompt_type,
+                                                       include_citations     = request.include_sources,
+                                                       max_completion_tokens = request.max_tokens or self.settings.MAX_TOKENS,
+                                                      )
+        
+        # Generate LLM response
+        self.logger.debug("Generating LLM response...")
+        generation_start = time.time()
+        
+        messages         = [{"role": "system", "content": prompt["system"]},
+                            {"role": "user", "content": prompt["user"]},
+                           ]
+        
+        llm_response     = await self.llm_client.generate(messages    = messages,
+                                                          temperature = temperature,
+                                                          top_p       = request.top_p or self.settings.TOP_P,
+                                                          max_tokens  = request.max_tokens or self.settings.MAX_TOKENS,
+                                                         )
+        
+        generation_time  = (time.time() - generation_start) * 1000
+        
+        answer           = llm_response["content"]
+        
+        self.logger.info(f"Generated response in {generation_time:.0f}ms ({llm_response['usage']['completion_tokens']} tokens)")
+        
+        # Format citations (if enabled)
+        if request.include_sources:
+            self.logger.debug("Formatting citations...")
+            
+            answer = self._post_process_citations(answer  = answer, 
+                                                  sources = chunks,
+                                                 )
+        
+        # Create response object
+        total_time = (time.time() - start_time) * 1000
+        
+        response   = QueryResponse(query              = request.query,
+                                   answer             = answer,
+                                   sources            = chunks if request.include_sources else [],
+                                   retrieval_time_ms  = retrieval_time,
+                                   generation_time_ms = generation_time,
+                                   total_time_ms      = total_time,
+                                   tokens_used        = {"input"  : llm_response["usage"]["prompt_tokens"],
+                                                         "output" : llm_response["usage"]["completion_tokens"],
+                                                         "total"  : llm_response["usage"]["total_tokens"],
+                                                        },
+                                   model_used         = self.model_name,
+                                   timestamp          = datetime.now(),
+                                  )
+        
+        # Add classification metadata
+        response.metadata = {"query_type"     : "rag_document",
+                             "classification" : classification,
+                             "used_rag"       : True,
+                             "chunks_retrieved" : len(chunks),
+                             "prompt_type"    : prompt_type.value,
+                            }
+        
+        # Add quality metrics if requested
+        if request.include_metrics:
+            response.metrics        = self._calculate_quality_metrics(query    = request.query,
+                                                                      answer   = answer,
+                                                                      context  = context,
+                                                                      sources  = chunks,
+                                                                     )
+        
+        # Update statistics
+        self.generation_count      += 1
+        self.total_generation_time += total_time
+        
+        self.logger.info(f"RAG response generated successfully in {total_time:.0f}ms")
+        
+        return response
     
 
     @handle_errors(error_type = ResponseGenerationError, log_error = True, reraise = True)
@@ -209,6 +375,20 @@ class ResponseGenerator:
         self.logger.info(f"Generating streaming response for query: '{request.query[:100]}...'")
         
         try:
+            # Classify query first
+            classification = self.query_classifier.classify(request.query)
+            
+            # For streaming, we primarily support RAG queries
+            # General queries can still work but without streaming benefits
+            if ((classification["suggested_action"] == "respond_with_general_llm") or (classification["suggested_action"] == "try_rag_then_general")):
+                
+                # Fallback to non-streaming for general queries
+                response = await self.generate_response(request)
+                
+                yield response.answer
+                
+                return
+            
             # Retrieve context (same as non-streaming)
             retrieval_result = self.hybrid_retriever.retrieve_with_context(query             = request.query,
                                                                            top_k             = request.top_k or self.settings.TOP_K_RETRIEVE,
@@ -540,6 +720,7 @@ class ResponseGenerator:
                 "provider"               : self.provider.value,
                 "model"                  : self.model_name,
                 "llm_health"             : self.llm_client.check_health(),
+                "conversation_sessions"  : len(self.conversation_histories),
                }
     
 
@@ -549,8 +730,9 @@ class ResponseGenerator:
         """
         self.generation_count      = 0
         self.total_generation_time = 0.0
+        self.conversation_histories.clear()
         
-        self.logger.info("Generation statistics reset")
+        self.logger.info("Generation statistics and conversation histories reset")
 
 
 # Global response generator instance

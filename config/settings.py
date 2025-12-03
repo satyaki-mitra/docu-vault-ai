@@ -112,13 +112,13 @@ class Settings(BaseSettings):
     LOG_RETENTION                 : str                                                      = Field(default = "30 days", description = "Log retention period")
     
     # Evaluation Settings
-    ENABLE_RAGAS                  : bool                                                     = Field(default = False, description = "Enable Ragas evaluation")
-    RAGAS_METRICS                 : list[str]                                                = Field(default = ["answer_relevancy", "faithfulness", "context_precision"], description = "Ragas metrics to compute")
-    
-    ENABLE_LANGSMITH              : bool                                                     = Field(default = False, description = "Enable LangSmith logging")
-    LANGSMITH_API_KEY             : Optional[str]                                            = Field(default = None, description = "LangSmith API key")
-    LANGSMITH_PROJECT             : str                                                      = Field(default = "universal-rag", description = "LangSmith project name")
-    
+    ENABLE_RAGAS                  : bool                                                     = Field(default = True, description = "Enable Ragas evaluation")
+    RAGAS_ENABLE_GROUND_TRUTH     : bool                                                     = Field(default = False, description = "Enable RAGAS metrics requiring ground truth")
+    RAGAS_METRICS                 : list[str]                                                = Field(default = ["answer_relevancy", "faithfulness", "context_utilization", "context_relevancy"], description = "Ragas metrics to compute (base metrics without ground truth)")
+    RAGAS_GROUND_TRUTH_METRICS    : list[str]                                                = Field(default = ["context_precision", "context_recall", "answer_similarity", "answer_correctness"], description = "Ragas metrics requiring ground truth")
+    RAGAS_EVALUATION_TIMEOUT      : int                                                      = Field(default = 60, description = "RAGAS evaluation timeout in seconds")
+    RAGAS_BATCH_SIZE              : int                                                      = Field(default = 10, description = "Batch size for RAGAS evaluations")
+
     # Web Scraping Settings (for future)
     SCRAPING_ENABLED              : bool                                                     = Field(default = False, description = "Enable web scraping")
     USER_AGENT                    : str                                                      = Field(default = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", description = "User agent for scraping")
@@ -223,7 +223,7 @@ class Settings(BaseSettings):
                 "allowed_extensions" : self.ALLOWED_EXTENSIONS,
                 "chunking_strategy"  : {"small_threshold" : self.SMALL_DOC_THRESHOLD, "large_threshold" : self.LARGE_DOC_THRESHOLD},
                 "retrieval"          : {"top_k" : self.TOP_K_RETRIEVE, "hybrid_weights" : {"vector" : self.VECTOR_WEIGHT, "bm25" : self.BM25_WEIGHT}},
-                "evaluation"         : {"ragas_enabled" : self.ENABLE_RAGAS, "langsmith_enabled" : self.ENABLE_LANGSMITH},
+                "evaluation"         : {"ragas_enabled" : self.ENABLE_RAGAS, "ragas_ground_truth" : self.RAGAS_ENABLE_GROUND_TRUTH, "ragas_metrics" : self.RAGAS_METRICS},
                }
 
 

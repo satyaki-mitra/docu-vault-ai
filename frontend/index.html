@@ -19,16 +19,80 @@
             color: #4f46e5;
             font-weight: 600;
         }
+
+        /* Chat message bubbles */
+        .chat-bubble-user {
+            max-width: 85%;
+            margin-left: auto;
+            margin-right: 0;
+            border-radius: 18px 18px 4px 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-bubble-assistant {
+            max-width: 85%;
+            margin-right: auto;
+            margin-left: 0;
+            border-radius: 18px 18px 18px 4px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Chat container adjustments */
+        .chat-message {
+            display: flex;
+            margin-bottom: 1rem;
+        }
+
+        .chat-message.user {
+            justify-content: flex-end;
+        }
+
+        .chat-message.assistant {
+            justify-content: flex-start;
+        }
+
+        /* Chat content inside bubbles */
+        .chat-bubble-content {
+            padding: 12px 16px;
+        }
+
+        /* Source cards and metrics inside bubbles */
+        .chat-bubble-assistant .source-card {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+        }
+
+        /* Query type badge adjustments */
+        .chat-bubble-user .query-type-badge {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Timestamp adjustments */
+        .chat-bubble-timestamp {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
         .chat-message {
             animation: fadeIn 0.3s ease-in;
         }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
         .progress-bar {
             transition: width 0.5s ease-in-out;
         }
+
         .loading-spinner {
             border: 2px solid #f3f3f3;
             border-top: 2px solid #3498db;
@@ -37,11 +101,13 @@
             height: 20px;
             animation: spin 1s linear infinite;
         }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* Improve chat readability */
+
+        /* Improvement of chat readability */
         .chat-message p {
             margin-bottom: 0.75rem;
             line-height: 1.6;
@@ -70,6 +136,15 @@
             line-height: 1.6;
         }
 
+        .query-type-indicator {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+            padding: 5px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+
         /* Source cards */
         .source-card {
             transition: all 0.2s ease;
@@ -78,6 +153,124 @@
         .source-card:hover {
             transform: translateY(-1px);
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* RAGAS table styling */
+        .ragas-good {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .ragas-fair {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .ragas-poor {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .ragas-cell {
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-align: center;
+            min-width: 60px;
+        }
+
+        /* Collapsible sources */
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.expanded {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .chevron {
+            transition: transform 0.3s ease;
+        }
+
+        .chevron.expanded {
+            transform: rotate(180deg);
+        }
+
+        /* Query type badges */
+        .query-type-badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-rag {
+            background-color: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+
+        .badge-general {
+            background-color: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .badge-summary {
+            background-color: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+
+        .badge-comparison {
+            background-color: #ede9fe;
+            color: #5b21b6;
+            border: 1px solid #ddd6fe;
+        }
+
+        /* Session management */
+        .session-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .session-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .session-card.active {
+            border-color: #4f46e5;
+            background-color: #f5f3ff;
+        }
+
+        /* Classification test */
+        .classification-result {
+            border-left: 4px solid;
+            padding-left: 12px;
+        }
+
+        .classification-rag {
+            border-left-color: #4f46e5;
+        }
+
+        .classification-general {
+            border-left-color: #10b981;
+        }
+
+        .classification-mixed {
+            border-left-color: #f59e0b;
         }
     </style>
 </head>
@@ -202,7 +395,7 @@
                             <ul class="mt-3 text-sm text-gray-500 space-y-1">
                                 <li><i class="fas fa-check text-green-500 mr-2"></i>Answer relevancy scoring</li>
                                 <li><i class="fas fa-check text-green-500 mr-2"></i>Faithfulness evaluation</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Context precision metrics</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Context Utilization metrics</li>
                             </ul>
                         </div>
 
@@ -375,9 +568,21 @@
                             </button>
                         </li>
                         <li>
+                            <button onclick="showAppSection('sessions')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+                                <i class="fas fa-history mr-3"></i>
+                                Sessions
+                            </button>
+                        </li>
+                        <li>
                             <button onclick="showAppSection('analytics')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
                                 <i class="fas fa-chart-bar mr-3"></i>
                                 Analytics & Quality
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="showAppSection('classification-test')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+                                <i class="fas fa-flask mr-3"></i>
+                                Classification Test
                             </button>
                         </li>
                         <li>
@@ -489,13 +694,23 @@
                                         <p class="text-sm text-gray-600">Ask questions about your uploaded content</p>
                                     </div>
                                     <div class="flex space-x-2">
+                                        <button onclick="loadConversationHistory()" class="text-sm bg-blue-200 text-blue-700 px-3 py-1 rounded hover:bg-blue-300 transition duration-200">
+                                            <i class="fas fa-history mr-1"></i>Load History
+                                        </button>
                                         <button onclick="exportChat('json')" class="text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 transition duration-200">
                                             <i class="fas fa-download mr-1"></i>Export JSON
                                         </button>
                                         <button onclick="exportChat('csv')" class="text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 transition duration-200">
                                             <i class="fas fa-file-csv mr-1"></i>Export CSV
                                         </button>
+                                        <button onclick="clearCurrentSession()" class="text-sm bg-red-200 text-red-700 px-3 py-1 rounded hover:bg-red-300 transition duration-200">
+                                            <i class="fas fa-trash mr-1"></i>Clear Session
+                                        </button>
                                     </div>
+                                </div>
+                                <div id="session-info" class="text-xs text-gray-500 mt-2">
+                                    <i class="fas fa-id-card mr-1"></i>
+                                    Session ID: <span id="current-session-id" class="font-mono">Not started</span>
                                 </div>
                             </div>
 
@@ -525,100 +740,259 @@
                         </div>
                     </div>
 
-                    <!-- Analytics Section -->
+                    <!-- Sessions Management Section -->
+                    <div id="sessions-section" class="hidden">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-lg font-semibold">Session Management</h3>
+                                <div class="flex space-x-2">
+                                    <button onclick="refreshSessions()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
+                                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <!-- Session List -->
+                                <div class="lg:col-span-2">
+                                    <h4 class="font-semibold mb-4 text-gray-700">Active Sessions</h4>
+                                    <div id="sessions-list" class="space-y-3 max-h-96 overflow-y-auto">
+                                        <!-- Sessions will be loaded here -->
+                                    </div>
+                                </div>
+                                
+                                <!-- Session Details -->
+                                <div class="lg:col-span-1">
+                                    <h4 class="font-semibold mb-4 text-gray-700">Session Details</h4>
+                                    <div id="session-details" class="bg-gray-50 p-4 rounded-lg border border-gray-200 min-h-96">
+                                        <p class="text-gray-500 text-center py-8">Select a session to view details</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Classification Test Section -->
+                    <div id="classification-test-section" class="hidden">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-lg font-semibold">Query Classification Test</h3>
+                                <div class="text-sm text-gray-600">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Test how queries are classified before sending
+                                </div>
+                            </div>
+                            
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium mb-2 text-gray-700">Test Query</label>
+                                <div class="flex space-x-4">
+                                    <input type="text" id="test-query-input" placeholder="Enter a query to test classification..." 
+                                           class="flex-1 border rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200"
+                                           onkeypress="handleTestQueryKeypress(event)">
+                                    <button onclick="testClassification()" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition duration-200">
+                                        <i class="fas fa-flask mr-2"></i>Test
+                                    </button>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">
+                                    Enter a query to see how it would be classified (RAG vs General conversation)
+                                </p>
+                            </div>
+                            
+                            <div id="classification-results" class="space-y-4">
+                                <!-- Results will appear here -->
+                            </div>
+                            
+                            <!-- Sample Queries -->
+                            <div class="mt-8 pt-6 border-t">
+                                <h4 class="font-semibold mb-4 text-gray-700">Sample Queries for Testing</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <h5 class="font-medium mb-2 text-gray-700">RAG Queries (Document-based)</h5>
+                                        <ul class="space-y-2 text-sm">
+                                            <li class="cursor-pointer hover:text-indigo-600" onclick="setTestQuery(this.textContent)">
+                                                What are the main findings in the uploaded documents?
+                                            </li>
+                                            <li class="cursor-pointer hover:text-indigo-600" onclick="setTestQuery(this.textContent)">
+                                                Can you summarize the key points from the report?
+                                            </li>
+                                            <li class="cursor-pointer hover:text-indigo-600" onclick="setTestQuery(this.textContent)">
+                                                Compare the approaches mentioned in document A and B
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <h5 class="font-medium mb-2 text-gray-700">General Queries</h5>
+                                        <ul class="space-y-2 text-sm">
+                                            <li class="cursor-pointer hover:text-green-600" onclick="setTestQuery(this.textContent)">
+                                                Hello, how are you today?
+                                            </li>
+                                            <li class="cursor-pointer hover:text-green-600" onclick="setTestQuery(this.textContent)">
+                                                What is machine learning?
+                                            </li>
+                                            <li class="cursor-pointer hover:text-green-600" onclick="setTestQuery(this.textContent)">
+                                                Tell me a joke
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Section with RAGAS Table -->
                     <div id="analytics-section" class="hidden">
                         <div class="bg-white rounded-lg shadow p-6">
-                            <h3 class="text-lg font-semibold mb-6">Analytics & Quality Metrics</h3>
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-lg font-semibold">Analytics & Quality Metrics</h3>
+                                <div class="flex space-x-2">
+                                    <button onclick="refreshRagasTable()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
+                                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                                    </button>
+                                    <button onclick="clearRagasHistory()" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition duration-200">
+                                        <i class="fas fa-trash mr-2"></i>Clear Session
+                                    </button>
+                                    <button onclick="exportRagasData()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-200">
+                                        <i class="fas fa-download mr-2"></i>Export Data
+                                    </button>
+                                </div>
+                            </div>
                             
-                            <!-- Ragas Evaluation -->
+                            <!-- Session Statistics -->
                             <div class="mb-8">
-                                <h4 class="font-semibold mb-4 text-gray-700">RAGAS Evaluation Metrics</h4>
-                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                <h4 class="font-semibold mb-4 text-gray-700">Session Statistics</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <span class="text-sm font-medium text-blue-700">Answer Relevancy</span>
-                                            <i class="fas fa-bullseye text-blue-500"></i>
-                                        </div>
-                                        <div class="text-2xl font-bold text-blue-600" id="answer-relevancy">-</div>
-                                        <div class="text-xs text-blue-600 mt-1">How well answer addresses question</div>
+                                        <div class="text-sm font-medium text-blue-700 mb-1">Total Evaluations</div>
+                                        <div class="text-2xl font-bold text-blue-600" id="ragas-total-count">0</div>
                                     </div>
                                     <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <span class="text-sm font-medium text-green-700">Faithfulness</span>
-                                            <i class="fas fa-check-circle text-green-500"></i>
-                                        </div>
-                                        <div class="text-2xl font-bold text-green-600" id="faithfulness">-</div>
-                                        <div class="text-xs text-green-600 mt-1">Is answer grounded in context</div>
+                                        <div class="text-sm font-medium text-green-700 mb-1">Average Answer Relevancy</div>
+                                        <div class="text-2xl font-bold text-green-600" id="ragas-avg-relevancy">-</div>
                                     </div>
                                     <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <span class="text-sm font-medium text-purple-700">Context Precision</span>
-                                            <i class="fas fa-crosshairs text-purple-500"></i>
-                                        </div>
-                                        <div class="text-2xl font-bold text-purple-600" id="context-precision">-</div>
-                                        <div class="text-xs text-purple-600 mt-1">Are relevant chunks ranked high</div>
+                                        <div class="text-sm font-medium text-purple-700 mb-1">Average Faithfulness</div>
+                                        <div class="text-2xl font-bold text-purple-600" id="ragas-avg-faithfulness">-</div>
                                     </div>
                                     <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <span class="text-sm font-medium text-orange-700">Overall Score</span>
-                                            <i class="fas fa-star text-orange-500"></i>
-                                        </div>
-                                        <div class="text-2xl font-bold text-orange-600" id="overall-score">-</div>
-                                        <div class="text-xs text-orange-600 mt-1">Composite evaluation score</div>
+                                        <div class="text-sm font-medium text-orange-700 mb-1">Average Context Utilization</div>
+                                        <div class="text-2xl font-bold text-orange-600" id="ragas-avg-precision">-</div>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Usage Statistics -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                                    <h4 class="font-semibold mb-4 text-gray-700">Usage Statistics</h4>
-                                    <div class="space-y-4">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-gray-600">Total Chat Sessions</span>
-                                            <span id="total-sessions" class="font-semibold text-lg">0</span>
-                                        </div>
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-gray-600">Total Messages</span>
-                                            <span id="total-messages" class="font-semibold text-lg">0</span>
-                                        </div>
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-gray-600">Average Response Time</span>
-                                            <span id="avg-response-time" class="font-semibold text-lg">-</span>
-                                        </div>
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-gray-600">Documents Processed</span>
-                                            <span id="total-documents" class="font-semibold text-lg">0</span>
-                                        </div>
+                            
+                            <!-- RAGAS Evaluation Table -->
+                            <div class="mb-8">
+                                <h4 class="font-semibold mb-4 text-gray-700 flex items-center">
+                                    <i class="fas fa-table mr-2 text-indigo-600"></i>
+                                    RAGAS Evaluation History
+                                    <span id="ragas-table-count" class="ml-2 text-sm font-normal text-gray-500">(0 entries)</span>
+                                </h4>
+                                
+                                <div class="border rounded-lg overflow-hidden">
+                                    <!-- Table Container with horizontal and vertical scroll -->
+                                    <div class="overflow-x-auto overflow-y-auto" style="max-height: 600px;">
+                                        <table class="min-w-full divide-y divide-gray-200" id="ragas-table">
+                                            <thead class="bg-gray-50 sticky top-0">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="min-width: 250px;">Query</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="min-width: 250px;">Answer</th>
+                                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        <div class="flex flex-col items-center">
+                                                            <span>Answer</span>
+                                                            <span>Relevancy</span>
+                                                        </div>
+                                                    </th>
+                                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        <div class="flex flex-col items-center">
+                                                            <span>Faithfulness</span>
+                                                        </div>
+                                                    </th>
+                                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        <div class="flex flex-col items-center">
+                                                            <span>Context</span>
+                                                            <span>Precision</span>
+                                                        </div>
+                                                    </th>
+                                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        <div class="flex flex-col items-center">
+                                                            <span>Context</span>
+                                                            <span>Relevancy</span>
+                                                        </div>
+                                                    </th>
+                                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        <div class="flex flex-col items-center">
+                                                            <span>Retrieval</span>
+                                                            <span>Time (ms)</span>
+                                                        </div>
+                                                    </th>
+                                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        <div class="flex flex-col items-center">
+                                                            <span>Generation</span>
+                                                            <span>Time (ms)</span>
+                                                        </div>
+                                                    </th>
+                                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        <div class="flex flex-col items-center">
+                                                            <span>Total</span>
+                                                            <span>Time (ms)</span>
+                                                        </div>
+                                                    </th>
+                                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        <div class="flex flex-col items-center">
+                                                            <span>Chunks</span>
+                                                            <span>Retrieved</span>
+                                                        </div>
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white divide-y divide-gray-200" id="ragas-table-body">
+                                                <tr>
+                                                    <td colspan="12" class="px-4 py-8 text-center text-gray-500">
+                                                        <i class="fas fa-info-circle text-3xl mb-2"></i>
+                                                        <p>No RAGAS evaluations yet. Start chatting to see quality metrics.</p>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
-
-                                <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                                    <h4 class="font-semibold mb-4 text-gray-700">System Information</h4>
-                                    <div class="space-y-3 text-sm">
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600">Vector Store Status</span>
-                                            <span id="vector-store-status" class="font-medium text-red-600">Not Ready</span>
+                                
+                                <!-- Table Legend -->
+                                <div class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div class="text-sm text-gray-800">
+                                        <p class="font-semibold mb-2">Metric Descriptions:</p>
+                                        <div class="grid grid-cols-1 md:grid-cols-1 gap-2">
+                                            <div>
+                                                <span class="font-medium">Answer Relevancy:</span> How well the answer addresses the question (0-1)
+                                            </div>
+                                            <div>
+                                                <span class="font-medium">Faithfulness:</span> Is the answer grounded in the retrieved context (0-1)
+                                            </div>
+                                            <div>
+                                                <span class="font-medium">Context Utilization:</span> How well the retrieved context is utilized (0-1)
+                                            </div>
                                         </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600">Current Model</span>
-                                            <span id="current-model" class="font-medium">-</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600">Chunking Strategy</span>
-                                            <span id="current-chunking" class="font-medium">-</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600">Last Updated</span>
-                                            <span id="last-updated" class="font-medium">-</span>
-                                        </div>
+                                        <p class="mt-2 text-xs text-gray-700">
+                                            <i class="fas fa-lightbulb mr-1"></i>
+                                            Color coding: 
+                                            <span class="text-green-600 font-medium">≥0.7 (Good)</span>, 
+                                            <span class="text-yellow-600 font-medium">0.4-0.7 (Fair)</span>, 
+                                            <span class="text-red-600 font-medium">&lt;0.4 (Poor)</span>
+                                        </p>
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="mt-6">
-                                <button onclick="refreshAnalytics()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
-                                    <i class="fas fa-sync-alt mr-2"></i>Refresh Analytics
+                            
+                            <!-- Refresh Controls -->
+                            <div class="mt-6 flex justify-between items-center">
+                                <div class="text-sm text-gray-600">
+                                    <i class="fas fa-info-circle mr-2"></i>
+                                    Table automatically refreshes when you switch to this tab or send a new message
+                                </div>
+                                <button onclick="refreshRagasTable()" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-200 transition duration-200">
+                                    <i class="fas fa-redo-alt mr-2"></i>Manual Refresh
                                 </button>
                             </div>
                         </div>
@@ -919,6 +1293,106 @@
                 
                 return await response.blob();
             }
+
+            // RAGAS specific API methods
+            async getRagasHistory() {
+                const response = await fetch(`${this.baseURL}/api/ragas/history`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `RAGAS history fetch failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async getRagasStatistics() {
+                const response = await fetch(`${this.baseURL}/api/ragas/statistics`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `RAGAS statistics fetch failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async clearRagasHistory() {
+                const response = await fetch(`${this.baseURL}/api/ragas/clear`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `RAGAS clear failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async exportRagasData() {
+                const response = await fetch(`${this.baseURL}/api/ragas/export`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `RAGAS export failed: ${response.statusText}`);
+                }
+                
+                const blob = await response.blob();
+                return blob;
+            }
+
+            async getRagasConfig() {
+                const response = await fetch(`${this.baseURL}/api/ragas/config`);
+                
+                if (!response.ok) {
+                    throw new Error(`RAGAS config fetch failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            // New endpoints for session management
+            async getConversationHistory(sessionId, limit = 20) {
+                const response = await fetch(`${this.baseURL}/api/conversation/${sessionId}?limit=${limit}`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `Conversation history fetch failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async clearConversationHistory(sessionId) {
+                const response = await fetch(`${this.baseURL}/api/conversation/${sessionId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `Clear conversation failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            async testQueryClassification(query) {
+                const formData = new FormData();
+                formData.append('query', query);
+                
+                const response = await fetch(`${this.baseURL}/api/test-classification`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `Classification test failed: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
         }
 
         // Global state
@@ -928,6 +1402,7 @@
         let chatMessages = [];
         let systemReady = false;
         let processingInterval = null;
+        let ragasTableAutoRefresh = true;
 
         // Landing page functions
         function showTab(tabName) {
@@ -970,6 +1445,8 @@
             document.getElementById('upload-section').classList.remove('hidden');
             document.getElementById('processing-section').classList.add('hidden');
             document.getElementById('chat-section').classList.add('hidden');
+            document.getElementById('sessions-section').classList.add('hidden');
+            document.getElementById('classification-test-section').classList.add('hidden');
             document.getElementById('analytics-section').classList.add('hidden');
             document.getElementById('configuration-section').classList.add('hidden');
             
@@ -1282,6 +1759,8 @@
             // Update page title
             const titles = {
                 'chat': 'Chat with Documents',
+                'sessions': 'Session Management',
+                'classification-test': 'Query Classification Test',
                 'analytics': 'Analytics & Quality',
                 'configuration': 'System Configuration'
             };
@@ -1289,9 +1768,11 @@
             
             // Load section-specific data
             if (section === 'analytics') {
-                loadAnalytics();
+                refreshRagasTable();
             } else if (section === 'configuration') {
                 loadConfigurationUI();
+            } else if (section === 'sessions') {
+                refreshSessions();
             } else if (section === 'chat') {
                 // Clear any duplicate messages and ensure welcome message exists
                 const chatMessages = document.getElementById('chat-messages');
@@ -1299,6 +1780,14 @@
                 if (!existingWelcome && systemReady) {
                     addWelcomeMessage();
                 }
+                
+                // Update session ID display
+                if (currentSessionId) {
+                    document.getElementById('current-session-id').textContent = currentSessionId;
+                }
+            } else if (section === 'classification-test') {
+                // Clear previous test results
+                document.getElementById('classification-results').innerHTML = '';
             }
         }
 
@@ -1312,7 +1801,7 @@
             }
             
             const welcomeMsg = document.createElement('div');
-            welcomeMsg.className = 'chat-message welcome-message bg-blue-50 border border-blue-200 rounded-lg p-4'; // Added welcome-message class
+            welcomeMsg.className = 'chat-message welcome-message bg-blue-50 border border-blue-200 rounded-lg p-4';
             welcomeMsg.innerHTML = `
                 <div class="flex items-start space-x-3">
                     <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1371,11 +1860,17 @@
                 // Update session ID if this is the first message
                 if (!currentSessionId) {
                     currentSessionId = response.session_id;
+                    document.getElementById('current-session-id').textContent = currentSessionId;
                     console.log('New session ID:', currentSessionId);
                 }
                 
-                // Add AI response
-                addChatMessage('assistant', response.response, response.sources, response.metrics);
+                // Add AI response with query type indicator
+                addChatMessage('assistant', response.response, response.sources, response.metrics, response.ragas_metrics, response.query_type, response.used_rag);
+                
+                // Refresh RAGAS table if analytics section is active
+                if (document.getElementById('analytics-section') && !document.getElementById('analytics-section').classList.contains('hidden')) {
+                    setTimeout(() => refreshRagasTable(), 500);
+                }
                 
             } catch (error) {
                 console.error('Chat API error details:', error);
@@ -1417,48 +1912,72 @@
             return loadingMsg;
         }
 
-        function addChatMessage(role, content, sources = [], metrics = {}) {
+        function addChatMessage(role, content, sources = [], metrics = {}, ragasMetrics = {}, queryType = 'rag_document', usedRag = true) {
             const chatMessages = document.getElementById('chat-messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `chat-message ${role === 'user' ? 'bg-white border' : 'bg-gray-50 border'} rounded-lg p-4 mb-4`;
             
+            // Create query type badge
+            let queryTypeBadge = '';
+            if (role === 'user') {
+                const badgeClass = getQueryTypeBadgeClass(queryType);
+                queryTypeBadge = `
+                    <div class="flex items-center mt-2">
+                        <span class="query-type-badge ${badgeClass}">
+                            ${getQueryTypeLabel(queryType)} (RAG: ${usedRag ? 'Yes' : 'No'})
+                        </span>
+                    </div>
+                `;
+            }
+            
+            // Create collapsible sources section
             let sourcesHTML = '';
             if (sources && sources.length > 0) {
+                const sourcesId = `sources-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                
                 sourcesHTML = `
                     <div class="mt-4 pt-4 border-t border-gray-200">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-file-alt text-gray-500 mr-2"></i>
-                            <span class="text-sm font-medium text-gray-700">Sources</span>
+                        <div class="collapsible-header flex items-center justify-between cursor-pointer" onclick="toggleSources('${sourcesId}')">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-gray-500 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-700">Sources (${sources.length})</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-gray-400 chevron" id="chevron-${sourcesId}"></i>
                         </div>
-                        <div class="space-y-3">
-                            ${sources.map((source, index) => {
-                                const textPreview = source.text_preview || source.text || 'Source content';
-                                const score = source.score !== undefined ? source.score : 0;
-                                const documentId = source.document_id || 'Unknown';
-                                const scoreColor = score > 0.7 ? 'bg-green-100 text-green-800' : 
-                                                score > 0.4 ? 'bg-yellow-100 text-yellow-800' : 
-                                                'bg-blue-100 text-blue-800';
-                                
-                                return `
-                                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <div class="flex items-center">
-                                                <span class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-1 rounded mr-2">[${index + 1}]</span>
-                                                <span class="text-xs font-medium text-gray-600">${documentId.substring(0, 20)}${documentId.length > 20 ? '...' : ''}</span>
+                        <div class="collapsible-content mt-3" id="${sourcesId}">
+                            <div class="space-y-3">
+                                ${sources.map((source, index) => {
+                                    const textPreview = source.text_preview || source.text || 'Source content';
+                                    const score = source.score !== undefined ? source.score : 0;
+                                    const documentId = source.document_id || 'Unknown';
+                                    const scoreColor = score > 0.7 ? 'bg-green-100 text-green-800' : 
+                                                    score > 0.4 ? 'bg-yellow-100 text-yellow-800' : 
+                                                    'bg-blue-100 text-blue-800';
+                                    
+                                    // Clean the text preview to remove HTML tags and truncate
+                                    const cleanTextPreview = escapeHtml(textPreview).substring(0, 300) + (textPreview.length > 300 ? '...' : '');
+                                    
+                                    return `
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 source-card">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <div class="flex items-center">
+                                                    <span class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-1 rounded mr-2">[${index + 1}]</span>
+                                                    <span class="text-xs font-medium text-gray-600">${documentId.substring(0, 20)}${documentId.length > 20 ? '...' : ''}</span>
+                                                </div>
+                                                <span class="text-xs font-medium px-2 py-1 rounded ${scoreColor}">${score.toFixed(3)}</span>
                                             </div>
-                                            <span class="text-xs font-medium px-2 py-1 rounded ${scoreColor}">${score.toFixed(3)}</span>
+                                            <div class="text-sm text-gray-700 leading-relaxed">
+                                                ${cleanTextPreview}
+                                            </div>
+                                            ${source.page_number ? 
+                                                `<div class="text-xs text-gray-500 mt-2">
+                                                    <i class="fas fa-file text-gray-400 mr-1"></i>Page ${source.page_number}
+                                                </div>` : ''
+                                            }
                                         </div>
-                                        <div class="text-sm text-gray-700 leading-relaxed">
-                                            ${this.escapeHtml(textPreview)}
-                                        </div>
-                                        ${source.page_number ? 
-                                            `<div class="text-xs text-gray-500 mt-2">
-                                                <i class="fas fa-file text-gray-400 mr-1"></i>Page ${source.page_number}
-                                            </div>` : ''
-                                        }
-                                    </div>
-                                `;
-                            }).join('')}
+                                    `;
+                                }).join('')}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1472,7 +1991,7 @@
                 const tokensUsed = metrics.tokens_used || 0;
                 
                 metricsHTML = `
-                    <div class="mt-4 pt-3 border-t border-gray-200">
+                    <div class="mt-3 pt-3 border-t border-gray-200">
                         <div class="flex flex-wrap gap-3 text-xs text-gray-600">
                             ${retrievalTime ? `
                                 <div class="flex items-center">
@@ -1503,8 +2022,51 @@
                 `;
             }
             
+            // Add RAGAS metrics if available
+            let ragasHTML = '';
+            if (ragasMetrics && Object.keys(ragasMetrics).length > 0 && ragasMetrics.answer_relevancy !== undefined) {
+                const relevancy = ragasMetrics.answer_relevancy || 0;
+                const faithfulness = ragasMetrics.faithfulness || 0;
+                const contextUtilization = ragasMetrics.context_utilization || 0; 
+                const contextRelevancy = ragasMetrics.context_relevancy || 0;
+                
+                const getRagasClass = (score) => {
+                    if (score === null || score === undefined) return 'ragas-poor';
+                    if (score >= 0.7) return 'ragas-good';
+                    if (score >= 0.4) return 'ragas-fair';
+                    return 'ragas-poor';
+                };
+                
+                ragasHTML = `
+                    <div class="mt-3 pt-3 border-t border-gray-200">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-chart-line text-indigo-500 mr-2"></i>
+                            <span class="text-sm font-medium text-gray-700">Quality Metrics</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2 text-xs">
+                            <div class="flex items-center">
+                                <span class="font-medium mr-1">Relevancy:</span>
+                                <span class="ragas-cell ${getRagasClass(relevancy)}">${relevancy !== null ? relevancy.toFixed(3) : 'N/A'}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="font-medium mr-1">Faithfulness:</span>
+                                <span class="ragas-cell ${getRagasClass(faithfulness)}">${faithfulness !== null ? faithfulness.toFixed(3) : 'N/A'}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="font-medium mr-1">Context Util:</span>
+                                <span class="ragas-cell ${getRagasClass(contextUtilization)}">${contextUtilization !== null ? contextUtilization.toFixed(3) : 'N/A'}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="font-medium mr-1">Context Rel:</span>
+                                <span class="ragas-cell ${getRagasClass(contextRelevancy)}">${contextRelevancy !== null ? contextRelevancy.toFixed(3) : 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
             // Format the content with better spacing
-            const formattedContent = this.formatChatContent(content);
+            const formattedContent = formatChatContent(content);
             
             messageDiv.innerHTML = `
                 <div class="flex items-start space-x-3">
@@ -1516,6 +2078,8 @@
                         <div class="${role === 'user' ? 'text-gray-800' : 'text-gray-700'} leading-relaxed prose prose-sm max-w-none">
                             ${formattedContent}
                         </div>
+                        ${queryTypeBadge}
+                        ${ragasHTML}
                         ${sourcesHTML}
                         ${metricsHTML}
                         <div class="text-xs ${role === 'user' ? 'text-indigo-600' : 'text-gray-500'} mt-3">
@@ -1529,8 +2093,38 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // Add these helper functions
+        // Helper functions
+        function getQueryTypeBadgeClass(queryType) {
+            switch(queryType) {
+                case 'rag_document':
+                case 'rag_factual':
+                    return 'badge-rag';
+                case 'general_conversation':
+                case 'general_knowledge':
+                    return 'badge-general';
+                case 'rag_summary':
+                    return 'badge-summary';
+                case 'rag_comparison':
+                    return 'badge-comparison';
+                default:
+                    return 'badge-rag';
+            }
+        }
+
+        function getQueryTypeLabel(queryType) {
+            const labels = {
+                'rag_document': 'Document Query',
+                'rag_factual': 'Factual Query',
+                'general_conversation': 'General Chat',
+                'general_knowledge': 'General Knowledge',
+                'rag_summary': 'Summary Request',
+                'rag_comparison': 'Comparison Query'
+            };
+            return labels[queryType] || queryType;
+        }
+
         function escapeHtml(text) {
+            if (!text) return '';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
@@ -1573,10 +2167,493 @@
             return formatted;
         }
 
+        function toggleSources(sourcesId) {
+            const content = document.getElementById(sourcesId);
+            const chevron = document.getElementById(`chevron-${sourcesId}`);
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                chevron.classList.remove('expanded');
+            } else {
+                content.classList.add('expanded');
+                chevron.classList.add('expanded');
+            }
+        }
+
         function updateTokenCount() {
             const input = document.getElementById('chat-input');
             const tokenCount = Math.ceil(input.value.length / 4); // Rough estimate
             document.getElementById('token-count').textContent = `${tokenCount} tokens`;
+        }
+
+        // Session Management Functions
+        async function refreshSessions() {
+            try {
+                // For now, we'll show the current session if available
+                // In a real implementation, you would get all sessions from the backend
+                const sessionsList = document.getElementById('sessions-list');
+                
+                if (!currentSessionId) {
+                    sessionsList.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-comments text-3xl mb-2"></i>
+                            <p>No active sessions found</p>
+                            <p class="text-sm mt-2">Start chatting to create a session</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Show current session
+                sessionsList.innerHTML = `
+                    <div class="session-card active bg-white border border-indigo-200 rounded-lg p-4" onclick="loadSessionDetails('${currentSessionId}')">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center">
+                                <i class="fas fa-comment text-indigo-600 mr-2"></i>
+                                <span class="font-medium">Current Session</span>
+                            </div>
+                            <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">Active</span>
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            <div class="flex justify-between mb-1">
+                                <span>ID:</span>
+                                <span class="font-mono">${currentSessionId.substring(0, 12)}...</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Messages:</span>
+                                <span>${chatMessages.length}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Refresh sessions error:', error);
+                showNotification('Failed to load sessions', 'error');
+            }
+        }
+
+        async function loadSessionDetails(sessionId) {
+            try {
+                if (sessionId === currentSessionId) {
+                    // Load current session from memory
+                    const sessionDetails = document.getElementById('session-details');
+                    
+                    sessionDetails.innerHTML = `
+                        <div class="space-y-4">
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">Session Information</h5>
+                                <div class="text-sm space-y-2">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Session ID:</span>
+                                        <span class="font-mono text-gray-800">${sessionId}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Status:</span>
+                                        <span class="font-medium text-green-600">Active</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Messages:</span>
+                                        <span>${chatMessages.length}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">Actions</h5>
+                                <div class="space-y-2">
+                                    <button onclick="loadConversationHistory()" class="w-full bg-indigo-100 text-indigo-700 px-3 py-2 rounded hover:bg-indigo-200 transition duration-200 text-sm">
+                                        <i class="fas fa-history mr-2"></i>Load into Chat
+                                    </button>
+                                    <button onclick="exportChat('json')" class="w-full bg-blue-100 text-blue-700 px-3 py-2 rounded hover:bg-blue-200 transition duration-200 text-sm">
+                                        <i class="fas fa-download mr-2"></i>Export as JSON
+                                    </button>
+                                    <button onclick="clearCurrentSession()" class="w-full bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 transition duration-200 text-sm">
+                                        <i class="fas fa-trash mr-2"></i>Clear Session
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">Recent Messages</h5>
+                                <div class="text-xs space-y-1 max-h-40 overflow-y-auto">
+                                    ${chatMessages.slice(-5).map(msg => `
+                                        <div class="bg-gray-100 p-2 rounded">
+                                            <div class="font-medium">${msg.role === 'user' ? 'You' : 'AI'}:</div>
+                                            <div class="text-gray-600 truncate">${msg.content.substring(0, 50)}${msg.content.length > 50 ? '...' : ''}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Load from backend
+                    const history = await apiService.getConversationHistory(sessionId);
+                    const sessionDetails = document.getElementById('session-details');
+                    
+                    sessionDetails.innerHTML = `
+                        <div class="space-y-4">
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">Session Information</h5>
+                                <div class="text-sm space-y-2">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Session ID:</span>
+                                        <span class="font-mono text-gray-800">${sessionId}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Total Messages:</span>
+                                        <span>${history.total_messages}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Messages Loaded:</span>
+                                        <span>${history.messages_returned}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">Actions</h5>
+                                <div class="space-y-2">
+                                    <button onclick="loadSessionIntoChat('${sessionId}')" class="w-full bg-indigo-100 text-indigo-700 px-3 py-2 rounded hover:bg-indigo-200 transition duration-200 text-sm">
+                                        <i class="fas fa-history mr-2"></i>Load into Chat
+                                    </button>
+                                    <button onclick="exportSession('${sessionId}')" class="w-full bg-blue-100 text-blue-700 px-3 py-2 rounded hover:bg-blue-200 transition duration-200 text-sm">
+                                        <i class="fas fa-download mr-2"></i>Export as JSON
+                                    </button>
+                                    <button onclick="deleteSession('${sessionId}')" class="w-full bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 transition duration-200 text-sm">
+                                        <i class="fas fa-trash mr-2"></i>Delete Session
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('Load session details error:', error);
+                showNotification('Failed to load session details', 'error');
+            }
+        }
+
+        async function loadConversationHistory() {
+            if (!currentSessionId) {
+                showNotification('No active session', 'warning');
+                return;
+            }
+            
+            try {
+                const history = await apiService.getConversationHistory(currentSessionId);
+                
+                // Clear current chat messages
+                const chatMessagesDiv = document.getElementById('chat-messages');
+                chatMessagesDiv.innerHTML = '';
+                
+                // Add history messages
+                history.history.forEach(item => {
+                    addChatMessage('user', item.query, item.sources || [], item.metrics || {}, item.ragas_metrics || {}, item.query_type, item.used_rag);
+                    addChatMessage('assistant', item.response, item.sources || [], item.metrics || {}, item.ragas_metrics || {}, item.query_type, item.used_rag);
+                });
+                
+                showNotification(`Loaded ${history.messages_returned} messages from history`, 'success');
+                
+            } catch (error) {
+                console.error('Load conversation history error:', error);
+                showNotification('Failed to load conversation history', 'error');
+            }
+        }
+
+        async function clearCurrentSession() {
+            if (!currentSessionId) {
+                showNotification('No active session', 'warning');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to clear the current chat session? This will remove all messages.')) {
+                return;
+            }
+            
+            try {
+                await apiService.clearConversationHistory(currentSessionId);
+                
+                // Clear local chat messages
+                const chatMessagesDiv = document.getElementById('chat-messages');
+                chatMessagesDiv.innerHTML = '';
+                
+                // Reset chat messages array
+                chatMessages = [];
+                
+                // Add welcome message
+                addWelcomeMessage();
+                
+                showNotification('Chat session cleared', 'success');
+                
+            } catch (error) {
+                console.error('Clear session error:', error);
+                showNotification('Failed to clear session', 'error');
+            }
+        }
+
+        // Classification Test Functions
+        async function testClassification() {
+            const queryInput = document.getElementById('test-query-input');
+            const query = queryInput.value.trim();
+            
+            if (!query) {
+                showNotification('Please enter a query to test', 'warning');
+                return;
+            }
+            
+            try {
+                const result = await apiService.testQueryClassification(query);
+                displayClassificationResult(result);
+                
+            } catch (error) {
+                console.error('Classification test error:', error);
+                showNotification(`Classification test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function handleTestQueryKeypress(e) {
+            if (e.key === 'Enter') {
+                testClassification();
+            }
+        }
+
+        function setTestQuery(query) {
+            document.getElementById('test-query-input').value = query;
+            testClassification();
+        }
+
+        function displayClassificationResult(result) {
+            const resultsDiv = document.getElementById('classification-results');
+            
+            // Clear previous results
+            resultsDiv.innerHTML = '';
+            
+            // Create result card
+            const resultCard = document.createElement('div');
+            resultCard.className = 'classification-result bg-gray-50 p-4 rounded-lg border';
+            
+            // Determine classification type and color
+            const classification = result.classification;
+            const isRAG = classification.is_rag_query;
+            const confidence = classification.confidence || 0;
+            const classificationClass = isRAG ? 'classification-rag' : 'classification-general';
+            
+            // Create confidence bar
+            const confidencePercent = Math.round(confidence * 100);
+            const confidenceBar = `
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div class="bg-${isRAG ? 'indigo' : 'green'}-600 h-2 rounded-full" style="width: ${confidencePercent}%"></div>
+                </div>
+            `;
+            
+            resultCard.innerHTML = `
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-800 mb-2">Test Query</h4>
+                    <p class="text-gray-600 bg-white p-3 rounded border">"${result.query}"</p>
+                </div>
+                
+                <div class="${classificationClass}">
+                    <h4 class="font-semibold text-gray-800 mb-2">Classification Result</h4>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-medium ${isRAG ? 'text-indigo-700' : 'text-green-700'}">
+                            ${isRAG ? '📚 RAG Query (Document-based)' : '💬 General Query'}
+                        </span>
+                        <span class="font-bold ${isRAG ? 'text-indigo-600' : 'text-green-600'}">${confidencePercent}%</span>
+                    </div>
+                    ${confidenceBar}
+                    
+                    <div class="mt-3 text-sm text-gray-600">
+                        <p><strong>Primary Category:</strong> ${classification.primary_category || 'Unknown'}</p>
+                        <p><strong>Query Type:</strong> ${classification.query_type || 'Unknown'}</p>
+                        <p><strong>Requires Context:</strong> ${classification.requires_context ? 'Yes' : 'No'}</p>
+                        
+                        ${classification.categories ? `
+                            <div class="mt-2">
+                                <strong>Category Scores:</strong>
+                                <ul class="mt-1 space-y-1">
+                                    ${Object.entries(classification.categories).map(([category, score]) => `
+                                        <li class="flex justify-between">
+                                            <span>${category}:</span>
+                                            <span>${(score * 100).toFixed(1)}%</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <h5 class="font-medium text-gray-700 mb-2">What this means:</h5>
+                    <p class="text-sm text-gray-600">
+                        ${isRAG ? 
+                            'This query will be answered using information from your uploaded documents with source citations.' : 
+                            'This query will be answered using the AI\'s general knowledge without consulting your documents.'
+                        }
+                    </p>
+                </div>
+            `;
+            
+            resultsDiv.appendChild(resultCard);
+            
+            // Add suggestion
+            const suggestion = document.createElement('div');
+            suggestion.className = 'mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg';
+            suggestion.innerHTML = `
+                <div class="flex items-start">
+                    <i class="fas fa-lightbulb text-blue-500 mt-1 mr-2"></i>
+                    <div class="text-sm">
+                        <strong>Tip:</strong> ${isRAG ? 
+                            'For better RAG results, try to be specific and reference document content.' : 
+                            'For general knowledge questions, the AI will use its training data without document references.'
+                        }
+                    </div>
+                </div>
+            `;
+            
+            resultsDiv.appendChild(suggestion);
+        }
+
+        // RAGAS Table Functions
+        async function refreshRagasTable() {
+            try {
+                console.log('Refreshing RAGAS table...');
+                
+                const response = await apiService.getRagasHistory();
+                if (!response.success) {
+                    throw new Error('Failed to fetch RAGAS data');
+                }
+                
+                updateRagasTable(response.history, response.statistics);
+                showNotification('RAGAS table updated', 'success');
+                
+            } catch (error) {
+                console.error('RAGAS table refresh error:', error);
+                showNotification(`Failed to refresh RAGAS table: ${error.message}`, 'error');
+                
+                // Show empty state
+                updateRagasTable([], {});
+            }
+        }
+
+        function updateRagasTable(history, statistics) {
+            const tableBody = document.getElementById('ragas-table-body');
+            
+            // Update statistics
+            document.getElementById('ragas-total-count').textContent = statistics.total_evaluations || history.length || 0;
+            document.getElementById('ragas-avg-relevancy').textContent = statistics.avg_answer_relevancy ? statistics.avg_answer_relevancy.toFixed(3) : '-';
+            document.getElementById('ragas-avg-faithfulness').textContent = statistics.avg_faithfulness ? statistics.avg_faithfulness.toFixed(3) : '-';
+            document.getElementById('ragas-avg-precision').textContent = statistics.avg_context_utilization ? statistics.avg_context_utilization.toFixed(3) : '-';
+            
+            // Update table count
+            document.getElementById('ragas-table-count').textContent = `(${history.length} entries)`;
+            
+            if (history.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="12" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fas fa-info-circle text-3xl mb-2"></i>
+                            <p>No RAGAS evaluations yet. Start chatting to see quality metrics.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // Clear existing rows
+            tableBody.innerHTML = '';
+            
+            // Helper function to get RAGAS score class
+            const getRagasScoreClass = (score) => {
+                if (score >= 0.7) return 'ragas-good';
+                if (score >= 0.4) return 'ragas-fair';
+                return 'ragas-poor';
+            };
+            
+            // Helper function to truncate text
+            const truncateText = (text, maxLength = 100) => {
+                if (!text) return '';
+                if (text.length <= maxLength) return escapeHtml(text);
+                return escapeHtml(text.substring(0, maxLength)) + '...';
+            };
+            
+            // Add rows
+            history.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                
+                const timestamp = item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                const date = item.timestamp ? new Date(item.timestamp).toLocaleDateString() : '';
+                
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-sm text-gray-900">${index + 1}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">
+                        <div class="font-medium">${date}</div>
+                        <div class="text-xs">${timestamp}</div>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-800">${truncateText(item.query, 120)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-800">${truncateText(item.answer, 120)}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="ragas-cell ${getRagasScoreClass(item.answer_relevancy || 0)}">${(item.answer_relevancy || 0).toFixed(3)}</span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="ragas-cell ${getRagasScoreClass(item.faithfulness || 0)}">${(item.faithfulness || 0).toFixed(3)}</span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="ragas-cell ${getRagasScoreClass(item.context_utilization || item.context_precision || 0)}">${((item.context_utilization || item.context_precision) || 0).toFixed(3)}</span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="ragas-cell ${getRagasScoreClass(item.context_relevancy || 0)}">${(item.context_relevancy || 0).toFixed(3)}</span>
+                    </td>
+                    <td class="px-4 py-3 text-center text-sm text-gray-600">${item.retrieval_time_ms || 0}</td>
+                    <td class="px-4 py-3 text-center text-sm text-gray-600">${item.generation_time_ms || 0}</td>
+                    <td class="px-4 py-3 text-center text-sm text-gray-600">${item.total_time_ms || 0}</td>
+                    <td class="px-4 py-3 text-center text-sm text-gray-600">${item.chunks_retrieved || 0}</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        async function clearRagasHistory() {
+            try {
+                if (!confirm('Are you sure you want to clear all RAGAS evaluation history? This cannot be undone.')) {
+                    return;
+                }
+                
+                const response = await apiService.clearRagasHistory();
+                if (response.success) {
+                    showNotification(response.message, 'success');
+                    refreshRagasTable();
+                } else {
+                    throw new Error('Failed to clear RAGAS history');
+                }
+            } catch (error) {
+                console.error('Clear RAGAS history error:', error);
+                showNotification(`Failed to clear RAGAS history: ${error.message}`, 'error');
+            }
+        }
+
+        async function exportRagasData() {
+            try {
+                const blob = await apiService.exportRagasData();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ragas-export-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showNotification('RAGAS data exported successfully', 'success');
+            } catch (error) {
+                console.error('Export RAGAS data error:', error);
+                showNotification(`Failed to export RAGAS data: ${error.message}`, 'error');
+            }
         }
 
         async function loadAnalytics() {
@@ -1608,12 +2685,6 @@
             document.getElementById('total-messages').textContent = sessionStats.total_messages || '0';
             document.getElementById('total-documents').textContent = documentStats.total_documents || '0';
             document.getElementById('avg-response-time').textContent = performanceMetrics.avg_response_time ? `${performanceMetrics.avg_response_time}ms` : '-';
-            
-            // Update Ragas metrics from quality_metrics
-            document.getElementById('answer-relevancy').textContent = qualityMetrics.answer_relevancy ? qualityMetrics.answer_relevancy.toFixed(2) : '-';
-            document.getElementById('faithfulness').textContent = qualityMetrics.faithfulness ? qualityMetrics.faithfulness.toFixed(2) : '-';
-            document.getElementById('context-precision').textContent = qualityMetrics.context_precision ? qualityMetrics.context_precision.toFixed(2) : '-';
-            document.getElementById('overall-score').textContent = qualityMetrics.overall_score ? qualityMetrics.overall_score.toFixed(2) : '-';
             
             // Update system info
             document.getElementById('vector-store-status').textContent = systemInfo.vector_store_status || 'Not Ready';
