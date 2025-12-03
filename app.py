@@ -27,6 +27,8 @@ from config.models import LLMProvider
 from utils.helpers import IDGenerator
 from config.models import QueryRequest 
 from config.settings import get_settings
+from config.models import RAGASStatistics
+from config.models import RAGASExportData
 from config.models import DocumentMetadata
 from fastapi.responses import HTMLResponse
 from fastapi.responses import FileResponse
@@ -37,6 +39,7 @@ from utils.validators import FileValidator
 from fastapi.staticfiles import StaticFiles
 from utils.error_handler import RAGException
 from utils.error_handler import FileException
+from config.models import RAGASEvaluationResult
 from config.logging_config import setup_logging
 from generation.llm_client import get_llm_client
 from embeddings.bge_embedder import get_embedder
@@ -45,6 +48,7 @@ from utils.validators import validate_upload_file
 from fastapi.middleware.cors import CORSMiddleware
 from vector_store.index_builder import get_index_builder
 from document_parser.parser_factory import ParserFactory
+from evaluation.ragas_evaluator import get_ragas_evaluator
 from vector_store.metadata_store import get_metadata_store
 from embeddings.embedding_cache import get_embedding_cache
 from ingestion.progress_tracker import get_progress_tracker
@@ -148,6 +152,9 @@ class AppState:
         self.response_generator  = None
         self.llm_client          = None
         
+        # RAGAS component
+        self.ragas_evaluator     = None
+
         # Processing tracking
         self.current_processing  = None
         self.processing_progress = {"status"       : "idle",
@@ -157,7 +164,7 @@ class AppState:
                                     "total"        : 0,
                                     "details"      : {},
                                    }
-        
+
         # Session-based configuration overrides
         self.config_overrides    = dict()
         
@@ -546,6 +553,16 @@ async def initialize_components(state: AppState):
             logger.warning("LLM provider health check: FAILED - Ensure Ollama is running")
             logger.warning("- Run: ollama serve (in a separate terminal)")
             logger.warning("- Run: ollama pull mistral (if model not downloaded)")
+
+        # Initialize RAGAS evaluator
+        if settings.ENABLE_RAGAS:
+            state.ragas_evaluator = get_ragas_evaluator(enable_ground_truth_metrics = settings.RAGAS_ENABLE_GROUND_TRUTH)
+
+            logger.info("RAGAS evaluator initialized")
+
+        else:
+            logger.info("RAGAS evaluation disabled in settings")
+
         
         logger.info("All components initialized successfully")
         
@@ -721,6 +738,7 @@ async def upload_files(files: List[UploadFile] = File(...)):
         
     except Exception as e:
         logger.error(f"Upload error: {e}", exc_info = True)
+
         raise HTTPException(status_code = 500, 
                             detail      = str(e),
                            )
@@ -912,100 +930,271 @@ async def get_processing_status():
            }
 
 
+@app.get("/api/ragas/history")
+async def get_ragas_history():
+    """
+    Get RAGAS evaluation history for current session
+    """
+    state = app.state.app
+    
+    if not settings.ENABLE_RAGAS or not state.ragas_evaluator:
+
+        raise HTTPException(status_code = 400,
+                            detail      = "RAGAS evaluation is not enabled. Set ENABLE_RAGAS=True in settings.",
+                           )
+    
+    try:
+        history = state.ragas_evaluator.get_evaluation_history()
+        stats   = state.ragas_evaluator.get_session_statistics()
+        
+        return {"success"     : True,
+                "total_count" : len(history),
+                "statistics"  : stats.model_dump(), 
+                "history"     : history
+               }
+        
+    except Exception as e:
+        logger.error(f"RAGAS history retrieval error: {e}", exc_info = True)
+
+        raise HTTPException(status_code = 500, 
+                            detail      = str(e),
+                           )
+
+
+@app.post("/api/ragas/clear")
+async def clear_ragas_history():
+    """
+    Clear RAGAS evaluation history
+    """
+    state = app.state.app
+    
+    if not settings.ENABLE_RAGAS or not state.ragas_evaluator:
+
+        raise HTTPException(status_code = 400,
+                            detail      = "RAGAS evaluation is not enabled.",
+                           )
+    
+    try:
+        state.ragas_evaluator.clear_history()
+        
+        return {"success" : True,
+                "message" : "RAGAS evaluation history cleared, new session started",
+               }
+        
+    except Exception as e:
+        logger.error(f"RAGAS history clear error: {e}", exc_info = True)
+
+        raise HTTPException(status_code = 500, 
+                            detail      = str(e),
+                           )
+
+
+@app.get("/api/ragas/statistics")
+async def get_ragas_statistics():
+    """
+    Get aggregate RAGAS statistics for current session
+    """
+    state = app.state.app
+    
+    if not settings.ENABLE_RAGAS or not state.ragas_evaluator:
+
+        raise HTTPException(status_code = 400,
+                            detail      = "RAGAS evaluation is not enabled.",
+                           )
+    
+    try:
+        stats = state.ragas_evaluator.get_session_statistics()
+        
+        return {"success"    : True,
+                "statistics" : stats.model_dump(),
+               }
+        
+    except Exception as e:
+        logger.error(f"RAGAS statistics error: {e}", exc_info = True)
+
+        raise HTTPException(status_code = 500, 
+                            detail      = str(e),
+                           )
+
+
+@app.get("/api/ragas/export")
+async def export_ragas_data():
+    """
+    Export all RAGAS evaluation data
+    """
+    state = app.state.app
+    
+    if not settings.ENABLE_RAGAS or not state.ragas_evaluator:
+
+        raise HTTPException(status_code = 400,
+                            detail      = "RAGAS evaluation is not enabled.",
+                           )
+    
+    try:
+        export_data = state.ragas_evaluator.export_to_dict()
+        
+        return JSONResponse(content = export_data.model_dump())
+        
+    except Exception as e:
+        logger.error(f"RAGAS export error: {e}", exc_info = True)
+
+        raise HTTPException(status_code = 500,
+                            detail      = str(e),
+                           )
+
+
+@app.get("/api/ragas/config")
+async def get_ragas_config():
+    """
+    Get current RAGAS configuration
+    """
+    return {"enabled"              : settings.ENABLE_RAGAS,
+            "ground_truth_enabled" : settings.RAGAS_ENABLE_GROUND_TRUTH,
+            "base_metrics"         : settings.RAGAS_METRICS,
+            "ground_truth_metrics" : settings.RAGAS_GROUND_TRUTH_METRICS,
+            "evaluation_timeout"   : settings.RAGAS_EVALUATION_TIMEOUT,
+            "batch_size"           : settings.RAGAS_BATCH_SIZE,
+           }
+
+
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     """
-    Handle chat queries with full RAG pipeline including generation
+    Handle chat queries with intelligent routing between RAG and general conversation
     """
     state      = app.state.app
     
     message    = request.message
     session_id = request.session_id
     
-    if not state.is_ready:
-        raise HTTPException(status_code = 400,
-                            detail      = "System not ready. Please upload and process documents first.",
-                           )
-    
+    # Check LLM health
     if not state.llm_client.check_health():
         raise HTTPException(status_code = 503,
                             detail      = "LLM service unavailable. Please ensure Ollama is running.",
                            )
     
     try:
-        logger.info(f"Chat query received: {message}")
+        logger.info(f"Chat query received: '{message}'")
         
         # Create QueryRequest object
-        query_request  = QueryRequest(query            = message,
-                                      top_k            = settings.TOP_K_RETRIEVE,
-                                      enable_reranking = settings.ENABLE_RERANKING,
-                                      temperature      = settings.DEFAULT_TEMPERATURE,
-                                      top_p            = settings.TOP_P,
-                                      max_tokens       = settings.MAX_TOKENS,
-                                      include_sources  = True,
-                                      include_metrics  = False,
-                                      stream           = False,
-                                     )
+        query_request = QueryRequest(query            = message,
+                                     top_k            = settings.TOP_K_RETRIEVE,
+                                     enable_reranking = settings.ENABLE_RERANKING,
+                                     temperature      = settings.DEFAULT_TEMPERATURE,
+                                     top_p            = settings.TOP_P,
+                                     max_tokens       = settings.MAX_TOKENS,
+                                     include_sources  = True,
+                                     include_metrics  = False,
+                                     stream           = False,
+                                    )
         
-        # Generate response using response generator
+        # Add session_id to request if provided
+        if request.session_id:
+            query_request.session_id = request.session_id
+        
+        # Generate response using the updated response generator
         start_time     = time.time()
         query_response = await state.response_generator.generate_response(query_request)
-        
-        # Convert to ms
-        total_time     = (time.time() - start_time) * 1000  
+        total_time     = (time.time() - start_time) * 1000
         
         # Record timing for analytics
         state.add_query_timing(total_time)
         
-        # Format sources for response
+        # Check if this was a RAG response
+        used_rag       = getattr(query_response, 'metadata', {}).get('used_rag', True)
+        
+        # Format sources only for RAG responses
         sources        = list()
 
-        for i, chunk_with_score in enumerate(query_response.sources[:5], 1):
-            chunk  = chunk_with_score.chunk
-            source = {"rank"             : i,
-                      "score"            : chunk_with_score.score,
-                      "document_id"      : chunk.document_id,
-                      "chunk_id"         : chunk.chunk_id,
-                      "text_preview"     : chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
-                      "page_number"      : chunk.page_number,
-                      "section_title"    : chunk.section_title,
-                      "retrieval_method" : chunk_with_score.retrieval_method,
-                     }
+        if ((used_rag and hasattr(query_response, 'sources')) and query_response.sources):
+            for i, chunk_with_score in enumerate(query_response.sources[:5], 1):
+                chunk  = chunk_with_score.chunk
+                source = {"rank"             : i,
+                          "score"            : chunk_with_score.score,
+                          "document_id"      : chunk.document_id,
+                          "chunk_id"         : chunk.chunk_id,
+                          "text_preview"     : chunk.text[:500] + "..." if len(chunk.text) > 500 else chunk.text,
+                          "page_number"      : chunk.page_number,
+                          "section_title"    : chunk.section_title,
+                          "retrieval_method" : chunk_with_score.retrieval_method,
+                         }
 
-            sources.append(source)
+                sources.append(source)
         
         # Generate session ID if not provided
         if not session_id:
             session_id = f"session_{datetime.now().timestamp()}"
         
-        response = {"session_id" : session_id,
-                    "response"   : query_response.answer,
-                    "sources"    : sources,
-                    "metrics"    : {"retrieval_time"    : int(query_response.retrieval_time_ms),
-                                    "generation_time"   : int(query_response.generation_time_ms),
-                                    "total_time"        : int(query_response.total_time_ms),
-                                    "chunks_retrieved"  : len(query_response.sources),
-                                    "chunks_used"       : len(sources),
-                                    "tokens_used"       : query_response.tokens_used.get("total", 0) if query_response.tokens_used else 0,
-                                    "actual_total_time" : int(total_time),
-                                   }
+        # Prepare response
+        response = {"session_id"      : session_id,
+                    "response"        : query_response.answer,
+                    "query_type"      : getattr(query_response, 'metadata', {}).get('query_type', 'rag_document'),
+                    "used_rag"        : used_rag,
+                    "sources"         : sources if used_rag else [],
+                    "classification"  : getattr(query_response, 'metadata', {}).get('classification', {}),
+                    "metrics"         : {"retrieval_time"   : int(query_response.retrieval_time_ms) if hasattr(query_response, 'retrieval_time_ms') else 0,
+                                         "generation_time"  : int(query_response.generation_time_ms) if hasattr(query_response, 'generation_time_ms') else int(total_time),
+                                         "total_time"       : int(total_time),
+                                         "tokens_used"      : query_response.tokens_used.get("total", 0) if hasattr(query_response, 'tokens_used') else 0,
+                                         "chunks_retrieved" : len(query_response.sources) if hasattr(query_response, 'sources') else 0,
+                                         "chunks_used"      : len(sources),
+                                        }
                    }
+        
+        # Add RAGAS metrics only for RAG responses with sources
+        if (used_rag and settings.ENABLE_RAGAS and state.ragas_evaluator and (hasattr(query_response, 'sources')) and query_response.sources):
+            try:
+                contexts                  = [chunk.chunk.text for chunk in query_response.sources]
+                ragas_result              = state.ragas_evaluator.evaluate_single(query              = message,
+                                                                                  answer             = query_response.answer,
+                                                                                  contexts           = contexts,
+                                                                                  ground_truth       = None,
+                                                                                  retrieval_time_ms  = int(query_response.retrieval_time_ms) if hasattr(query_response, 'retrieval_time_ms') else 0,
+                                                                                  generation_time_ms = int(query_response.generation_time_ms) if hasattr(query_response, 'generation_time_ms') else 0,
+                                                                                  total_time_ms      = int(query_response.total_time_ms) if hasattr(query_response, 'total_time_ms') else int(total_time),
+                                                                                  chunks_retrieved   = len(query_response.sources),
+                                                                                 )
+                
+                response["ragas_metrics"] = {"answer_relevancy"    : round(ragas_result.answer_relevancy, 3),
+                                             "faithfulness"        : round(ragas_result.faithfulness, 3),
+                                             "context_utilization" : round(ragas_result.context_utilization, 3),
+                                             "context_relevancy"   : round(ragas_result.context_relevancy, 3),
+                                             "overall_score"       : round(ragas_result.overall_score, 3),
+                                             "context_precision"   : round(ragas_result.context_precision, 3) if ragas_result.context_precision else None,
+                                             "context_recall"      : round(ragas_result.context_recall, 3) if ragas_result.context_recall else None,
+                                             "answer_similarity"   : round(ragas_result.answer_similarity, 3) if ragas_result.answer_similarity else None,
+                                             "answer_correctness"  : round(ragas_result.answer_correctness, 3) if ragas_result.answer_correctness else None,
+                                            }
+                
+                logger.info(f"RAGAS evaluation complete: relevancy={ragas_result.answer_relevancy:.3f}, faithfulness={ragas_result.faithfulness:.3f}, overall={ragas_result.overall_score:.3f}")
+            
+            except Exception as e:
+                logger.warning(f"RAGAS evaluation failed: {e}")
+                response["ragas_metrics"] = None
+        
+        else:
+            # No RAGAS metrics for general queries
+            response["ragas_metrics"] = None
         
         # Store in session
         if session_id not in state.active_sessions:
             state.active_sessions[session_id] = []
         
-        state.active_sessions[session_id].append({"query"     : message,
-                                                  "response"  : query_response.answer,
-                                                  "sources"   : sources,
-                                                  "timestamp" : datetime.now().isoformat(),
-                                                  "metrics"   : response["metrics"],
+        state.active_sessions[session_id].append({"query"          : message,
+                                                  "response"       : query_response.answer,
+                                                  "query_type"     : response["query_type"],
+                                                  "used_rag"       : used_rag,
+                                                  "sources"        : sources if used_rag else [],
+                                                  "classification" : response.get("classification", {}),
+                                                  "timestamp"      : datetime.now().isoformat(),
+                                                  "metrics"        : response["metrics"],
+                                                  "ragas_metrics"  : response.get("ragas_metrics", {}),
                                                 })
         
-        # Clear analytics cache since we have new data
+        # Clear analytics cache when new data is available
         state.analytics_cache.data = None
         
-        logger.info(f"Chat response generated successfully in {int(total_time)}ms")
+        logger.info(f"Chat response generated in {int(total_time)}ms. Type: {response['query_type']}, RAG: {used_rag}")
         
         return response
         
@@ -1021,7 +1210,7 @@ async def get_configuration():
     """
     Get current configuration
     """
-    state        = app.state.app
+    state         = app.state.app
     
     # Get system health
     health_status = state.get_system_health()
@@ -1042,6 +1231,83 @@ async def get_configuration():
                               },
             "health"        : health_status,
            }
+
+
+@app.get("/api/conversation/{session_id}")
+async def get_conversation_history(session_id: str, limit: int = 20):
+    """
+    Get conversation history for a session
+    """
+    state = app.state.app
+    
+    if session_id not in state.active_sessions:
+        raise HTTPException(status_code = 404, 
+                            detail      = f"Session {session_id} not found",
+                           )
+    
+    try:
+        history = state.active_sessions[session_id][-limit:] if (limit > 0) else state.active_sessions[session_id]
+        
+        return {"session_id"        : session_id,
+                "total_messages"    : len(state.active_sessions[session_id]),
+                "messages_returned" : len(history),
+                "history"           : history,
+               }
+        
+    except Exception as e:
+        logger.error(f"Conversation history retrieval error: {e}")
+        raise HTTPException(status_code = 500, 
+                            detail      = str(e),
+                           )
+
+
+@app.delete("/api/conversation/{session_id}")
+async def clear_conversation_history(session_id: str):
+    """
+    Clear conversation history for a session
+    """
+    state = app.state.app
+    
+    if session_id in state.active_sessions:
+        del state.active_sessions[session_id]
+    
+    # Also clear from response generator's internal history if it exists
+    if hasattr(state.response_generator, 'conversation_histories'):
+        if session_id in state.response_generator.conversation_histories:
+            del state.response_generator.conversation_histories[session_id]
+    
+    logger.info(f"Cleared conversation history for session: {session_id}")
+    
+    return {"success" : True,
+            "message" : f"Conversation history cleared for session {session_id}",
+           }
+
+
+@app.post("/api/test-classification")
+async def test_query_classification(query: str = Form(...)):
+    """
+    Test how a query would be classified without generating a full response
+    """
+    state = app.state.app
+    
+    if not hasattr(state.response_generator, 'query_classifier'):
+        raise HTTPException(status_code = 501, 
+                            detail      = "Query classifier not available",
+                           )
+    
+    try:
+        classifier = state.response_generator.query_classifier
+        result     = classifier.classify(query)
+        
+        return {"query"           : query,
+                "classification"  : result,
+               }
+        
+    except Exception as e:
+        logger.error(f"Classification test error: {e}")
+        raise HTTPException(status_code = 500, 
+                            detail      = str(e),
+                           )
 
 
 @app.post("/api/configuration")
@@ -1154,7 +1420,7 @@ async def get_analytics():
                                          "total_messages" : sum(len(msgs) for msgs in state.active_sessions.values())
                                         },
                 "calculated_at"       : datetime.now().isoformat(),
-                "error"               : str(e)
+                "error"               : str(e),
                }
 
 

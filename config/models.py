@@ -572,4 +572,151 @@ def validate_chunk_id(chunk_id: str) -> bool:
 
     return bool(re.match(pattern, chunk_id))
 
+
+# RAGAS Evaluation Models
+class RAGASEvaluationResult(BaseModel):
+    """
+    Single RAGAS evaluation result
+    """
+    model_config                         = ConfigDict(arbitrary_types_allowed = True)
     
+    # Input data
+    query              : str             = Field(..., description = "User query")
+    answer             : str             = Field(..., description = "Generated answer")
+    contexts           : List[str]       = Field(..., description = "Retrieved context chunks")
+    ground_truth       : Optional[str]   = Field(None, description = "Reference answer (if available)")
+    timestamp          : str             = Field(..., description = "Evaluation timestamp")
+    
+    # RAGAS metrics (without ground truth)
+    answer_relevancy   : float           = Field(..., ge = 0.0, le = 1.0, description = "How well answer addresses question")
+    faithfulness       : float           = Field(..., ge = 0.0, le = 1.0, description = "Is answer grounded in context")
+    context_precision  : Optional[float] = Field(None, ge = 0.0, le = 1.0, description = "Are relevant chunks ranked high (requires ground truth)")
+    context_utilization: Optional[float] = Field(None, ge = 0.0, le = 1.0, description = "Context utilization score (without ground truth)") 
+    context_relevancy  : float           = Field(..., ge = 0.0, le = 1.0, description = "How relevant are retrieved chunks")
+    
+    # RAGAS metrics (requiring ground truth)
+    context_recall     : Optional[float] = Field(None, ge = 0.0, le = 1.0, description = "Coverage of ground truth")
+    answer_similarity  : Optional[float] = Field(None, ge = 0.0, le = 1.0, description = "Similarity to reference")
+    answer_correctness : Optional[float] = Field(None, ge = 0.0, le = 1.0, description = "Correctness vs reference")
+    
+    # Performance metadata
+    retrieval_time_ms  : int             = Field(..., ge = 0, description = "Retrieval time in milliseconds")
+    generation_time_ms : int             = Field(..., ge = 0, description = "Generation time in milliseconds")
+    total_time_ms      : int             = Field(..., ge = 0, description = "Total time in milliseconds")
+    chunks_retrieved   : int             = Field(..., ge = 0, description = "Number of chunks retrieved")
+    
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert to dictionary
+        """
+        return self.model_dump()
+    
+
+    @property
+    def has_ground_truth_metrics(self) -> bool:
+        """
+        Check if ground truth metrics are available
+        """
+        return any([self.context_recall is not None,
+                    self.answer_similarity is not None,
+                    self.answer_correctness is not None
+                  ])
+    
+    @property
+    def overall_score(self) -> float:
+        """
+        Calculate weighted overall score
+        """
+        scores  = list()
+        weights = list()
+        
+        # Always include these metrics
+        scores.append(self.answer_relevancy)
+        weights.append(0.4)
+        
+        scores.append(self.faithfulness)
+        weights.append(0.3)
+        
+        scores.append(self.context_relevancy)
+        weights.append(0.1)
+        
+        # Include context_precision OR context_utilization (but not both)
+        if self.context_precision is not None:
+            scores.append(self.context_precision)
+            weights.append(0.2)
+        
+        elif self.context_utilization is not None:
+            scores.append(self.context_utilization)
+            weights.append(0.2)
+        
+        else:
+            # If neither is available, adjust weights
+            weights = [w * 1.25 for w in weights]  # Scale existing weights
+        
+        # Calculate weighted average
+        if (sum(weights) > 0):
+            weighted_sum = sum(s * w for s, w in zip(scores, weights))
+            score        = weighted_sum / sum(weights)
+        
+        else:
+            score = sum(scores) / len(scores) if scores else 0.0
+        
+        return round(score, 3)
+
+
+class RAGASStatistics(BaseModel):
+    """
+    Aggregate RAGAS statistics for a session
+    """
+    total_evaluations      : int             = Field(..., ge = 0, description = "Total number of evaluations")
+    
+    # Average metrics
+    avg_answer_relevancy   : float           = Field(..., ge = 0.0, le = 1.0)
+    avg_faithfulness       : float           = Field(..., ge = 0.0, le = 1.0)
+    avg_context_precision  : Optional[float] = Field(None, ge = 0.0, le = 1.0, description = "Average context precision (requires ground truth)")
+    avg_context_utilization: Optional[float] = Field(None, ge = 0.0, le = 1.0, description = "Average context utilization (without ground truth)") 
+    avg_context_relevancy  : float           = Field(..., ge = 0.0, le = 1.0)
+    avg_overall_score      : float           = Field(..., ge = 0.0, le = 1.0)
+    
+    # Ground truth metrics (if available)
+    avg_context_recall     : Optional[float] = Field(None, ge = 0.0, le = 1.0)
+    avg_answer_similarity  : Optional[float] = Field(None, ge = 0.0, le = 1.0)
+    avg_answer_correctness : Optional[float] = Field(None, ge = 0.0, le = 1.0)
+    
+    # Performance metrics
+    avg_retrieval_time_ms  : float           = Field(..., ge = 0.0)
+    avg_generation_time_ms : float           = Field(..., ge = 0.0)
+    avg_total_time_ms      : float           = Field(..., ge = 0.0)
+    
+    # Quality indicators
+    min_score              : float           = Field(..., ge = 0.0, le = 1.0, description = "Lowest overall score")
+    max_score              : float           = Field(..., ge = 0.0, le = 1.0, description = "Highest overall score")
+    std_dev                : float           = Field(..., ge = 0.0, description = "Standard deviation of scores")
+    
+    # Session info
+    session_start          : datetime        = Field(..., description = "When evaluation session started")
+    last_updated           : datetime         = Field(..., description = "Last evaluation timestamp")
+
+
+class RAGASExportData(BaseModel):
+    """
+    Complete RAGAS evaluation export data
+    """
+    export_timestamp     : datetime                    = Field(default_factory = datetime.now)
+    total_evaluations    : int                         = Field(..., ge = 0)
+    statistics           : RAGASStatistics
+    evaluations          : List[RAGASEvaluationResult]
+    
+    # Configuration info
+    ground_truth_enabled : bool                        = Field(...)
+    ragas_version        : str                         = Field(default = "0.1.9")
+    
+    @property
+    def export_filename(self) -> str:
+        """
+        Generate export filename
+        """
+        timestamp = self.export_timestamp.strftime("%Y%m%d_%H%M%S")
+
+        return f"ragas_evaluation_{timestamp}.json"
