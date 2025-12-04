@@ -52,19 +52,19 @@ class Settings(BaseSettings):
     
     # Chunking Settings
     # Fixed chunking
-    FIXED_CHUNK_SIZE              : int                                                      = Field(default = 512, description = "Fixed chunk size in tokens")
-    FIXED_CHUNK_OVERLAP           : int                                                      = Field(default = 50, description = "Overlap between chunks")
+    FIXED_CHUNK_SIZE              : int                                                      = Field(default = 1024, description = "Fixed chunk size in tokens")
+    FIXED_CHUNK_OVERLAP           : int                                                      = Field(default = 100, description = "Overlap between chunks")
     
     # Semantic chunking
-    SEMANTIC_BREAKPOINT_THRESHOLD : float                                                    = Field(default=0.95, description="Percentile for semantic breakpoints")
-    
+    SEMANTIC_BREAKPOINT_THRESHOLD : float                                                    = Field(default = 0.95, description = "Percentile for semantic breakpoints")
+
     # Hierarchical chunking
     PARENT_CHUNK_SIZE             : int                                                      = Field(default = 2048, description = "Parent chunk size")
     CHILD_CHUNK_SIZE              : int                                                      = Field(default = 512, description = "Child chunk size")
     
     # Adaptive thresholds
-    SMALL_DOC_THRESHOLD           : int                                                      = Field(default = 50_000, description = "Token threshold for fixed chunking")
-    LARGE_DOC_THRESHOLD           : int                                                      = Field(default = 500_000, description = "Token threshold for hierarchical chunking")
+    SMALL_DOC_THRESHOLD           : int                                                      = Field(default = 1000, description = "Token threshold for fixed chunking")
+    LARGE_DOC_THRESHOLD           : int                                                      = Field(default = 500000, description = "Token threshold for hierarchical chunking")
     
     # Retrieval Settings
     # Vector search

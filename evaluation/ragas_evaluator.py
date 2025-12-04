@@ -1,5 +1,6 @@
 # DEPENDENCIES
 import os
+import math
 import logging
 import statistics
 from typing import Any
@@ -28,6 +29,7 @@ from config.models import RAGASEvaluationResult
 settings = get_settings()
 logger   = get_logger(__name__)
 
+
 # Set OpenAI API key from settings
 if (hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY):
     os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
@@ -40,6 +42,40 @@ else:
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
+def sanitize_ragas_score(value: Any, metric_name: str = "unknown") -> float:
+    """
+    Sanitize a single RAGAS score to handle NaN, None, and invalid values
+    
+    Arguments:
+    ----------
+        value       { Any } : Raw score value
+        
+        metric_name { str } : Name of the metric (for logging)
+    
+    Returns:
+    --------
+          { float }         : Valid float between 0.0 and 1.0
+    """
+    # Handle None
+    if value is None:
+        return 0.0
+    
+    # Handle NaN and infinity
+    try:
+        float_val = float(value)
+        
+        if math.isnan(float_val) or math.isinf(float_val):
+            logger.warning(f"Invalid RAGAS score for {metric_name}: {value}, defaulting to 0.0")
+            return 0.0
+        
+        # Clamp between 0 and 1
+        return max(0.0, min(1.0, float_val))
+    
+    except (ValueError, TypeError):
+        logger.warning(f"Could not convert RAGAS score for {metric_name}: {value}, defaulting to 0.0")
+        return 0.0
+
+
 class RAGASEvaluator:
     """
     RAGAS evaluation module for RAG system quality assessment
@@ -50,7 +86,7 @@ class RAGASEvaluator:
         
         Arguments:
         ----------
-            enable_ground_truth_metrics: Whether to compute metrics requiring ground truth
+            enable_ground_truth_metrics { bool } : Whether to compute metrics requiring ground truth
         """
         self.enable_ground_truth                              = enable_ground_truth_metrics
         
@@ -88,7 +124,7 @@ class RAGASEvaluator:
             
             contexts           { list } : Retrieved context chunks
             
-            ground_truth       { bool } : Reference answer (optional)
+            ground_truth       { str }  : Reference answer (optional)
             
             retrieval_time_ms  { int }  : Retrieval time in milliseconds
             
@@ -105,62 +141,95 @@ class RAGASEvaluator:
         try:
             logger.info(f"Evaluating query: {query[:100]}...")
             
-            # Prepare dataset for RAGAS
-            eval_data      = {"question" : [query],
-                              "answer"   : [answer],
-                              "contexts" : [contexts],
-                             }
+            # Validate inputs
+            if not contexts or not any(c.strip() for c in contexts):
+                logger.warning("No valid contexts provided for RAGAS evaluation")
+                raise ValueError("No valid contexts for evaluation")
             
-            # Create the dataset for evaluation
-            dataset        = Dataset.from_dict(eval_data)
-
+            # Prepare dataset for RAGAS
+            eval_data = {"question" : [query],
+                         "answer"   : [answer],
+                         "contexts" : [contexts],
+                        }
+            
             # Add ground truth if available
             if ground_truth and self.enable_ground_truth:
                 eval_data["ground_truth"] = [ground_truth]
             
             # Create dataset
-            dataset        = Dataset.from_dict(eval_data)
+            dataset = Dataset.from_dict(eval_data)
             
             # Select metrics based on ground truth availability
             if (ground_truth and self.enable_ground_truth):
-                # Use all metrics including ground truth metrics
                 metrics_to_use = self.base_metrics + self.ground_truth_metrics
             
             else:
-                # Use only base metrics (without ground truth)
                 metrics_to_use = self.base_metrics
             
             # Run evaluation
             logger.info(f"Running RAGAS evaluation with {len(metrics_to_use)} metrics...")
-            results        = evaluate(dataset, metrics = metrics_to_use)
+
+            results                 = evaluate(dataset, metrics = metrics_to_use)
             
             # Extract scores
-            scores         = results.to_pandas().iloc[0].to_dict()
+            scores                  = results.to_pandas().iloc[0].to_dict()
             
-            # Create result object
-            result         = RAGASEvaluationResult(query               = query,
-                                                   answer              = answer,
-                                                   contexts            = contexts,
-                                                   ground_truth        = ground_truth,
-                                                   timestamp           = datetime.now().isoformat(),
-                                                   answer_relevancy    = float(scores.get('answer_relevancy', 0.0)),
-                                                   faithfulness        = float(scores.get('faithfulness', 0.0)),
-                                                   context_utilization = float(scores.get('context_utilization', 0.0)) if not ground_truth else None, 
-                                                   context_precision   = float(scores.get('context_precision', 0.0)) if (ground_truth and 'context_precision' in scores) else None,
-                                                   context_relevancy   = float(scores.get('context_relevancy', 0.0)),
-                                                   context_recall      = float(scores.get('context_recall')) if (ground_truth and 'context_recall' in scores) else None,
-                                                   answer_similarity   = float(scores.get('answer_similarity')) if (ground_truth and 'answer_similarity' in scores) else None,
-                                                   answer_correctness  = float(scores.get('answer_correctness')) if (ground_truth and 'answer_correctness' in scores) else None,
-                                                   retrieval_time_ms   = retrieval_time_ms,
-                                                   generation_time_ms  = generation_time_ms,
-                                                   total_time_ms       = total_time_ms,
-                                                   chunks_retrieved    = chunks_retrieved,
-                                                  )
+            # Sanitize all scores to handle NaN values
+            answer_relevancy        = sanitize_ragas_score(scores.get('answer_relevancy'), 'answer_relevancy')
+            
+            faithfulness            = sanitize_ragas_score(scores.get('faithfulness'), 'faithfulness')
+            
+            context_utilization_val = sanitize_ragas_score(scores.get('context_utilization'), 
+                                                          'context_utilization') if not ground_truth else None
+            
+            context_relevancy_val = sanitize_ragas_score(scores.get('context_relevancy'), 'context_relevancy')
+            
+            # Ground truth metrics (sanitized)
+            context_precision_val  = None
+            context_recall_val     = None
+            answer_similarity_val  = None
+            answer_correctness_val = None
+
+            if (ground_truth and ('context_precision' in scores)):
+                context_precision_val  = sanitize_ragas_score(scores.get('context_precision'), 'context_precision')
+            
+            
+
+            if (ground_truth and ('context_recall' in scores)):
+                context_recall_val     = sanitize_ragas_score(scores.get('context_recall'), 'context_recall')
+            
+            
+            if ground_truth and 'answer_similarity' in scores:
+                answer_similarity_val  = sanitize_ragas_score(scores.get('answer_similarity'), 'answer_similarity')
+            
+            
+            if ground_truth and 'answer_correctness' in scores:
+                answer_correctness_val = sanitize_ragas_score(scores.get('answer_correctness'), 'answer_correctness')
+            
+            # Create result object with sanitized values
+            result = RAGASEvaluationResult(query               = query,
+                                           answer              = answer,
+                                           contexts            = contexts,
+                                           ground_truth        = ground_truth,
+                                           timestamp           = datetime.now().isoformat(),
+                                           answer_relevancy    = answer_relevancy,
+                                           faithfulness        = faithfulness,
+                                           context_utilization = context_utilization_val,
+                                           context_precision   = context_precision_val,
+                                           context_relevancy   = context_relevancy_val,
+                                           context_recall      = context_recall_val,
+                                           answer_similarity   = answer_similarity_val,
+                                           answer_correctness  = answer_correctness_val,
+                                           retrieval_time_ms   = retrieval_time_ms,
+                                           generation_time_ms  = generation_time_ms,
+                                           total_time_ms       = total_time_ms,
+                                           chunks_retrieved    = chunks_retrieved,
+                                          )
             
             # Store in history
             self.evaluation_history.append(result)
             
-            # Log appropriate metric based on ground truth
+            # Log results
             if ground_truth:
                 logger.info(f"Evaluation complete: relevancy={result.answer_relevancy:.3f}, faithfulness={result.faithfulness:.3f}, precision={result.context_precision:.3f}, overall={result.overall_score:.3f}")
             
@@ -172,7 +241,7 @@ class RAGASEvaluator:
         except Exception as e:
             logger.error(f"RAGAS evaluation failed: {e}", exc_info = True)
             
-            # Return zero metrics on failure
+            # Return zero metrics on failure (all sanitized)
             return RAGASEvaluationResult(query               = query,
                                          answer              = answer,
                                          contexts            = contexts,
@@ -180,18 +249,124 @@ class RAGASEvaluator:
                                          timestamp           = datetime.now().isoformat(),
                                          answer_relevancy    = 0.0,
                                          faithfulness        = 0.0,
-                                         context_utilization = 0.0 if not ground_truth else None, 
+                                         context_utilization = 0.0 if not ground_truth else None,
                                          context_precision   = None if not ground_truth else 0.0,
                                          context_relevancy   = 0.0,
                                          context_recall      = None,
                                          answer_similarity   = None,
                                          answer_correctness  = None,
-                                         retrieval_time_ms   = retrieval_time_ms,                                           
+                                         retrieval_time_ms   = retrieval_time_ms,
                                          generation_time_ms  = generation_time_ms,
                                          total_time_ms       = total_time_ms,
                                          chunks_retrieved    = chunks_retrieved,
                                         )
     
+
+    def evaluate_query_response(self, query_response: Any) -> Dict:
+        """
+        Evaluate based on actual response characteristics, not predictions
+        
+        Arguments:
+        ----------
+            query_response { Any } : QueryResponse object with metadata
+        
+        Returns:
+        --------
+                { dict }           : RAGAS evaluation results
+        """
+        try:
+            # Extract necessary data from response object: Check if it has the attributes we need
+            if (hasattr(query_response, 'sources')):
+                sources = query_response.sources
+
+            elif hasattr(query_response, 'contexts'):
+                sources = query_response.contexts
+
+            else:
+                sources = []
+            
+            # Extract context from sources
+            contexts = list()
+
+            if (sources and len(sources) > 0):
+                if (hasattr(sources[0], 'content')):
+                    contexts = [s.content for s in sources]
+
+                elif ((isinstance(sources[0], dict)) and ('content' in sources[0])):
+                    contexts = [s['content'] for s in sources]
+
+                elif (isinstance(sources[0], str)):
+                    contexts = sources
+            
+            # Check if this is actually a RAG response
+            is_actual_rag = ((sources and len(sources) > 0) or (contexts and len(contexts) > 0) or (hasattr(query_response, 'metrics') and  query_response.metrics and query_response.metrics.get("execution_path") == "rag_pipeline"))
+            
+            if not is_actual_rag:
+                logger.info(f"Non-RAG response, skipping RAGAS evaluation")
+                return {"evaluated" : False,
+                        "reason"    : "Not a RAG response",
+                        "is_rag"    : False,
+                       }
+            
+            # Get query and answer
+            query  = getattr(query_response, 'query', '')
+            answer = getattr(query_response, 'answer', '')
+            
+            if not query or not answer:
+                logger.warning("Missing query or answer for evaluation")
+                return {"evaluated" : False,
+                        "reason"    : "Missing query or answer",
+                        "is_rag"    : True,
+                       }
+            
+            # Check if context exists in metrics
+            if (hasattr(query_response, 'metrics') and query_response.metrics):
+                if (query_response.metrics.get("context_for_evaluation")):
+                    contexts = [query_response.metrics["context_for_evaluation"]]
+            
+            if ((not contexts) or (not any(c.strip() for c in contexts))):
+                logger.warning("No context available for RAGAS evaluation")
+                return {"evaluated" : False,
+                        "reason"    : "No context available",
+                        "is_rag"    : True,
+                       }
+            
+            # Now use the existing evaluate_single method
+            result                       = self.evaluate_single(query              = query,
+                                                                answer             = answer,
+                                                                contexts           = contexts,
+                                                                ground_truth       = None,
+                                                                retrieval_time_ms  = getattr(query_response, 'retrieval_time_ms', 0),
+                                                                generation_time_ms = getattr(query_response, 'generation_time_ms', 0),
+                                                                total_time_ms      = getattr(query_response, 'total_time_ms', 0),
+                                                                chunks_retrieved   = len(sources) if sources else len(contexts),
+                                                               )
+            
+            # Convert to dict and add metadata
+            result_dict                  = result.to_dict() if hasattr(result, 'to_dict') else vars(result)
+            
+            # Add evaluation metadata
+            result_dict["evaluated"]     = True
+            result_dict["is_rag"]        = True
+            result_dict["context_count"] = len(contexts)
+            
+            # Add prediction vs reality info if available
+            if ((hasattr(query_response, 'metrics')) and query_response.metrics):
+                result_dict["predicted_type"]      = query_response.metrics.get("predicted_type", "unknown")
+                result_dict["actual_type"]         = query_response.metrics.get("actual_type", "unknown")
+                result_dict["confidence_mismatch"] = (query_response.metrics.get("predicted_type") != query_response.metrics.get("actual_type"))
+            
+            logger.info(f"RAGAS evaluation completed for RAG response")
+            return result_dict
+            
+        except Exception as e:
+            logger.error(f"Query response evaluation failed: {repr(e)}", exc_info = True)
+            
+            return {"evaluated" : False,
+                    "error"     : str(e),
+                    "is_rag"    : True,
+                   }
+
     
     def evaluate_batch(self, queries: List[str], answers: List[str], contexts_list: List[List[str]], ground_truths: Optional[List[str]] = None) -> List[RAGASEvaluationResult]:
         """
@@ -215,16 +390,16 @@ class RAGASEvaluator:
             logger.info(f"Batch evaluating {len(queries)} queries...")
             
             # Prepare dataset
-            eval_data          = {"question" : queries,
-                                  "answer"   : answers,
-                                  "contexts" : contexts_list,
-                                 }
+            eval_data = {"question" : queries,
+                         "answer"   : answers,
+                         "contexts" : contexts_list,
+                        }
             
             if ground_truths and self.enable_ground_truth:
                 eval_data["ground_truth"] = ground_truths
             
             # Create dataset
-            dataset            = Dataset.from_dict(eval_data)
+            dataset = Dataset.from_dict(eval_data)
             
             # Select metrics
             if (ground_truths and self.enable_ground_truth):
@@ -241,24 +416,41 @@ class RAGASEvaluator:
             evaluation_results = list()
 
             for idx, row in results_df.iterrows():
-                result = RAGASEvaluationResult(query               = queries[idx],
-                                               answer              = answers[idx],
-                                               contexts            = contexts_list[idx],
-                                               ground_truth        = ground_truths[idx] if ground_truths else None,
-                                               timestamp           = datetime.now().isoformat(),
-                                               answer_relevancy    = float(row.get('answer_relevancy', 0.0)),
-                                               faithfulness        = float(row.get('faithfulness', 0.0)),
-                                               context_precision   = float(row.get('context_precision')) if (ground_truths and 'context_precision' in row) else None,
-                                               context_utilization = float(row.get('context_utilization')) if not ground_truths else None,  
-                                               context_relevancy   = float(row.get('context_relevancy', 0.0)),
-                                               context_recall      = float(row.get('context_recall')) if (ground_truths and 'context_recall' in row) else None,
-                                               answer_similarity   = float(row.get('answer_similarity')) if (ground_truths and 'answer_similarity' in row) else None,
-                                               answer_correctness  = float(row.get('answer_correctness')) if (ground_truths and 'answer_correctness' in row) else None,
-                                               retrieval_time_ms   = 0,
-                                               generation_time_ms  = 0,
-                                               total_time_ms       = 0,
-                                               chunks_retrieved    = len(contexts_list[idx]),
-                                              )
+                # Sanitize all scores
+                answer_relevancy_val    = sanitize_ragas_score(row.get('answer_relevancy', 0.0), f'answer_relevancy_{idx}')
+                
+                faithfulness_val        = sanitize_ragas_score(row.get('faithfulness', 0.0), f'faithfulness_{idx}')
+                
+                context_relevancy_val   = sanitize_ragas_score(row.get('context_relevancy', 0.0), f'context_relevancy_{idx}')
+                
+                context_utilization_val = sanitize_ragas_score(row.get('context_utilization'), f'context_utilization_{idx}') if not ground_truths else None
+                
+                context_precision_val   = sanitize_ragas_score(row.get('context_precision'), f'context_precision_{idx}') if (ground_truths and 'context_precision' in row) else None
+                
+                context_recall_val      = sanitize_ragas_score(row.get('context_recall'), f'context_recall_{idx}') if (ground_truths and 'context_recall' in row) else None
+                
+                answer_similarity_val   = sanitize_ragas_score(row.get('answer_similarity'), f'answer_similarity_{idx}') if (ground_truths and 'answer_similarity' in row) else None
+                
+                answer_correctness_val  = sanitize_ragas_score(row.get('answer_correctness'), f'answer_correctness_{idx}') if (ground_truths and 'answer_correctness' in row) else None
+                
+                result                  = RAGASEvaluationResult(query               = queries[idx],
+                                                                answer              = answers[idx],
+                                                                contexts            = contexts_list[idx],
+                                                                ground_truth        = ground_truths[idx] if ground_truths else None,
+                                                                timestamp           = datetime.now().isoformat(),
+                                                                answer_relevancy    = answer_relevancy_val,
+                                                                faithfulness        = faithfulness_val,
+                                                                context_precision   = context_precision_val,
+                                                                context_utilization = context_utilization_val,
+                                                                context_relevancy   = context_relevancy_val,
+                                                                context_recall      = context_recall_val,
+                                                                answer_similarity   = answer_similarity_val,
+                                                                answer_correctness  = answer_correctness_val,
+                                                                retrieval_time_ms   = 0,
+                                                                generation_time_ms  = 0,
+                                                                total_time_ms       = 0,
+                                                                chunks_retrieved    = len(contexts_list[idx]),
+                                                               )
 
                 evaluation_results.append(result)
 
@@ -286,7 +478,7 @@ class RAGASEvaluator:
                                    avg_answer_relevancy    = 0.0,
                                    avg_faithfulness        = 0.0,
                                    avg_context_precision   = 0.0,
-                                   avg_context_utilization = 0.0,  # NEW FIELD
+                                   avg_context_utilization = 0.0,
                                    avg_context_relevancy   = 0.0,
                                    avg_overall_score       = 0.0,
                                    avg_retrieval_time_ms   = 0.0,
@@ -331,24 +523,24 @@ class RAGASEvaluator:
         similarity_values  = [r.answer_similarity for r in self.evaluation_history if r.answer_similarity is not None]
         correctness_values = [r.answer_correctness for r in self.evaluation_history if r.answer_correctness is not None]
         
-        return RAGASStatistics(total_evaluations      = n,
-                               avg_answer_relevancy   = round(avg_relevancy, 3),
-                               avg_faithfulness       = round(avg_faithfulness, 3),
-                               avg_context_precision  = round(avg_precision, 3) if precision_values else None,
-                               avg_context_utilization = round(avg_utilization, 3) if utilization_values else None,  # NEW FIELD
-                               avg_context_relevancy  = round(avg_relevancy_ctx, 3),
-                               avg_overall_score      = round(avg_overall, 3),
-                               avg_context_recall     = round(sum(recall_values) / len(recall_values), 3) if recall_values else None,
-                               avg_answer_similarity  = round(sum(similarity_values) / len(similarity_values), 3) if similarity_values else None,
-                               avg_answer_correctness = round(sum(correctness_values) / len(correctness_values), 3) if correctness_values else None,
-                               avg_retrieval_time_ms  = round(avg_retrieval, 2),
-                               avg_generation_time_ms = round(avg_generation, 2),
-                               avg_total_time_ms      = round(avg_total, 2),
-                               min_score              = round(min_score, 3),
-                               max_score              = round(max_score, 3),
-                               std_dev                = round(std_dev, 3),
-                               session_start          = self.session_start,
-                               last_updated           = datetime.now(),
+        return RAGASStatistics(total_evaluations       = n,
+                               avg_answer_relevancy    = round(avg_relevancy, 3),
+                               avg_faithfulness        = round(avg_faithfulness, 3),
+                               avg_context_precision   = round(avg_precision, 3) if precision_values else None,
+                               avg_context_utilization = round(avg_utilization, 3) if utilization_values else None,
+                               avg_context_relevancy   = round(avg_relevancy_ctx, 3),
+                               avg_overall_score       = round(avg_overall, 3),
+                               avg_context_recall      = round(sum(recall_values) / len(recall_values), 3) if recall_values else None,
+                               avg_answer_similarity   = round(sum(similarity_values) / len(similarity_values), 3) if similarity_values else None,
+                               avg_answer_correctness  = round(sum(correctness_values) / len(correctness_values), 3) if correctness_values else None,
+                               avg_retrieval_time_ms   = round(avg_retrieval, 2),
+                               avg_generation_time_ms  = round(avg_generation, 2),
+                               avg_total_time_ms       = round(avg_total, 2),
+                               min_score               = round(min_score, 3),
+                               max_score               = round(max_score, 3),
+                               std_dev                 = round(std_dev, 3),
+                               session_start           = self.session_start,
+                               last_updated            = datetime.now(),
                               )
 
 

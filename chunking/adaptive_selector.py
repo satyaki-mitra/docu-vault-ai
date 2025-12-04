@@ -29,9 +29,9 @@ class AdaptiveChunkingSelector:
     - Provides strategy recommendations with reasoning
     
     Strategy Selection Logic:
-    - Small docs (<50K tokens)      â†’ Fixed chunking (simplicity)
-    - Medium docs (50K-500K tokens) â†’ Semantic/LlamaIndex chunking (coherence)  
-    - Large docs (>500K tokens)     â†’ Hierarchical chunking (scalability)
+    - Small docs (< 1K tokens)      -> Fixed chunking (simplicity)
+    - Medium docs (1K-500K tokens)  -> Semantic/LlamaIndex chunking (coherence)  
+    - Large docs (>500K tokens)     -> Hierarchical chunking (scalability)
     - LlamaIndex preferred when available for semantic chunking
     - Fallback to fixed chunking for reliability
     """
@@ -102,7 +102,7 @@ class AdaptiveChunkingSelector:
             reason   = f"Large document ({analysis['total_tokens']} tokens) - hierarchical chunking for scalability"
         
         # Override based on document structure if available
-        if metadata and self._has_clear_structure(metadata):
+        if (metadata and self._has_clear_structure(metadata)):
             if (strategy == ChunkingStrategy.FIXED):
                 # Upgrade to semantic/LlamaIndex for structured documents
                 if (self.llamaindex_available and self.prefer_llamaindex):
