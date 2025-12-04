@@ -6,179 +6,209 @@
     <title>AI Universal Knowledge Ingestion System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .feature-card:hover {
-            transform: translateY(-5px);
-            transition: all 0.3s ease;
-        }
-        .nav-tab.active {
-            background: white;
-            color: #4f46e5;
-            font-weight: 600;
-        }
-        
-        /* Chat message animations - UPDATED */
-        .chat-message {
-            animation: fadeIn 0.3s ease-in;
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
-        @keyframes fadeIn {
-            from { 
-                opacity: 0; 
-                transform: translateY(10px); 
+        body {
+            background-color: #f8fafc;
+        }
+
+        /* Glass morphism effects */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Smooth transitions */
+        .transition-all {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Chat message animations */
+        .message-enter {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
             }
-            to { 
-                opacity: 1; 
-                transform: translateY(0); 
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
 
-        /* Chat message bubbles */
-        .chat-bubble-user {
-            max-width: 85%;
-            margin-left: auto;
-            margin-right: 0;
-            border-radius: 18px 18px 4px 18px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        /* Chat bubbles */
+        .user-message {
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
             color: white;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 10px 10px 4px 10px;
+            margin-left: auto;
+            max-width: fit-content;
+            min-width:10px;
+            max-height: fit-content;
         }
 
-        .chat-bubble-assistant {
-            max-width: 85%;
-            margin-right: auto;
-            margin-left: 0;
-            border-radius: 18px 18px 18px 4px;
+        .ai-message {
             background: white;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+            border-radius: 10px 10px 10px 4px;
+            max-width: fit-content;
+            min-width: 10px;
+            max-height: fit-content;
         }
 
-        /* Chat container adjustments - UPDATED */
-        .chat-message {
-            display: flex;
-            margin-bottom: 1rem;
-            animation: fadeIn 0.3s ease-in; /* Keep animation here too */
+        .ai-message:hover {
+            border-color: #c7d2fe;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
         }
 
-        .chat-message.user {
-            justify-content: flex-end;
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
         }
 
-        .chat-message.assistant {
-            justify-content: flex-start;
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
         }
 
-        /* Chat content inside bubbles */
-        .chat-bubble-content {
-            padding: 12px 16px;
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
         }
 
-        /* Source cards and metrics inside bubbles */
-        .chat-bubble-assistant .source-card {
-            background-color: #f9fafb;
-            border: 1px solid #e5e7eb;
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
 
-        /* Query type badge adjustments */
-        .chat-bubble-user .query-type-badge {
-            background-color: rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        /* Timestamp adjustments */
-        .chat-bubble-timestamp {
-            font-size: 11px;
-            opacity: 0.7;
-            margin-top: 4px;
-        }
-
-        .progress-bar {
-            transition: width 0.5s ease-in-out;
-        }
-        .loading-spinner {
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #3498db;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        /* Query type badges */
-        .query-type-badge {
-            font-size: 11px;
-            font-weight: 600;
+        /* Tag styles */
+        .tag {
+            display: inline-flex;
+            align-items: center;
             padding: 2px 8px;
             border-radius: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-size: 11px;
+            font-weight: 500;
         }
 
-        .badge-rag {
-            background-color: #dbeafe;
+        .tag-blue {
+            background: #dbeafe;
             color: #1e40af;
-            border: 1px solid #bfdbfe;
         }
 
-        .badge-general {
-            background-color: #dcfce7;
-            color: #166534;
-            border: 1px solid #bbf7d0;
+        .tag-green {
+            background: #d1fae5;
+            color: #065f46;
         }
 
-        .badge-summary {
-            background-color: #fef3c7;
+        .tag-purple {
+            background: #f3e8ff;
+            color: #6b21a8;
+        }
+
+        .tag-yellow {
+            background: #fef3c7;
             color: #92400e;
-            border: 1px solid #fde68a;
         }
 
-        .badge-comparison {
-            background-color: #ede9fe;
-            color: #5b21b6;
-            border: 1px solid #ddd6fe;
+        .tag-red {
+            background: #fee2e2;
+            color: #991b1b;
         }
 
-        /* Session management */
-        .session-card {
+        /* Source cards */
+        .source-card {
             transition: all 0.2s ease;
-            cursor: pointer;
+            border-left: 3px solid transparent;
         }
 
-        .session-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-
-        .session-card.active {
-            border-color: #4f46e5;
-            background-color: #f5f3ff;
-        }
-
-        /* Classification test */
-        .classification-result {
-            border-left: 4px solid;
-            padding-left: 12px;
-        }
-
-        .classification-rag {
+        .source-card:hover {
             border-left-color: #4f46e5;
+            transform: translateX(2px);
         }
 
-        .classification-general {
-            border-left-color: #10b981;
+        /* Loading animation */
+        .typing-dots {
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
-        .classification-mixed {
-            border-left-color: #f59e0b;
+        .typing-dots span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #94a3b8;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Gradient backgrounds */
+        .gradient-bg-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        }
+
+        /* Feature card hover effects */
+        .feature-card {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        /* Step card styles */
+        .step-card {
+            position: relative;
+            padding-left: 60px;
+        }
+
+        .step-number {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 18px;
         }
 
         /* RAGAS table styling */
@@ -197,6 +227,11 @@
             color: #991b1b;
         }
 
+        .ragas-na {
+            background-color: #f1f5f9;
+            color: #64748b;
+        }
+
         .ragas-cell {
             border-radius: 4px;
             padding: 4px 8px;
@@ -206,81 +241,101 @@
             min-width: 60px;
         }
 
-        /* Collapsible sources */
+        /* Query type tags */
+        .query-type-rag {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .query-type-non-rag {
+            background-color: #f3e8ff;
+            color: #6b21a8;
+        }
+
+        /* File upload zone */
+        .upload-zone-active {
+            border-color: #4f46e5;
+            background-color: #f5f3ff;
+        }
+
+        /* Collapsible sections */
         .collapsible-header {
             cursor: pointer;
             user-select: none;
+            transition: all 0.2s ease;
         }
 
-        .collapsible-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
+        .collapsible-header:hover {
+            opacity: 0.8;
         }
 
-        .collapsible-content.expanded {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-
-        .chevron {
+        .collapsible-header i {
             transition: transform 0.3s ease;
         }
 
-        .chevron.expanded {
-            transform: rotate(180deg);
+        .collapsible-header.collapsed i {
+            transform: rotate(-90deg);
         }
 
-        /* Improve prose readability in chat bubbles */
-        .prose-invert p {
-            color: rgba(255, 255, 255, 0.9);
+        .collapsible-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            max-height: 1000px;
         }
 
-        .prose-invert strong {
-            color: white;
+        .collapsible-content.collapsed {
+            max-height: 0;
+            opacity: 0;
         }
 
-        .prose-invert ul {
-            color: rgba(255, 255, 255, 0.8);
-        }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="min-h-screen">
     <!-- Landing Page -->
     <div id="landing-page" class="min-h-screen">
         <!-- Navigation -->
-        <nav class="bg-white shadow-sm">
+        <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between h-16">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0 flex items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="flex items-center space-x-2">
                             <div class="relative">
-                                <i class="fas fa-brain text-2xl text-indigo-600 mr-2"></i>
-                                <div class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></div>
+                                <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                                    <i class="fas fa-brain text-white text-lg"></i>
+                                    <div class="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
+                                </div>
                             </div>
-                            <span class="text-xl font-bold text-gray-900">AI Knowledge Base</span>
+                            <div>
+                                <div class="font-bold text-gray-900 text-lg">AI Knowledge</div>
+                                <div class="text-xs text-gray-500 -mt-1">Enterprise RAG Platform</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex items-center space-x-4">
                     </div>
                 </div>
             </div>
         </nav>
 
         <!-- Hero Section -->
-        <section class="gradient-bg text-white">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-20">
+        <section class="gradient-bg-primary text-white pt-12 pb-20">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center">
-                    <h1 class="text-5xl font-bold mb-6">AI Universal Knowledge Ingestion System</h1>
-                    <p class="text-xl mb-4 max-w-4xl mx-auto">
-                        Break down information silos and unlock the full potential of your organizational knowledge.
+                    <div class="inline-block mb-6">
+                        <div class="bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-2 inline-flex items-center space-x-2">
+                            <span class="text-sm font-medium">Enterprise RAG Platform</span>
+                            <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                        </div>
+                    </div>
+                    <h1 class="text-5xl font-bold mb-6 leading-tight">
+                        Break Down Information
+                        <span class="block text-indigo-200">Silos Instantly</span>
+                    </h1>
+                    <p class="text-xl text-indigo-100 mb-8 max-w-3xl mx-auto leading-relaxed">
+                        Transform how your organization accesses and utilizes knowledge across documents, websites, and databases with AI-powered search.
                     </p>
-                    <p class="text-xl mb-8 max-w-5xl mx-auto">
-                        Our enterprise RAG platform transforms how you access and utilize information across multiple sources.
-                    </p>
-                    <div class="flex justify-center">
-                        <button onclick="startApp()" class="bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-200 text-lg">
-                            Start Building Your Knowledge Base
+                    <div class="flex flex-col sm:flex-row justify-center gap-4">
+                        <button onclick="startApp()" class="px-8 py-4 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl text-lg">
+                            <i class="fas fa-play mr-2"></i>
+                            Try It Now
                         </button>
                     </div>
                 </div>
@@ -288,210 +343,250 @@
         </section>
 
         <!-- Content Tabs -->
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             <!-- Tab Navigation -->
-            <div class="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-8 max-w-2xl mx-auto">
-                <button id="tab-features" onclick="showTab('features')" class="nav-tab active flex-1 py-3 px-4 rounded-md text-center">Features & Capabilities</button>
-                <button id="tab-how-to-use" onclick="showTab('how-to-use')" class="nav-tab flex-1 py-3 px-4 rounded-md text-center">How to Use</button>
+            <div class="flex space-x-2 bg-gray-100 p-1 rounded-xl mb-12 max-w-2xl mx-auto">
+                <button id="tab-features" onclick="showTab('features')" class="flex-1 py-3 px-4 rounded-lg text-center font-medium transition-all nav-tab active">
+                    <i class="fas fa-star mr-2"></i>Features
+                </button>
+                <button id="tab-how-to-use" onclick="showTab('how-to-use')" class="flex-1 py-3 px-4 rounded-lg text-center font-medium transition-all nav-tab">
+                    <i class="fas fa-play-circle mr-2"></i>Quick Start
+                </button>
             </div>
 
             <!-- Tab Content -->
             <div id="tab-content">
                 <!-- Features Tab -->
                 <div id="features-content" class="tab-panel active">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <!-- Feature 1 -->
-                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                            <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-                                <i class="fas fa-file-upload text-indigo-600 text-xl"></i>
+                        <div class="feature-card bg-white rounded-2xl shadow-sm p-6 border border-gray-200 hover:border-indigo-200">
+                            <div class="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl flex items-center justify-center mb-4">
+                                <i class="fas fa-cloud-upload-alt text-blue-600 text-xl"></i>
                             </div>
-                            <h3 class="text-xl font-semibold mb-3">Multi-Format Document Support</h3>
-                            <p class="text-gray-600">Upload PDFs, Word documents, text files, and even ZIP archives with automatic extraction and processing.</p>
-                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>PDF, DOCX, TXT support</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>ZIP archive extraction</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>OCR for scanned documents</li>
-                            </ul>
+                            <h3 class="text-lg font-semibold mb-3 text-gray-900">Multi-Format Support</h3>
+                            <p class="text-gray-600 text-sm leading-relaxed mb-4">Upload PDFs, Word docs, text files, and ZIP archives with automatic extraction and processing.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="tag tag-blue">PDF</span>
+                                <span class="tag tag-blue">DOCX</span>
+                                <span class="tag tag-blue">TXT</span>
+                                <span class="tag tag-blue">ZIP</span>
+                            </div>
                         </div>
 
                         <!-- Feature 2 -->
-                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                        <div class="feature-card bg-white rounded-2xl shadow-sm p-6 border border-gray-200 hover:border-green-200">
+                            <div class="w-12 h-12 bg-gradient-to-br from-green-100 to-green-50 rounded-xl flex items-center justify-center mb-4">
                                 <i class="fas fa-robot text-green-600 text-xl"></i>
                             </div>
-                            <h3 class="text-xl font-semibold mb-3">Intelligent Chunking</h3>
-                            <p class="text-gray-600">Adaptive chunking strategies that automatically select the optimal method based on content size and type.</p>
-                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Fixed size chunking</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Semantic chunking</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Hierarchical chunking</li>
-                            </ul>
+                            <h3 class="text-lg font-semibold mb-3 text-gray-900">Intelligent Processing</h3>
+                            <p class="text-gray-600 text-sm leading-relaxed mb-4">Adaptive chunking strategies and semantic understanding for optimal information retrieval.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="tag tag-green">AI Chunking</span>
+                                <span class="tag tag-green">Semantic Search</span>
+                            </div>
                         </div>
 
                         <!-- Feature 3 -->
-                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                                <i class="fas fa-search text-blue-600 text-xl"></i>
+                        <div class="feature-card bg-white rounded-2xl shadow-sm p-6 border border-gray-200 hover:border-purple-200">
+                            <div class="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl flex items-center justify-center mb-4">
+                                <i class="fas fa-search text-purple-600 text-xl"></i>
                             </div>
-                            <h3 class="text-xl font-semibold mb-3">Hybrid Retrieval</h3>
-                            <p class="text-gray-600">Combines vector similarity search with BM25 keyword matching for superior retrieval accuracy.</p>
-                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Vector similarity search</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>BM25 keyword matching</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Configurable weights</li>
-                            </ul>
+                            <h3 class="text-lg font-semibold mb-3 text-gray-900">Hybrid Retrieval</h3>
+                            <p class="text-gray-600 text-sm leading-relaxed mb-4">Combines vector similarity with BM25 keyword matching for superior search accuracy.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="tag tag-purple">Vector Search</span>
+                                <span class="tag tag-purple">Keyword Search</span>
+                            </div>
                         </div>
 
                         <!-- Feature 4 -->
-                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                                <i class="fas fa-comments text-purple-600 text-xl"></i>
+                        <div class="feature-card bg-white rounded-2xl shadow-sm p-6 border border-gray-200 hover:border-indigo-200">
+                            <div class="w-12 h-12 bg-gradient-to-br from-indigo-100 to-indigo-50 rounded-xl flex items-center justify-center mb-4">
+                                <i class="fas fa-comments text-indigo-600 text-xl"></i>
                             </div>
-                            <h3 class="text-xl font-semibold mb-3">Natural Language Q&A</h3>
-                            <p class="text-gray-600">Ask questions in natural language and get precise, context-aware answers with source citations.</p>
-                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Source citation tracking</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Multi-document queries</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Conversation history</li>
-                            </ul>
+                            <h3 class="text-lg font-semibold mb-3 text-gray-900">Smart Q&A</h3>
+                            <p class="text-gray-600 text-sm leading-relaxed mb-4">Ask natural language questions and get precise answers with source citations and context.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="tag tag-blue">Context-Aware</span>
+                                <span class="tag tag-blue">Source Tracking</span>
+                            </div>
                         </div>
 
                         <!-- Feature 5 -->
-                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                            <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
-                                <i class="fas fa-chart-bar text-orange-600 text-xl"></i>
+                        <div class="feature-card bg-white rounded-2xl shadow-sm p-6 border border-gray-200 hover:border-yellow-200">
+                            <div class="w-12 h-12 bg-gradient-to-br from-yellow-100 to-yellow-50 rounded-xl flex items-center justify-center mb-4">
+                                <i class="fas fa-chart-line text-yellow-600 text-xl"></i>
                             </div>
-                            <h3 class="text-xl font-semibold mb-3">Quality Analytics</h3>
-                            <p class="text-gray-600">Comprehensive evaluation using Ragas metrics to monitor and improve response quality.</p>
-                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Answer relevancy scoring</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Faithfulness evaluation</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Context Utilization metrics</li>
-                            </ul>
+                            <h3 class="text-lg font-semibold mb-3 text-gray-900">Quality Analytics</h3>
+                            <p class="text-gray-600 text-sm leading-relaxed mb-4">Comprehensive evaluation using RAGAS metrics to monitor and improve response quality.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="tag tag-yellow">RAGAS Metrics</span>
+                                <span class="tag tag-yellow">Performance</span>
+                            </div>
                         </div>
 
                         <!-- Feature 6 -->
-                        <div class="feature-card bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                            <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+                        <div class="feature-card bg-white rounded-2xl shadow-sm p-6 border border-gray-200 hover:border-red-200">
+                            <div class="w-12 h-12 bg-gradient-to-br from-red-100 to-red-50 rounded-xl flex items-center justify-center mb-4">
                                 <i class="fas fa-cog text-red-600 text-xl"></i>
                             </div>
-                            <h3 class="text-xl font-semibold mb-3">Flexible Configuration</h3>
-                            <p class="text-gray-600">Customize every aspect of the pipeline from chunking strategies to generation parameters.</p>
-                            <ul class="mt-3 text-sm text-gray-500 space-y-1">
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Multiple LLM providers</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Adjustable parameters</li>
-                                <li><i class="fas fa-check text-green-500 mr-2"></i>Real-time configuration</li>
-                            </ul>
+                            <h3 class="text-lg font-semibold mb-3 text-gray-900">Flexible Configuration</h3>
+                            <p class="text-gray-600 text-sm leading-relaxed mb-4">Customize every aspect of the pipeline with real-time configuration and monitoring.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="tag tag-red">Customizable</span>
+                                <span class="tag tag-red">Real-time</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- How to Use Tab -->
                 <div id="how-to-use-content" class="tab-panel hidden">
-                    <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto">
-                        <div class="space-y-8">
-                            <!-- Step 1 -->
-                            <div class="flex items-start space-x-6">
-                                <div class="flex-shrink-0 w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                                    <span class="text-indigo-600 font-bold text-lg">1</span>
-                                </div>
-                                <div>
-                                    <h3 class="text-xl font-semibold mb-3">Upload Your Documents</h3>
-                                    <p class="text-gray-600 mb-3">Start by uploading your documents in various formats. The system supports:</p>
-                                    <ul class="text-gray-600 space-y-1 mb-4">
-                                        <li><i class="fas fa-file-pdf text-red-500 mr-2"></i>PDF documents (including scanned with OCR)</li>
-                                        <li><i class="fas fa-file-word text-blue-500 mr-2"></i>Microsoft Word documents (.docx)</li>
-                                        <li><i class="fas fa-file-alt text-gray-500 mr-2"></i>Text files (.txt, .md, .csv)</li>
-                                        <li><i class="fas fa-file-archive text-orange-500 mr-2"></i>ZIP archives (automatic extraction)</li>
-                                    </ul>
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <p class="text-sm text-gray-600"><i class="fas fa-lightbulb text-yellow-500 mr-2"></i><strong>Tip:</strong> You can upload multiple files at once or entire ZIP archives containing multiple documents.</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Step 2 -->
-                            <div class="flex items-start space-x-6">
-                                <div class="flex-shrink-0 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                                    <span class="text-green-600 font-bold text-lg">2</span>
-                                </div>
-                                <div>
-                                    <h3 class="text-xl font-semibold mb-3">Build Your Knowledge Base</h3>
-                                    <p class="text-gray-600 mb-3">Click "Start Building" to process your documents through the complete pipeline:</p>
-                                    <ul class="text-gray-600 space-y-2 mb-4">
-                                        <li><i class="fas fa-paragraph text-purple-500 mr-2"></i><strong>Parsing:</strong> Extract text and metadata from all documents</li>
-                                        <li><i class="fas fa-puzzle-piece text-blue-500 mr-2"></i><strong>Chunking:</strong> Split content into optimal chunks using adaptive strategies</li>
-                                        <li><i class="fas fa-brain text-indigo-500 mr-2"></i><strong>Embedding:</strong> Generate vector embeddings for semantic search</li>
-                                        <li><i class="fas fa-database text-green-500 mr-2"></i><strong>Indexing:</strong> Build vector store and keyword search indices</li>
-                                    </ul>
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <p class="text-sm text-gray-600"><i class="fas fa-lightbulb text-yellow-500 mr-2"></i><strong>Tip:</strong> Monitor the real-time progress bar to track each processing step.</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Step 3 -->
-                            <div class="flex items-start space-x-6">
-                                <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <span class="text-blue-600 font-bold text-lg">3</span>
-                                </div>
-                                <div>
-                                    <h3 class="text-xl font-semibold mb-3">Chat with Your Documents</h3>
-                                    <p class="text-gray-600 mb-3">Once processing is complete, start asking questions in natural language:</p>
-                                    <ul class="text-gray-600 space-y-2 mb-4">
-                                        <li><i class="fas fa-question-circle text-indigo-500 mr-2"></i>Ask factual questions about your content</li>
-                                        <li><i class="fas fa-search text-green-500 mr-2"></i>Request summaries of specific topics</li>
-                                        <li><i class="fas fa-balance-scale text-orange-500 mr-2"></i>Compare information across multiple documents</li>
-                                        <li><i class="fas fa-chart-line text-purple-500 mr-2"></i>Get analytical insights from your data</li>
-                                    </ul>
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <p class="text-sm text-gray-600"><i class="fas fa-lightbulb text-yellow-500 mr-2"></i><strong>Tip:</strong> Each response includes source citations so you can verify the information.</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Step 4 -->
-                            <div class="flex items-start space-x-6">
-                                <div class="flex-shrink-0 w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                                    <span class="text-purple-600 font-bold text-lg">4</span>
-                                </div>
-                                <div>
-                                    <h3 class="text-xl font-semibold mb-3">Analyze and Optimize</h3>
-                                    <p class="text-gray-600 mb-3">Use the analytics dashboard to monitor performance and quality:</p>
-                                    <ul class="text-gray-600 space-y-2 mb-4">
-                                        <li><i class="fas fa-chart-bar text-green-500 mr-2"></i>View Ragas evaluation metrics for response quality</li>
-                                        <li><i class="fas fa-cog text-blue-500 mr-2"></i>Adjust configuration parameters in real-time</li>
-                                        <li><i class="fas fa-download text-indigo-500 mr-2"></i>Export conversation history for analysis</li>
-                                        <li><i class="fas fa-sliders-h text-orange-500 mr-2"></i>Fine-tune retrieval and generation settings</li>
-                                    </ul>
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <p class="text-sm text-gray-600"><i class="fas fa-lightbulb text-yellow-500 mr-2"></i><strong>Tip:</strong> Experiment with different chunking strategies and temperature settings to optimize for your specific use case.</p>
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="bg-white rounded-2xl shadow-sm p-8">
+                        <div class="text-center mb-10">
+                            <h2 class="text-3xl font-bold text-gray-900 mb-4">Get Started in 4 Simple Steps</h2>
+                            <p class="text-gray-600 max-w-2xl mx-auto">Transform your documents into an intelligent knowledge base with our guided workflow.</p>
                         </div>
 
-                        <!-- Quick Start Guide -->
-                        <div class="mt-12 p-6 bg-indigo-50 rounded-xl border border-indigo-200">
-                            <h3 class="text-lg font-semibold text-indigo-900 mb-3">🚀 Quick Start Guide</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                <div class="bg-white p-4 rounded-lg">
-                                    <h4 class="font-semibold mb-2 text-indigo-700">For First-Time Users:</h4>
-                                    <ol class="list-decimal list-inside space-y-1 text-gray-600">
-                                        <li>Upload 2-3 sample documents</li>
-                                        <li>Use default configuration settings</li>
-                                        <li>Start with simple factual questions</li>
-                                        <li>Gradually explore more complex queries</li>
-                                    </ol>
+                        <div class="space-y-8">
+                            <!-- Step 1 - Upload -->
+                            <div class="step-card">
+                                <div class="step-number">1</div>
+                                <div>
+                                    <h3 class="text-xl font-semibold mb-3 text-gray-900">Upload Your Content</h3>
+                                    <p class="text-gray-600 mb-4">Drag and drop your documents or use the file browser to upload.</p>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                        <div class="bg-blue-50 rounded-lg p-3 flex items-center justify-center">
+                                            <i class="fas fa-file-pdf text-red-500 text-xl"></i>
+                                            <span class="ml-2 text-sm font-medium">PDF</span>
+                                        </div>
+                                        <div class="bg-blue-50 rounded-lg p-3 flex items-center justify-center">
+                                            <i class="fas fa-file-word text-blue-500 text-xl"></i>
+                                            <span class="ml-2 text-sm font-medium">Word</span>
+                                        </div>
+                                        <div class="bg-blue-50 rounded-lg p-3 flex items-center justify-center">
+                                            <i class="fas fa-file-alt text-gray-500 text-xl"></i>
+                                            <span class="ml-2 text-sm font-medium">Text</span>
+                                        </div>
+                                        <div class="bg-blue-50 rounded-lg p-3 flex items-center justify-center">
+                                            <i class="fas fa-file-archive text-orange-500 text-xl"></i>
+                                            <span class="ml-2 text-sm font-medium">ZIP</span>
+                                        </div>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                        <p class="text-sm text-gray-700">
+                                            <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                                            <span class="font-medium">Tip:</span> Upload multiple files at once or ZIP archives for batch processing.
+                                        </p>
+                                    </div>
                                 </div>
-                                <div class="bg-white p-4 rounded-lg">
-                                    <h4 class="font-semibold mb-2 text-indigo-700">For Advanced Users:</h4>
-                                    <ol class="list-decimal list-inside space-y-1 text-gray-600">
-                                        <li>Upload large document collections</li>
-                                        <li>Experiment with different chunking strategies</li>
-                                        <li>Adjust hybrid retrieval weights</li>
-                                        <li>Monitor Ragas metrics for optimization</li>
-                                    </ol>
+                            </div>
+
+                            <!-- Step 2 - Process -->
+                            <div class="step-card">
+                                <div class="step-number">2</div>
+                                <div>
+                                    <h3 class="text-xl font-semibold mb-3 text-gray-900">Build Knowledge Base</h3>
+                                    <p class="text-gray-600 mb-4">Click "Start Building" to process documents through the AI pipeline.</p>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4">
+                                            <div class="flex items-center mb-2">
+                                                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                                                    <i class="fas fa-brain text-blue-600"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="font-medium text-gray-900">AI Processing</div>
+                                                    <div class="text-xs text-gray-600">Semantic understanding</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4">
+                                            <div class="flex items-center mb-2">
+                                                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                                                    <i class="fas fa-database text-green-600"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="font-medium text-gray-900">Vector Store</div>
+                                                    <div class="text-xs text-gray-600">Fast retrieval engine</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                        <p class="text-sm text-gray-700">
+                                            <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                                            <span class="font-medium">Tip:</span> Monitor progress in real-time with our visual pipeline tracker.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 3 - Chat -->
+                            <div class="step-card">
+                                <div class="step-number">3</div>
+                                <div>
+                                    <h3 class="text-xl font-semibold mb-3 text-gray-900">Chat with AI Assistant</h3>
+                                    <p class="text-gray-600 mb-4">Ask questions in natural language and get intelligent responses.</p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                        <div class="bg-white border border-gray-200 rounded-xl p-4">
+                                            <div class="flex items-start">
+                                                <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0 mr-3">
+                                                    <i class="fas fa-question text-indigo-600"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="font-medium text-gray-900">Ask Questions</div>
+                                                    <div class="text-xs text-gray-600">Get factual answers</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-white border border-gray-200 rounded-xl p-4">
+                                            <div class="flex items-start">
+                                                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0 mr-3">
+                                                    <i class="fas fa-search text-green-600"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="font-medium text-gray-900">Find Insights</div>
+                                                    <div class="text-xs text-gray-600">Discover patterns</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                        <p class="text-sm text-gray-700">
+                                            <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                                            <span class="font-medium">Tip:</span> Each response includes source citations for verification.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 4 - Analyze -->
+                            <div class="step-card">
+                                <div class="step-number">4</div>
+                                <div>
+                                    <h3 class="text-xl font-semibold mb-3 text-gray-900">Optimize & Export</h3>
+                                    <p class="text-gray-600 mb-4">Analyze performance and export results for reporting.</p>
+                                    <div class="flex flex-wrap gap-3 mb-4">
+                                        <div class="flex items-center bg-gray-50 rounded-lg px-3 py-2">
+                                            <i class="fas fa-chart-bar text-indigo-600 mr-2"></i>
+                                            <span class="text-sm font-medium">Analytics</span>
+                                        </div>
+                                        <div class="flex items-center bg-gray-50 rounded-lg px-3 py-2">
+                                            <i class="fas fa-download text-green-600 mr-2"></i>
+                                            <span class="text-sm font-medium">Export</span>
+                                        </div>
+                                        <div class="flex items-center bg-gray-50 rounded-lg px-3 py-2">
+                                            <i class="fas fa-sliders-h text-purple-600 mr-2"></i>
+                                            <span class="text-sm font-medium">Tune</span>
+                                        </div>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                        <p class="text-sm text-gray-700">
+                                            <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                                            <span class="font-medium">Tip:</span> Experiment with different configurations to optimize for your specific use case.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -500,15 +595,48 @@
             </div>
         </div>
 
-        <!-- CTA Section -->
-        <section class="bg-gray-900 text-white py-16">
-            <div class="max-w-10xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <h2 class="text-3xl font-bold mb-4">Ready to Transform Your Knowledge Management?</h2>
-                <p class="text-xl mb-8 max-w-8xl mx-auto">
-                    Join organizations that have boosted productivity by 40% and accelerated decision-making with our AI-powered knowledge ingestion system.
-                </p>
+        <!-- Stats Section -->
+        <div class="bg-gradient-to-b from-gray-50 to-white py-16">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-gray-200">
+                        <div class="text-3xl font-bold text-gray-900 mb-2">40%</div>
+                        <div class="text-sm text-gray-600">Productivity Boost</div>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-gray-200">
+                        <div class="text-3xl font-bold text-gray-900 mb-2">85%</div>
+                        <div class="text-sm text-gray-600">Enterprise Adoption</div>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-gray-200">
+                        <div class="text-3xl font-bold text-gray-900 mb-2">0</div>
+                        <div class="text-sm text-gray-600">API Costs</div>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-gray-200">
+                        <div class="text-3xl font-bold text-gray-900 mb-2">100%</div>
+                        <div class="text-sm text-gray-600">On-Premise Security</div>
+                    </div>
+                </div>
             </div>
-        </section>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-gray-900 text-white py-12">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <div class="flex flex-col items-center mb-8">
+                    <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-brain text-gray-900 text-xl"></i>
+                    </div>
+                    <div class="text-2xl font-bold">AI Knowledge Platform</div>
+                    <div class="text-gray-400 mt-2">Enterprise RAG System</div>
+                </div>
+                <p class="text-gray-400 mb-8 max-w-2xl mx-auto">
+                    Transforming organizational knowledge management with AI-powered search and analytics.
+                </p>
+                <div class="text-gray-400 text-sm">
+                    © 2024 AI Universal Knowledge Ingestion System. All rights reserved.
+                </div>
+            </div>
+        </footer>
     </div>
 
     <!-- Main Application -->
@@ -516,66 +644,61 @@
         <!-- App Layout -->
         <div class="h-screen flex">
             <!-- Sidebar -->
-            <div class="w-64 bg-white shadow-lg flex flex-col border-r">
+            <div class="w-64 bg-white border-r border-gray-200 flex flex-col">
                 <!-- Logo -->
-                <div class="p-4 border-b">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-brain text-xl text-indigo-600 mr-2"></i>
-                            <div class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></div>
+                <div class="p-5 border-b border-gray-200">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-brain text-white"></i>
                         </div>
-                        <span class="text-lg font-bold">AI Knowledge Base</span>
+                        <div>
+                            <div class="font-bold text-gray-900">AI Knowledge</div>
+                            <div class="text-xs text-gray-500 -mt-1">Enterprise Platform</div>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-600 mt-1">Enterprise RAG Platform</p>
                 </div>
 
                 <!-- Navigation -->
                 <nav class="flex-1 p-4">
-                    <ul class="space-y-1">
+                    <ul class="space-y-2">
                         <li>
-                            <button onclick="showAppSection('chat')" class="app-nav-btn active w-full text-left flex items-center p-3 rounded-lg hover:bg-indigo-50 text-indigo-600 bg-indigo-50">
-                                <i class="fas fa-comments mr-3"></i>
+                            <button onclick="showAppSection('upload')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+                                <i class="fas fa-cloud-upload-alt mr-3 text-gray-500"></i>
+                                Upload
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="showAppSection('chat')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+                                <i class="fas fa-comments mr-3 text-gray-500"></i>
                                 Chat
                             </button>
                         </li>
                         <li>
-                            <button onclick="showAppSection('sessions')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
-                                <i class="fas fa-history mr-3"></i>
-                                Sessions
-                            </button>
-                        </li>
-                        <li>
                             <button onclick="showAppSection('analytics')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
-                                <i class="fas fa-chart-bar mr-3"></i>
-                                Analytics & Quality
-                            </button>
-                        </li>
-                        <li>
-                            <button onclick="showAppSection('classification-test')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
-                                <i class="fas fa-flask mr-3"></i>
-                                Classification Test
+                                <i class="fas fa-chart-bar mr-3 text-gray-500"></i>
+                                Analytics
                             </button>
                         </li>
                         <li>
                             <button onclick="showAppSection('configuration')" class="app-nav-btn w-full text-left flex items-center p-3 rounded-lg hover:bg-gray-100 text-gray-700">
-                                <i class="fas fa-cog mr-3"></i>
-                                Configuration
+                                <i class="fas fa-cog mr-3 text-gray-500"></i>
+                                Settings
                             </button>
                         </li>
                     </ul>
                 </nav>
 
                 <!-- System Status -->
-                <div class="p-4 border-t">
+                <div class="p-4 border-t border-gray-200">
                     <div class="text-sm">
-                        <div class="flex justify-between mb-1">
+                        <div class="flex justify-between items-center mb-2">
                             <span class="text-gray-600">System Status</span>
                             <span id="system-status" class="font-medium text-gray-500">Checking...</span>
                         </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div id="progress-bar" class="bg-gray-400 h-2 rounded-full progress-bar" style="width: 0%"></div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5 mb-1">
+                            <div id="progress-bar" class="bg-gray-400 h-1.5 rounded-full" style="width: 0%"></div>
                         </div>
-                        <div id="status-details" class="text-xs text-gray-500 mt-1">Connecting to backend...</div>
+                        <div id="status-details" class="text-xs text-gray-500">Initializing...</div>
                     </div>
                 </div>
             </div>
@@ -583,14 +706,15 @@
             <!-- Main Content -->
             <div class="flex-1 flex flex-col">
                 <!-- Header -->
-                <header class="bg-white shadow-sm border-b p-4">
+                <header class="bg-white border-b border-gray-200 p-4">
                     <div class="flex justify-between items-center">
-                        <h2 id="page-title" class="text-lg font-semibold">Document Upload & Setup</h2>
-                        <div class="flex space-x-4">
-                            <button onclick="backToHome()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-200">
-                                <i class="fas fa-home mr-2"></i>Back to Home
-                            </button>
+                        <div>
+                            <h2 id="page-title" class="text-lg font-semibold text-gray-900">Document Upload</h2>
+                            <p class="text-sm text-gray-600">Upload documents to build your knowledge base</p>
                         </div>
+                        <button onclick="backToHome()" class="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all">
+                            <i class="fas fa-home mr-2"></i>Home
+                        </button>
                     </div>
                 </header>
 
@@ -598,28 +722,33 @@
                 <main class="flex-1 p-6 overflow-auto bg-gray-50">
                     <!-- Upload Section -->
                     <div id="upload-section" class="mb-8">
-                        <div class="bg-white rounded-lg shadow p-6">
-                            <h3 class="text-lg font-semibold mb-4">Upload Documents</h3>
-                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-400 transition duration-200" 
-                                 id="drop-zone"
-                                 ondrop="handleDrop(event)"
-                                 ondragover="handleDragOver(event)">
-                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
-                                <p class="text-gray-600 mb-2">Drag & drop files here or click to browse</p>
-                                <p class="text-sm text-gray-500 mb-4">Supports PDF, DOCX, TXT, ZIP (Max 2GB)</p>
-                                <input type="file" id="file-input" multiple class="hidden" accept=".pdf,.docx,.txt,.zip,.doc">
-                                <button onclick="document.getElementById('file-input').click()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
-                                    Browse Files
-                                </button>
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="mb-6">
+                                <h3 class="text-lg font-semibold mb-2 text-gray-900">Upload Documents</h3>
+                                <p class="text-gray-600 text-sm">Upload your documents to build an intelligent knowledge base</p>
                             </div>
-                            <div id="file-list" class="mt-4 space-y-3 max-h-60 overflow-y-auto"></div>
+                            <div class="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-indigo-400 transition-all cursor-pointer bg-gray-50/50" 
+                                 id="drop-zone">
+                                <div class="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-cloud-upload-alt text-indigo-600 text-2xl"></i>
+                                </div>
+                                <p class="text-gray-700 font-medium mb-1">Drag & drop files here</p>
+                                <p class="text-gray-500 text-sm mb-6">or click to browse your computer</p>
+                                <div class="flex justify-center">
+                                    <button onclick="document.getElementById('file-input').click()" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium">
+                                        <i class="fas fa-folder-open mr-2"></i>Browse Files
+                                    </button>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-6">Supports PDF, DOCX, TXT, ZIP • Max 2GB per file</p>
+                                <input type="file" id="file-input" multiple class="hidden" accept=".pdf,.docx,.txt,.zip,.doc,.md,.csv">
+                            </div>
+                            <div id="file-list" class="mt-6 space-y-3 max-h-60 overflow-y-auto">
+                                <p class="text-center text-gray-500 py-4">No files uploaded yet</p>
+                            </div>
                             
                             <!-- Action Buttons -->
-                            <div class="mt-6 flex justify-end space-x-4">
-                                <button id="upload-btn" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition duration-200">
-                                    <i class="fas fa-upload mr-2"></i>Upload Files
-                                </button>
-                                <button id="process-btn" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-200 disabled:bg-gray-400" disabled>
+                            <div class="mt-8 flex justify-end space-x-4">
+                                <button id="process-btn" class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                                     <i class="fas fa-play mr-2"></i>Start Building
                                 </button>
                             </div>
@@ -628,26 +757,26 @@
 
                     <!-- Processing Status -->
                     <div id="processing-section" class="hidden mb-8">
-                        <div class="bg-white rounded-lg shadow p-6">
-                            <h3 class="text-lg font-semibold mb-4">Building Knowledge Base</h3>
-                            <div class="space-y-4">
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <h3 class="text-lg font-semibold mb-6 text-gray-900">Building Knowledge Base</h3>
+                            <div class="space-y-6">
                                 <div>
-                                    <div class="flex justify-between mb-2">
-                                        <span id="current-step" class="font-medium">Initializing processing pipeline...</span>
-                                        <span id="progress-text" class="text-gray-600">0%</span>
+                                    <div class="flex justify-between mb-3">
+                                        <span id="current-step" class="font-medium text-gray-900">Initializing pipeline...</span>
+                                        <span id="progress-text" class="font-medium text-indigo-600">0%</span>
                                     </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-3">
-                                        <div id="processing-progress" class="bg-green-600 h-3 rounded-full progress-bar" style="width: 0%"></div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div id="processing-progress" class="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
                                     </div>
                                 </div>
-                                <div id="processing-details" class="text-sm text-gray-600 space-y-2">
-                                    <div class="flex justify-between">
+                                <div id="processing-details" class="text-sm text-gray-600 space-y-3">
+                                    <div class="flex justify-between items-center">
                                         <span>Documents processed:</span>
-                                        <span id="processed-docs">0/0</span>
+                                        <span id="processed-docs" class="font-medium">0/0</span>
                                     </div>
-                                    <div class="flex justify-between">
+                                    <div class="flex justify-between items-center">
                                         <span>Current operation:</span>
-                                        <span id="current-operation">Waiting to start</span>
+                                        <span id="current-operation" class="font-medium text-gray-900">Waiting to start</span>
                                     </div>
                                 </div>
                             </div>
@@ -655,174 +784,80 @@
                     </div>
 
                     <!-- Chat Section -->
-                    <div id="chat-section" class="hidden h-full">
-                        <div class="bg-white rounded-lg shadow h-full flex flex-col">
+                    <div id="chat-section" class="hidden h-full flex flex-col">
+                        <div class="bg-white rounded-xl shadow-sm h-full flex flex-col border border-gray-200">
                             <!-- Chat Header -->
-                            <div class="border-b p-4 bg-gray-50 rounded-t-lg">
+                            <div class="border-b border-gray-200 p-4 bg-gray-50 rounded-t-xl">
                                 <div class="flex justify-between items-center">
                                     <div>
-                                        <h3 class="text-lg font-semibold">Chat with Your Documents</h3>
-                                        <p class="text-sm text-gray-600">Ask questions about your uploaded content</p>
+                                        <h3 class="text-lg font-semibold text-gray-900">Chat with Documents</h3>
+                                        <p class="text-sm text-gray-600">Ask questions about your knowledge base</p>
                                     </div>
                                     <div class="flex space-x-2">
-                                        <button onclick="loadConversationHistory()" class="text-sm bg-blue-200 text-blue-700 px-3 py-1 rounded hover:bg-blue-300 transition duration-200">
-                                            <i class="fas fa-history mr-1"></i>Load History
+                                        <button onclick="exportChat('json')" class="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-all">
+                                            <i class="fas fa-download mr-1"></i>Export
                                         </button>
-                                        <button onclick="exportChat('json')" class="text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 transition duration-200">
-                                            <i class="fas fa-download mr-1"></i>Export JSON
-                                        </button>
-                                        <button onclick="exportChat('csv')" class="text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 transition duration-200">
-                                            <i class="fas fa-file-csv mr-1"></i>Export CSV
-                                        </button>
-                                        <button onclick="clearCurrentSession()" class="text-sm bg-red-200 text-red-700 px-3 py-1 rounded hover:bg-red-300 transition duration-200">
-                                            <i class="fas fa-trash mr-1"></i>Clear Session
+                                        <button onclick="clearChat()" class="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-all">
+                                            <i class="fas fa-trash mr-1"></i>Clear
                                         </button>
                                     </div>
-                                </div>
-                                <div id="session-info" class="text-xs text-gray-500 mt-2">
-                                    <i class="fas fa-id-card mr-1"></i>
-                                    Session ID: <span id="current-session-id" class="font-mono">Not started</span>
                                 </div>
                             </div>
 
                             <!-- Chat Messages -->
-                            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4">
-                                <!-- Messages will appear here -->
+                            <div id="chat-messages" class="flex-1 p-6 overflow-y-auto custom-scrollbar space-y-4">
+                                <!-- Welcome message will be added here -->
                             </div>
 
                             <!-- Chat Input -->
-                            <div class="border-t p-4 bg-gray-50 rounded-b-lg">
-                                <div class="flex space-x-4">
-                                    <input type="text" id="chat-input" placeholder="Ask a question about your documents..." 
-                                           class="flex-1 border rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200"
-                                           onkeypress="handleChatInputKeypress(event)">
-                                    <button id="send-btn" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition duration-200 disabled:bg-gray-400" disabled>
+                            <div class="border-t border-gray-200 p-4 bg-gray-50 rounded-b-xl">
+                                <div class="flex space-x-3">
+                                    <div class="flex-1 relative">
+                                        <input type="text" id="chat-input" placeholder="Ask a question about your documents..." 
+                                               class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all pr-12"
+                                               onkeypress="handleChatInputKeypress(event)">
+                                        <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                            <span id="token-count" class="text-xs text-gray-500">0</span>
+                                        </div>
+                                    </div>
+                                    <button id="send-btn" onclick="sendMessage()" class="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium" disabled>
                                         <i class="fas fa-paper-plane"></i>
                                     </button>
                                 </div>
-                                <div class="flex justify-between items-center mt-2">
+                                <div class="flex justify-between items-center mt-3">
                                     <p class="text-xs text-gray-500">
                                         <i class="fas fa-lightbulb mr-1"></i>
-                                        Ask questions, request summaries, or compare information across documents
+                                        Press Enter to send • Shift+Enter for new line
                                     </p>
-                                    <span id="token-count" class="text-xs text-gray-500">0 tokens</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Sessions Management Section -->
-                    <div id="sessions-section" class="hidden">
-                        <div class="bg-white rounded-lg shadow p-6">
-                            <div class="flex justify-between items-center mb-6">
-                                <h3 class="text-lg font-semibold">Session Management</h3>
-                                <div class="flex space-x-2">
-                                    <button onclick="refreshSessions()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
-                                        <i class="fas fa-sync-alt mr-2"></i>Refresh
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <!-- Session List -->
-                                <div class="lg:col-span-2">
-                                    <h4 class="font-semibold mb-4 text-gray-700">Active Sessions</h4>
-                                    <div id="sessions-list" class="space-y-3 max-h-96 overflow-y-auto">
-                                        <!-- Sessions will be loaded here -->
-                                    </div>
-                                </div>
-                                
-                                <!-- Session Details -->
-                                <div class="lg:col-span-1">
-                                    <h4 class="font-semibold mb-4 text-gray-700">Session Details</h4>
-                                    <div id="session-details" class="bg-gray-50 p-4 rounded-lg border border-gray-200 min-h-96">
-                                        <p class="text-gray-500 text-center py-8">Select a session to view details</p>
+                                    <div class="flex space-x-3">
+                                        <button onclick="insertExample('summary')" class="text-xs text-indigo-600 hover:text-indigo-700">
+                                            Get Summary
+                                        </button>
+                                        <button onclick="insertExample('compare')" class="text-xs text-indigo-600 hover:text-indigo-700">
+                                            Compare
+                                        </button>
+                                        <button onclick="insertExample('find')" class="text-xs text-indigo-600 hover:text-indigo-700">
+                                            Find Details
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Classification Test Section -->
-                    <div id="classification-test-section" class="hidden">
-                        <div class="bg-white rounded-lg shadow p-6">
-                            <div class="flex justify-between items-center mb-6">
-                                <h3 class="text-lg font-semibold">Query Classification Test</h3>
-                                <div class="text-sm text-gray-600">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    Test how queries are classified before sending
-                                </div>
-                            </div>
-                            
-                            <div class="mb-6">
-                                <label class="block text-sm font-medium mb-2 text-gray-700">Test Query</label>
-                                <div class="flex space-x-4">
-                                    <input type="text" id="test-query-input" placeholder="Enter a query to test classification..." 
-                                           class="flex-1 border rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition duration-200"
-                                           onkeypress="handleTestQueryKeypress(event)">
-                                    <button onclick="testClassification()" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition duration-200">
-                                        <i class="fas fa-flask mr-2"></i>Test
-                                    </button>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-2">
-                                    Enter a query to see how it would be classified (RAG vs General conversation)
-                                </p>
-                            </div>
-                            
-                            <div id="classification-results" class="space-y-4">
-                                <!-- Results will appear here -->
-                            </div>
-                            
-                            <!-- Sample Queries -->
-                            <div class="mt-8 pt-6 border-t">
-                                <h4 class="font-semibold mb-4 text-gray-700">Sample Queries for Testing</h4>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <h5 class="font-medium mb-2 text-gray-700">RAG Queries (Document-based)</h5>
-                                        <ul class="space-y-2 text-sm">
-                                            <li class="cursor-pointer hover:text-indigo-600" onclick="setTestQuery(this.textContent)">
-                                                What are the main findings in the uploaded documents?
-                                            </li>
-                                            <li class="cursor-pointer hover:text-indigo-600" onclick="setTestQuery(this.textContent)">
-                                                Can you summarize the key points from the report?
-                                            </li>
-                                            <li class="cursor-pointer hover:text-indigo-600" onclick="setTestQuery(this.textContent)">
-                                                Compare the approaches mentioned in document A and B
-                                            </li>
-                                        </ul>
-                                    </div>
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <h5 class="font-medium mb-2 text-gray-700">General Queries</h5>
-                                        <ul class="space-y-2 text-sm">
-                                            <li class="cursor-pointer hover:text-green-600" onclick="setTestQuery(this.textContent)">
-                                                Hello, how are you today?
-                                            </li>
-                                            <li class="cursor-pointer hover:text-green-600" onclick="setTestQuery(this.textContent)">
-                                                What is machine learning?
-                                            </li>
-                                            <li class="cursor-pointer hover:text-green-600" onclick="setTestQuery(this.textContent)">
-                                                Tell me a joke
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Analytics Section with RAGAS Table -->
+                    <!-- Analytics Section -->
                     <div id="analytics-section" class="hidden">
-                        <div class="bg-white rounded-lg shadow p-6">
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
                             <div class="flex justify-between items-center mb-6">
-                                <h3 class="text-lg font-semibold">Analytics & Quality Metrics</h3>
+                                <h3 class="text-lg font-semibold text-gray-900">Analytics & Quality Metrics</h3>
                                 <div class="flex space-x-2">
-                                    <button onclick="refreshRagasTable()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
+                                    <button onclick="refreshRagasTable()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-all font-medium">
                                         <i class="fas fa-sync-alt mr-2"></i>Refresh
                                     </button>
-                                    <button onclick="clearRagasHistory()" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition duration-200">
+                                    <button onclick="clearRagasHistory()" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-all font-medium">
                                         <i class="fas fa-trash mr-2"></i>Clear Session
                                     </button>
-                                    <button onclick="exportRagasData()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-200">
+                                    <button onclick="exportRagasData()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all font-medium">
                                         <i class="fas fa-download mr-2"></i>Export Data
                                     </button>
                                 </div>
@@ -860,7 +895,6 @@
                                 </h4>
                                 
                                 <div class="border rounded-lg overflow-hidden">
-                                    <!-- Table Container with horizontal and vertical scroll -->
                                     <div class="overflow-x-auto overflow-y-auto" style="max-height: 600px;">
                                         <table class="min-w-full divide-y divide-gray-200" id="ragas-table">
                                             <thead class="bg-gray-50 sticky top-0">
@@ -869,6 +903,9 @@
                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="min-width: 250px;">Query</th>
                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="min-width: 250px;">Answer</th>
+                                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Query Type
+                                                    </th>
                                                     <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                         <div class="flex flex-col items-center">
                                                             <span>Answer</span>
@@ -920,8 +957,8 @@
                                             </thead>
                                             <tbody class="bg-white divide-y divide-gray-200" id="ragas-table-body">
                                                 <tr>
-                                                    <td colspan="12" class="px-4 py-8 text-center text-gray-500">
-                                                        <i class="fas fa-info-circle text-3xl mb-2"></i>
+                                                    <td colspan="13" class="px-4 py-8 text-center text-gray-500">
+                                                        <i class="fas fa-info-circle text-3xl mb-2 text-gray-400"></i>
                                                         <p>No RAGAS evaluations yet. Start chatting to see quality metrics.</p>
                                                     </td>
                                                 </tr>
@@ -934,7 +971,10 @@
                                 <div class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                                     <div class="text-sm text-gray-800">
                                         <p class="font-semibold mb-2">Metric Descriptions:</p>
-                                        <div class="grid grid-cols-1 md:grid-cols-1 gap-2">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            <div>
+                                                <span class="font-medium">Query Type:</span> RAG (uses documents) vs Non-RAG (general knowledge)
+                                            </div>
                                             <div>
                                                 <span class="font-medium">Answer Relevancy:</span> How well the answer addresses the question (0-1)
                                             </div>
@@ -950,7 +990,8 @@
                                             Color coding: 
                                             <span class="text-green-600 font-medium">≥0.7 (Good)</span>, 
                                             <span class="text-yellow-600 font-medium">0.4-0.7 (Fair)</span>, 
-                                            <span class="text-red-600 font-medium">&lt;0.4 (Poor)</span>
+                                            <span class="text-red-600 font-medium">&lt;0.4 (Poor)</span>,
+                                            <span class="text-gray-600 font-medium">N/A (Not Applicable)</span>
                                         </p>
                                     </div>
                                 </div>
@@ -971,8 +1012,8 @@
 
                     <!-- Configuration Section -->
                     <div id="configuration-section" class="hidden">
-                        <div class="bg-white rounded-lg shadow p-6">
-                            <h3 class="text-lg font-semibold mb-6">System Configuration</h3>
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <h3 class="text-lg font-semibold mb-6 text-gray-900">System Configuration</h3>
                             <form id="config-form" class="space-y-8">
                                 <!-- Inference Model -->
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1117,7 +1158,7 @@
         // API Service for backend communication
         class APIService {
             constructor() {
-                this.baseURL = window.location.origin;
+                this.baseURL = 'http://localhost:8000'; // Backend server URL
             }
 
             async uploadFiles(files) {
@@ -1133,7 +1174,7 @@
                 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.error || `Upload failed: ${response.statusText}`);
+                    throw new Error(errorData.detail || `Upload failed: ${response.statusText}`);
                 }
                 
                 return await response.json();
@@ -1146,7 +1187,7 @@
                 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.error || `Processing start failed: ${response.statusText}`);
+                    throw new Error(errorData.detail || `Processing start failed: ${response.statusText}`);
                 }
                 
                 return await response.json();
@@ -1185,11 +1226,6 @@
                     const result = await response.json();
                     console.log('Chat API response received:', result);
                     
-                    // Handle both response formats for compatibility
-                    if (result.success === false) {
-                        throw new Error(result.error || 'Chat failed');
-                    }
-                    
                     return result;
                     
                 } catch (error) {
@@ -1209,7 +1245,7 @@
                 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.error || `Configuration update failed: ${response.statusText}`);
+                    throw new Error(errorData.detail || `Configuration update failed: ${response.statusText}`);
                 }
                 
                 return await response.json();
@@ -1312,76 +1348,22 @@
                 const blob = await response.blob();
                 return blob;
             }
-
-            async getRagasConfig() {
-                const response = await fetch(`${this.baseURL}/api/ragas/config`);
-                
-                if (!response.ok) {
-                    throw new Error(`RAGAS config fetch failed: ${response.statusText}`);
-                }
-                
-                return await response.json();
-            }
-
-            // New endpoints for session management
-            async getConversationHistory(sessionId, limit = 20) {
-                const response = await fetch(`${this.baseURL}/api/conversation/${sessionId}?limit=${limit}`);
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || `Conversation history fetch failed: ${response.statusText}`);
-                }
-                
-                return await response.json();
-            }
-
-            async clearConversationHistory(sessionId) {
-                const response = await fetch(`${this.baseURL}/api/conversation/${sessionId}`, {
-                    method: 'DELETE'
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || `Clear conversation failed: ${response.statusText}`);
-                }
-                
-                return await response.json();
-            }
-
-            async testQueryClassification(query) {
-                const formData = new FormData();
-                formData.append('query', query);
-                
-                const response = await fetch(`${this.baseURL}/api/test-classification`, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || `Classification test failed: ${response.statusText}`);
-                }
-                
-                return await response.json();
-            }
         }
 
         // Global state
         const apiService = new APIService();
         let uploadedFiles = [];
         let currentSessionId = null;
-        let chatMessages = [];
         let systemReady = false;
         let processingInterval = null;
-        let ragasTableAutoRefresh = true;
 
         // Landing page functions
         function showTab(tabName) {
             // Update tab buttons
             document.querySelectorAll('.nav-tab').forEach(tab => {
-                tab.classList.remove('active');
+                tab.classList.remove('bg-white', 'text-indigo-700', 'shadow-sm');
             });
-            document.getElementById(`tab-${tabName}`).classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('bg-white', 'text-indigo-700', 'shadow-sm');
 
             // Update tab content
             document.querySelectorAll('.tab-panel').forEach(panel => {
@@ -1392,10 +1374,13 @@
             document.getElementById(`${tabName}-content`).classList.add('active');
         }
 
-        async function startApp() {
+        function startApp() {
             document.getElementById('landing-page').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
-            await initializeApp();
+            initializeApp();
+            
+            // Start at Upload section
+            showAppSection('upload');
         }
 
         function backToHome() {
@@ -1405,52 +1390,29 @@
             // Reset app state if needed
             uploadedFiles = [];
             currentSessionId = null;
-            chatMessages = [];
             systemReady = false;
             
             // Clear file list
             document.getElementById('file-list').innerHTML = '<p class="text-center text-gray-500 py-4">No files uploaded yet</p>';
             updateProcessButton();
-            
-            // Show upload section
-            document.getElementById('upload-section').classList.remove('hidden');
-            document.getElementById('processing-section').classList.add('hidden');
-            document.getElementById('chat-section').classList.add('hidden');
-            document.getElementById('sessions-section').classList.add('hidden');
-            document.getElementById('classification-test-section').classList.add('hidden');
-            document.getElementById('analytics-section').classList.add('hidden');
-            document.getElementById('configuration-section').classList.add('hidden');
-            
-            // Reset navigation
-            document.querySelectorAll('.app-nav-btn').forEach(btn => {
-                btn.classList.remove('active', 'bg-indigo-50', 'text-indigo-600');
-                btn.classList.add('text-gray-700', 'hover:bg-gray-100');
-            });
-            document.querySelector('[onclick="showAppSection(\'chat\')"]').classList.add('active', 'bg-indigo-50', 'text-indigo-600');
         }
 
         // Main app functions
         async function initializeApp() {
             setupEventListeners();
-            await loadConfiguration();
             await checkSystemStatus();
             startStatusPolling();
         }
 
         function setupEventListeners() {
             // File input
-            document.getElementById('file-input').addEventListener('change', handleFileSelect);
-            
-            // Upload button
-            document.getElementById('upload-btn').addEventListener('click', function() {
-                document.getElementById('file-input').click();
-            });
+            const fileInput = document.getElementById('file-input');
+            fileInput.addEventListener('change', handleFileSelect);
             
             // Process button
             document.getElementById('process-btn').addEventListener('click', startProcessing);
             
             // Chat input
-            document.getElementById('send-btn').addEventListener('click', sendMessage);
             document.getElementById('chat-input').addEventListener('input', updateTokenCount);
             
             // Configuration form
@@ -1459,24 +1421,50 @@
             // Drag and drop
             const dropZone = document.getElementById('drop-zone');
             dropZone.addEventListener('dragover', handleDragOver);
+            dropZone.addEventListener('dragleave', handleDragLeave);
             dropZone.addEventListener('drop', handleDrop);
+            
+            // Browse button click
+            dropZone.querySelector('button').addEventListener('click', () => {
+                fileInput.click();
+            });
         }
 
         function handleDragOver(e) {
             e.preventDefault();
-            e.currentTarget.classList.add('border-indigo-400', 'bg-indigo-50');
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+            const dropZone = e.currentTarget;
+            dropZone.classList.add('upload-zone-active');
         }
 
-        function handleDrop(e) {
+        function handleDragLeave(e) {
             e.preventDefault();
-            e.currentTarget.classList.remove('border-indigo-400', 'bg-indigo-50');
+            e.stopPropagation();
+            const dropZone = e.currentTarget;
+            dropZone.classList.remove('upload-zone-active');
+        }
+
+        async function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const dropZone = e.currentTarget;
+            dropZone.classList.remove('upload-zone-active');
+            
             const files = e.dataTransfer.files;
-            handleFiles(files);
+            if (files.length > 0) {
+                await handleFiles(files);
+            }
         }
 
         function handleFileSelect(e) {
             const files = e.target.files;
-            handleFiles(files);
+            if (files.length > 0) {
+                handleFiles(files);
+                // Reset input so same file can be selected again
+                e.target.value = '';
+            }
         }
 
         async function handleFiles(files) {
@@ -1496,24 +1484,38 @@
         }
 
         function isValidFileType(file) {
-            const validTypes = [
+            const validExtensions = ['.pdf', '.docx', '.txt', '.zip', '.doc', '.md', '.csv'];
+            const fileName = file.name.toLowerCase();
+            
+            // Check extension
+            const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+            
+            // Check MIME type
+            const validMimeTypes = [
                 'application/pdf',
                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                 'text/plain',
                 'application/zip',
-                'application/x-zip-compressed'
+                'application/x-zip-compressed',
+                'application/msword',
+                'text/markdown',
+                'text/csv'
             ];
-            return validTypes.includes(file.type) || 
-                   file.name.endsWith('.txt') || 
-                   file.name.endsWith('.md') ||
-                   file.name.endsWith('.docx') ||
-                   file.name.endsWith('.pdf') ||
-                   file.name.endsWith('.zip');
+            
+            const hasValidMimeType = validMimeTypes.includes(file.type) || file.type === '';
+            
+            return hasValidExtension || hasValidMimeType;
         }
 
         async function uploadFilesToBackend(files) {
             try {
                 showNotification('Uploading files...', 'info');
+                
+                // Update UI immediately
+                for (let file of files) {
+                    addFileToList(file, 'uploading');
+                }
+                
                 const result = await apiService.uploadFiles(files);
                 
                 // Update local state with uploaded files
@@ -1526,22 +1528,57 @@
             } catch (error) {
                 console.error('Upload error:', error);
                 showNotification(`Upload failed: ${error.message}`, 'error');
+                
+                // Remove failed files from list
+                updateFileList();
             }
+        }
+
+        function addFileToList(file, status = 'uploaded') {
+            const fileList = document.getElementById('file-list');
+            
+            // Remove the "no files" message if it exists
+            const noFilesMessage = fileList.querySelector('p.text-center');
+            if (noFilesMessage) {
+                noFilesMessage.remove();
+            }
+            
+            const fileElement = document.createElement('div');
+            fileElement.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
+            fileElement.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-file text-gray-400 mr-3"></i>
+                    <div>
+                        <div class="font-medium text-sm">${file.name}</div>
+                        <div class="text-xs text-gray-500">${formatFileSize(file.size)} • ${status === 'uploading' ? 'Uploading...' : 'Ready'}</div>
+                    </div>
+                </div>
+                ${status === 'uploading' ? 
+                    '<div class="text-blue-500"><i class="fas fa-spinner fa-spin"></i></div>' : 
+                    '<button class="text-red-500 hover:text-red-700"><i class="fas fa-times"></i></button>'
+                }
+            `;
+            fileList.appendChild(fileElement);
         }
 
         function updateFileList() {
             const fileList = document.getElementById('file-list');
             fileList.innerHTML = '';
 
+            if (uploadedFiles.length === 0) {
+                fileList.innerHTML = '<p class="text-center text-gray-500 py-4">No files uploaded yet</p>';
+                return;
+            }
+
             uploadedFiles.forEach((file, index) => {
                 const fileElement = document.createElement('div');
-                fileElement.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
+                fileElement.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
                 fileElement.innerHTML = `
                     <div class="flex items-center">
                         <i class="fas fa-file text-gray-400 mr-3"></i>
                         <div>
                             <div class="font-medium text-sm">${file.original_name || file.filename}</div>
-                            <div class="text-xs text-gray-500">${formatFileSize(file.size)} • ${new Date(file.upload_time).toLocaleString()}</div>
+                            <div class="text-xs text-gray-500">${formatFileSize(file.size)} • ${new Date(file.upload_time).toLocaleTimeString()}</div>
                         </div>
                     </div>
                     <button onclick="removeFile(${index})" class="text-red-500 hover:text-red-700">
@@ -1550,10 +1587,6 @@
                 `;
                 fileList.appendChild(fileElement);
             });
-
-            if (uploadedFiles.length === 0) {
-                fileList.innerHTML = '<p class="text-center text-gray-500 py-4">No files uploaded yet</p>';
-            }
         }
 
         function removeFile(index) {
@@ -1625,14 +1658,20 @@
             document.getElementById('processing-progress').style.width = `${status.progress}%`;
             document.getElementById('progress-text').textContent = `${status.progress}%`;
             document.getElementById('current-step').textContent = status.current_step || 'Processing...';
-            document.getElementById('processed-docs').textContent = `${status.processed_documents}/${status.total_documents}`;
+            document.getElementById('processed-docs').textContent = `${status.processed_documents || 0}/${status.total_documents || 0}`;
             
             // Update system status
-            document.getElementById('system-status').textContent = status.status === 'processing' ? 'Processing' : 
-                                                                  status.status === 'ready' ? 'Ready' : 'Error';
-            document.getElementById('system-status').className = status.status === 'processing' ? 
-                'font-medium text-yellow-600' : 
-                status.status === 'ready' ? 'font-medium text-green-600' : 'font-medium text-red-600';
+            const systemStatus = document.getElementById('system-status');
+            if (status.status === 'processing') {
+                systemStatus.textContent = 'Processing';
+                systemStatus.className = 'font-medium text-yellow-600';
+            } else if (status.status === 'ready') {
+                systemStatus.textContent = 'Ready';
+                systemStatus.className = 'font-medium text-green-600';
+            } else if (status.status === 'error') {
+                systemStatus.textContent = 'Error';
+                systemStatus.className = 'font-medium text-red-600';
+            }
         }
 
         function processingComplete() {
@@ -1644,49 +1683,35 @@
             document.getElementById('system-status').textContent = 'Ready';
             document.getElementById('system-status').className = 'font-medium text-green-600';
             document.getElementById('progress-bar').style.width = '100%';
-            document.getElementById('progress-bar').className = 'bg-green-600 h-2 rounded-full progress-bar';
+            document.getElementById('progress-bar').className = 'bg-green-600 h-1.5 rounded-full';
             document.getElementById('status-details').textContent = 'System ready for queries';
             
-            // Show chat section automatically
-            setTimeout(() => {
-                showAppSection('chat');
-                addWelcomeMessage();
-            }, 1000);
+            // Show chat section automatically after processing
+            showAppSection('chat');
+            addWelcomeMessage();
             
             showNotification('Knowledge base setup complete! You can now chat with your documents.', 'success');
         }
 
-        async function updateSystemStatus() {
+        async function checkSystemStatus() {
             try {
-                const systemInfo = await apiService.getSystemInfo();
                 const health = await apiService.getHealth();
                 
                 // Update system status
                 const systemStatus = document.getElementById('system-status');
-                if (systemInfo.system_state && systemInfo.system_state.is_ready) {
+                if (health.status === 'healthy') {
                     systemStatus.textContent = 'Ready';
                     systemStatus.className = 'font-medium text-green-600';
-                    
-                    // Update progress bar
-                    document.getElementById('progress-bar').style.width = '100%';
-                    document.getElementById('progress-bar').className = 'bg-green-600 h-2 rounded-full progress-bar';
                     systemReady = true;
                 } else {
                     systemStatus.textContent = 'Not Ready';
                     systemStatus.className = 'font-medium text-red-600';
-                    document.getElementById('progress-bar').style.width = '0%';
                     systemReady = false;
                 }
                 
                 // Update status details
                 const statusDetails = document.getElementById('status-details');
-                if (health.components && health.components.llm === false) {
-                    statusDetails.textContent = 'LLM service unavailable';
-                } else if (systemInfo.system_state && !systemInfo.system_state.is_ready) {
-                    statusDetails.textContent = 'Please upload and process documents';
-                } else {
-                    statusDetails.textContent = 'All systems operational';
-                }
+                statusDetails.textContent = health.components ? 'All systems operational' : 'Checking components...';
                 
             } catch (error) {
                 console.error('System status check error:', error);
@@ -1701,11 +1726,11 @@
         function startStatusPolling() {
             setInterval(async () => {
                 try {
-                    await updateSystemStatus();
+                    await checkSystemStatus();
                 } catch (error) {
                     console.error('Status polling error:', error);
                 }
-            }, 10000); // Check every 10 seconds
+            }, 30000); // Check every 30 seconds
         }
 
         function showAppSection(section) {
@@ -1719,88 +1744,91 @@
             
             // Update navigation
             document.querySelectorAll('.app-nav-btn').forEach(btn => {
-                btn.classList.remove('active', 'bg-indigo-50', 'text-indigo-600');
+                btn.classList.remove('active', 'bg-indigo-50', 'text-indigo-700');
                 btn.classList.add('text-gray-700', 'hover:bg-gray-100');
             });
             
             const activeBtn = document.querySelector(`[onclick="showAppSection('${section}')"]`);
-            activeBtn.classList.add('active', 'bg-indigo-50', 'text-indigo-600');
+            activeBtn.classList.add('active', 'bg-indigo-50', 'text-indigo-700');
             activeBtn.classList.remove('text-gray-700', 'hover:bg-gray-100');
             
             // Update page title
             const titles = {
+                'upload': 'Document Upload',
                 'chat': 'Chat with Documents',
-                'sessions': 'Session Management',
-                'classification-test': 'Query Classification Test',
                 'analytics': 'Analytics & Quality',
                 'configuration': 'System Configuration'
             };
-            document.getElementById('page-title').textContent = titles[section];
+            document.getElementById('page-title').textContent = titles[section] || section;
             
             // Load section-specific data
             if (section === 'analytics') {
                 refreshRagasTable();
             } else if (section === 'configuration') {
                 loadConfigurationUI();
-            } else if (section === 'sessions') {
-                refreshSessions();
             } else if (section === 'chat') {
-                // Clear any duplicate messages and ensure welcome message exists
+                // Only add welcome message if chat is empty
                 const chatMessages = document.getElementById('chat-messages');
-                const existingWelcome = chatMessages.querySelector('.welcome-message');
-                if (!existingWelcome && systemReady) {
+                if (chatMessages.children.length === 0) {
                     addWelcomeMessage();
                 }
-                
-                // Update session ID display
-                if (currentSessionId) {
-                    document.getElementById('current-session-id').textContent = currentSessionId;
-                }
-            } else if (section === 'classification-test') {
-                // Clear previous test results
-                document.getElementById('classification-results').innerHTML = '';
             }
         }
 
         function addWelcomeMessage() {
             const chatMessages = document.getElementById('chat-messages');
             
-            // Check if welcome message already exists
-            const existingWelcome = chatMessages.querySelector('.welcome-message');
-            if (existingWelcome) {
-                return; // Welcome message already exists
-            }
+            // Clear existing messages
+            chatMessages.innerHTML = '';
             
             const welcomeMsg = document.createElement('div');
-            welcomeMsg.className = 'chat-message assistant';
+            welcomeMsg.className = 'message-enter';
             welcomeMsg.innerHTML = `
-                <div class="chat-bubble-assistant">
-                    <div class="chat-bubble-content">
-                        <div class="text-gray-800">
-                            <div class="font-medium text-gray-900 mb-2">AI Assistant</div>
-                            <div class="text-gray-700">
-                                <p>Hello! I'm ready to help you explore your documents. You can ask me questions like:</p>
-                                <ul class="list-disc list-inside mt-2 space-y-1 text-sm text-gray-600">
-                                    <li>What are the main points in the uploaded documents?</li>
-                                    <li>Can you summarize the key findings?</li>
-                                    <li>Compare information across different documents</li>
-                                    <li>Find specific details or statistics</li>
-                                </ul>
-                                <p class="mt-2 text-gray-700">What would you like to know?</p>
+                <div class="ai-message p-4">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-8 h-8 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-robot text-indigo-600"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2">
+                                <span class="font-medium text-indigo-700">AI Assistant</span>
+                                <span class="ml-2 text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Online</span>
                             </div>
-                            <div class="chat-bubble-timestamp text-gray-500 mt-3">
-                                <i class="far fa-clock mr-1"></i>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            <div class="text-gray-700 mb-3">
+                                <p class="mb-3">Hello! I'm ready to help you explore your documents. You can ask me questions like:</p>
+                                <ul class="space-y-2 text-sm">
+                                    <li class="flex items-start">
+                                        <i class="fas fa-chevron-right text-indigo-500 text-xs mt-1 mr-2"></i>
+                                        <span>What are the main points in the uploaded documents?</span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-chevron-right text-indigo-500 text-xs mt-1 mr-2"></i>
+                                        <span>Can you summarize the key findings?</span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-chevron-right text-indigo-500 text-xs mt-1 mr-2"></i>
+                                        <span>Compare information across different documents</span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-chevron-right text-indigo-500 text-xs mt-1 mr-2"></i>
+                                        <span>Find specific details or statistics</span>
+                                    </li>
+                                </ul>
+                                <p class="mt-4 font-medium">What would you like to know?</p>
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                <i class="far fa-clock mr-1"></i>System ready • ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                             </div>
                         </div>
                     </div>
                 </div>
             `;
             chatMessages.appendChild(welcomeMsg);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
         function handleChatInputKeypress(e) {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 sendMessage();
             }
         }
@@ -1809,7 +1837,7 @@
             const input = document.getElementById('chat-input');
             const message = input.value.trim();
             
-            if (!message || !systemReady) return;
+            if (!message) return;
 
             // Add user message
             addChatMessage('user', message);
@@ -1832,12 +1860,11 @@
                 // Update session ID if this is the first message
                 if (!currentSessionId) {
                     currentSessionId = response.session_id;
-                    document.getElementById('current-session-id').textContent = currentSessionId;
                     console.log('New session ID:', currentSessionId);
                 }
                 
-                // Add AI response with query type indicator
-                addChatMessage('assistant', response.response, response.sources, response.metrics, response.ragas_metrics, response.query_type, response.used_rag);
+                // Add AI response
+                addChatMessage('assistant', response.response, response.sources, response.metrics, response.ragas_metrics, response.query_type);
                 
                 // Refresh RAGAS table if analytics section is active
                 if (document.getElementById('analytics-section') && !document.getElementById('analytics-section').classList.contains('hidden')) {
@@ -1864,12 +1891,20 @@
         function addLoadingMessage() {
             const chatMessages = document.getElementById('chat-messages');
             const loadingMsg = document.createElement('div');
-            loadingMsg.className = 'chat-message assistant';
+            loadingMsg.className = 'message-enter ai-message p-4';
             loadingMsg.innerHTML = `
-                <div class="chat-bubble-assistant">
-                    <div class="chat-bubble-content">
-                        <div class="flex items-center text-gray-700">
-                            <div class="loading-spinner mr-2"></div>
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-indigo-600"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-medium text-indigo-700 mb-2">AI Assistant</div>
+                        <div class="text-gray-700 flex items-center">
+                            <div class="typing-dots mr-2">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
                             Thinking...
                         </div>
                     </div>
@@ -1880,192 +1915,98 @@
             return loadingMsg;
         }
 
-        function addChatMessage(role, content, sources = [], metrics = {}, ragasMetrics = {}, queryType = 'rag_document', usedRag = true) {
+        function addChatMessage(role, content, sources = [], metrics = {}, ragasMetrics = {}, queryType = 'rag') {
             const chatMessages = document.getElementById('chat-messages');
             const messageDiv = document.createElement('div');
-            messageDiv.className = `chat-message ${role}`;
+            messageDiv.className = `message-enter ${role === 'user' ? 'user-message' : 'ai-message'} p-4 mb-4`;
             
-            // Create query type badge for user messages
-            let queryTypeBadge = '';
             if (role === 'user') {
-                const badgeClass = getQueryTypeBadgeClass(queryType);
-                queryTypeBadge = `
-                    <div class="flex items-center mt-3">
-                        <span class="query-type-badge ${badgeClass} text-xs">
-                            ${getQueryTypeLabel(queryType)} (RAG: ${usedRag ? 'Yes' : 'No'})
-                        </span>
-                    </div>
-                `;
-            }
-            
-            // Create collapsible sources section for assistant messages
-            let sourcesHTML = '';
-            if (role === 'assistant' && sources && sources.length > 0) {
-                const sourcesId = `sources-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                
-                sourcesHTML = `
-                    <div class="mt-4 pt-4 border-t border-gray-200 border-opacity-50">
-                        <div class="collapsible-header flex items-center justify-between cursor-pointer" onclick="toggleSources('${sourcesId}')">
-                            <div class="flex items-center">
-                                <i class="fas fa-file-alt text-gray-500 mr-2"></i>
-                                <span class="text-sm font-medium text-gray-700">Sources (${sources.length})</span>
-                            </div>
-                            <i class="fas fa-chevron-down text-gray-400 chevron" id="chevron-${sourcesId}"></i>
-                        </div>
-                        <div class="collapsible-content mt-3" id="${sourcesId}">
-                            <div class="space-y-3">
-                                ${sources.map((source, index) => {
-                                    const textPreview = source.text_preview || source.text || 'Source content';
-                                    const score = source.score !== undefined ? source.score : 0;
-                                    const documentId = source.document_id || 'Unknown';
-                                    const scoreColor = score > 0.7 ? 'bg-green-100 text-green-800' : 
-                                                    score > 0.4 ? 'bg-yellow-100 text-yellow-800' : 
-                                                    'bg-blue-100 text-blue-800';
-                                    
-                                    // Clean the text preview to remove HTML tags and truncate
-                                    const cleanTextPreview = escapeHtml(textPreview).substring(0, 300) + (textPreview.length > 300 ? '...' : '');
-                                    
-                                    return `
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 source-card">
-                                            <div class="flex justify-between items-start mb-2">
-                                                <div class="flex items-center">
-                                                    <span class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-1 rounded mr-2">[${index + 1}]</span>
-                                                    <span class="text-xs font-medium text-gray-600">${documentId.substring(0, 20)}${documentId.length > 20 ? '...' : ''}</span>
-                                                </div>
-                                                <span class="text-xs font-medium px-2 py-1 rounded ${scoreColor}">${score.toFixed(3)}</span>
-                                            </div>
-                                            <div class="text-sm text-gray-700 leading-relaxed">
-                                                ${cleanTextPreview}
-                                            </div>
-                                            ${source.page_number ? 
-                                                `<div class="text-xs text-gray-500 mt-2">
-                                                    <i class="fas fa-file text-gray-400 mr-1"></i>Page ${source.page_number}
-                                                </div>` : ''
-                                            }
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Create metrics HTML for assistant messages
-            let metricsHTML = '';
-            if (role === 'assistant' && metrics && Object.keys(metrics).length > 0) {
-                const retrievalTime = metrics.retrieval_time || 0;
-                const generationTime = metrics.generation_time || 0;
-                const totalTime = metrics.total_time || 0;
-                const tokensUsed = metrics.tokens_used || 0;
-                
-                metricsHTML = `
-                    <div class="mt-3 pt-3 border-t border-gray-200 border-opacity-50">
-                        <div class="flex flex-wrap gap-3 text-xs text-gray-600">
-                            ${retrievalTime ? `
-                                <div class="flex items-center">
-                                    <i class="fas fa-search text-blue-500 mr-1"></i>
-                                    <span>Retrieval: <span class="font-medium">${retrievalTime}ms</span></span>
-                                </div>` : ''
-                            }
-                            ${generationTime ? `
-                                <div class="flex items-center">
-                                    <i class="fas fa-robot text-purple-500 mr-1"></i>
-                                    <span>Generation: <span class="font-medium">${generationTime}ms</span></span>
-                                </div>` : ''
-                            }
-                            ${tokensUsed ? `
-                                <div class="flex items-center">
-                                    <i class="fas fa-code text-green-500 mr-1"></i>
-                                    <span>Tokens: <span class="font-medium">${tokensUsed}</span></span>
-                                </div>` : ''
-                            }
-                            ${totalTime ? `
-                                <div class="flex items-center">
-                                    <i class="fas fa-clock text-orange-500 mr-1"></i>
-                                    <span>Total: <span class="font-medium">${totalTime}ms</span></span>
-                                </div>` : ''
-                            }
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Create RAGAS metrics for assistant messages
-            let ragasHTML = '';
-            if (role === 'assistant' && ragasMetrics && Object.keys(ragasMetrics).length > 0 && ragasMetrics.answer_relevancy !== undefined) {
-                const relevancy = ragasMetrics.answer_relevancy || 0;
-                const faithfulness = ragasMetrics.faithfulness || 0;
-                const contextUtilization = ragasMetrics.context_utilization || 0; 
-                const contextRelevancy = ragasMetrics.context_relevancy || 0;
-                
-                const getRagasClass = (score) => {
-                    if (score === null || score === undefined) return 'ragas-poor';
-                    if (score >= 0.7) return 'ragas-good';
-                    if (score >= 0.4) return 'ragas-fair';
-                    return 'ragas-poor';
-                };
-                
-                ragasHTML = `
-                    <div class="mt-3 pt-3 border-t border-gray-200 border-opacity-50">
-                        <div class="flex items-center mb-2">
-                            <i class="fas fa-chart-line text-indigo-500 mr-2"></i>
-                            <span class="text-sm font-medium text-gray-700">Quality Metrics</span>
-                        </div>
-                        <div class="flex flex-wrap gap-2 text-xs">
-                            <div class="flex items-center">
-                                <span class="font-medium mr-1">Relevancy:</span>
-                                <span class="ragas-cell ${getRagasClass(relevancy)}">${relevancy !== null ? relevancy.toFixed(3) : 'N/A'}</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="font-medium mr-1">Faithfulness:</span>
-                                <span class="ragas-cell ${getRagasClass(faithfulness)}">${faithfulness !== null ? faithfulness.toFixed(3) : 'N/A'}</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="font-medium mr-1">Context Util:</span>
-                                <span class="ragas-cell ${getRagasClass(contextUtilization)}">${contextUtilization !== null ? contextUtilization.toFixed(3) : 'N/A'}</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="font-medium mr-1">Context Rel:</span>
-                                <span class="ragas-cell ${getRagasClass(contextRelevancy)}">${contextRelevancy !== null ? contextRelevancy.toFixed(3) : 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Format the content
-            const formattedContent = formatChatContent(content, role === 'user');
-            
-            // Create message HTML based on role
-            if (role === 'user') {
-                // User message (right-aligned bubble)
                 messageDiv.innerHTML = `
-                    <div class="chat-bubble-user">
-                        <div class="chat-bubble-content">
-                            <div class="text-white leading-relaxed prose prose-sm max-w-none prose-invert">
-                                ${formattedContent}
+                    <div class="flex items-start space-x-3">
+                        <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-user text-white text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium text-white mb-2">You</div>
+                            <div class="text-white leading-relaxed whitespace-pre-wrap">
+                                ${formatChatContent(content)}
                             </div>
-                            ${queryTypeBadge}
-                            <div class="chat-bubble-timestamp text-white text-opacity-80">
+                            <div class="text-white/80 text-xs mt-3">
                                 <i class="far fa-clock mr-1"></i>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                             </div>
                         </div>
                     </div>
                 `;
             } else {
-                // Assistant message (left-aligned bubble)
-                messageDiv.innerHTML = `
-                    <div class="chat-bubble-assistant">
-                        <div class="chat-bubble-content">
-                            <div class="text-gray-800 leading-relaxed prose prose-sm max-w-none">
-                                ${formattedContent}
+                // Determine if this is a RAG or non-RAG response
+                const isRAG = sources && sources.length > 0;
+                const actualQueryType = queryType || (isRAG ? 'rag' : 'non-rag');
+                
+                // AI message with collapsible sources (only for RAG queries)
+                let sourcesHTML = '';
+                if (isRAG) {
+                    sourcesHTML = `
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <div class="collapsible-header collapsed flex items-center justify-between mb-3 cursor-pointer" onclick="toggleSources(this)">
+                                <div class="flex items-center">
+                                    <i class="fas fa-link text-gray-400 mr-2 text-sm"></i>
+                                    <span class="text-sm font-medium text-gray-700">Sources (${sources.length})</span>
+                                </div>
+                                <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform"></i>
                             </div>
-                            ${ragasHTML}
+                            <div class="collapsible-content collapsed space-y-2">
+                                ${sources.map((source, index) => `
+                                    <div class="source-card bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                        <div class="flex justify-between items-start mb-1">
+                                            <div class="flex items-center">
+                                                <span class="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded mr-2">${index + 1}</span>
+                                                <span class="text-xs font-medium text-gray-600 truncate">${source.document_id || 'Document'}</span>
+                                            </div>
+                                            <span class="text-xs font-medium text-gray-500">${source.score ? source.score.toFixed(2) : 'N/A'}</span>
+                                        </div>
+                                        <div class="text-sm text-gray-600 leading-snug">
+                                            ${escapeHtml(source.text_preview || source.text || 'Source content')}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Add query type badge
+                const queryTypeBadge = actualQueryType === 'rag' ? 
+                    '<span class="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">RAG</span>' : 
+                    '<span class="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">General</span>';
+                
+                messageDiv.innerHTML = `
+                    <div class="flex items-start space-x-3">
+                        <div class="w-8 h-8 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-robot text-indigo-600"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center mb-2">
+                                <span class="font-medium text-indigo-700">AI Assistant</span>
+                                ${queryTypeBadge}
+                                ${ragasMetrics && ragasMetrics.answer_relevancy ? `
+                                    <span class="ml-2 text-xs ${ragasMetrics.answer_relevancy >= 0.7 ? 'bg-green-100 text-green-700' : ragasMetrics.answer_relevancy >= 0.4 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'} px-2 py-0.5 rounded-full">
+                                        ${ragasMetrics.answer_relevancy.toFixed(1)} relevancy
+                                    </span>
+                                ` : ''}
+                            </div>
+                            <div class="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                ${formatChatContent(content)}
+                            </div>
                             ${sourcesHTML}
-                            ${metricsHTML}
-                            <div class="chat-bubble-timestamp text-gray-500 mt-3">
-                                <i class="far fa-clock mr-1"></i>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
+                                <div class="text-xs text-gray-500">
+                                    <i class="far fa-clock mr-1"></i>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </div>
+                                ${metrics.total_time ? `
+                                    <div class="text-xs text-gray-500">
+                                        <i class="fas fa-bolt mr-1"></i>${metrics.total_time}ms
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -2074,47 +2015,9 @@
             
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
-            
-            // Store message for history
-            chatMessages.push({
-                role: role,
-                content: content,
-                timestamp: new Date().toISOString(),
-                queryType: queryType,
-                usedRag: usedRag
-            });
         }
 
         // Helper functions
-        function getQueryTypeBadgeClass(queryType) {
-            switch(queryType) {
-                case 'rag_document':
-                case 'rag_factual':
-                    return 'badge-rag';
-                case 'general_conversation':
-                case 'general_knowledge':
-                    return 'badge-general';
-                case 'rag_summary':
-                    return 'badge-summary';
-                case 'rag_comparison':
-                    return 'badge-comparison';
-                default:
-                    return 'badge-rag';
-            }
-        }
-
-        function getQueryTypeLabel(queryType) {
-            const labels = {
-                'rag_document': 'Document Query',
-                'rag_factual': 'Factual Query',
-                'general_conversation': 'General Chat',
-                'general_knowledge': 'General Knowledge',
-                'rag_summary': 'Summary Request',
-                'rag_comparison': 'Comparison Query'
-            };
-            return labels[queryType] || queryType;
-        }
-
         function escapeHtml(text) {
             if (!text) return '';
             const div = document.createElement('div');
@@ -2122,394 +2025,65 @@
             return div.innerHTML;
         }
 
-        function formatChatContent(content, isUser = false) {
+        function formatChatContent(content) {
             if (!content) return '';
             
-            // Replace markdown-like formatting
+            // Escape HTML first
             let formatted = escapeHtml(content);
             
             // Format lists (lines starting with numbers or bullets)
-            formatted = formatted.replace(/(\d+\.\s+[^\n]+)/g, '<li class="ml-4 mb-1">$1</li>');
-            formatted = formatted.replace(/(•\s+[^\n]+)/g, '<li class="ml-4 mb-1">$1</li>');
-            formatted = formatted.replace(/(-\s+[^\n]+)/g, '<li class="ml-4 mb-1">$1</li>');
+            formatted = formatted.replace(/^(\d+\.\s+.+)$/gm, '<li class="ml-4 mb-1">$1</li>');
+            formatted = formatted.replace(/^(•\s+.+)$/gm, '<li class="ml-4 mb-1">$1</li>');
+            formatted = formatted.replace(/^(-\s+.+)$/gm, '<li class="ml-4 mb-1">$1</li>');
             
-            // Wrap lists
+            // Wrap lists in UL tags if we have list items
             if (formatted.includes('<li class="ml-4 mb-1">')) {
-                formatted = formatted.replace(/<li class="ml-4 mb-1">/g, '<ul class="list-disc pl-5 my-2 space-y-1"><li class="ml-4 mb-1">');
-                formatted = formatted.replace(/<\/li>/g, '</li></ul>');
+                formatted = formatted.replace(/(<li class="ml-4 mb-1">[^<]+<\/li>)+/g, '<ul class="list-disc pl-5 my-2 space-y-1">$&</ul>');
             }
             
-            // Format comparisons and numbered points
-            formatted = formatted.replace(/(Comparison:|In summary:|Summary:|Conclusion:)/g, '<strong class="font-semibold block mt-3 mb-2">$1</strong>');
+            // Format bold text (markdown **text**)
+            formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold">$1</strong>');
             
-            // Format source references [1], [2], etc.
-            formatted = formatted.replace(/\[(\d+)\]/g, '<span class="bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded">[$1]</span>');
-            
-            // Format section headers (lines ending with colon)
-            formatted = formatted.replace(/^([^:\n]+:)(?=\s)/gm, '<strong class="font-semibold">$1</strong>');
-            
-            // Add paragraph spacing
-            formatted = formatted.split('\n\n').map(para => {
-                if (para.trim()) {
-                    return `<p class="mb-3">${para.trim()}</p>`;
-                }
-                return '';
-            }).join('');
+            // Add paragraph spacing for multiple newlines
+            const paragraphs = formatted.split('\n\n');
+            if (paragraphs.length > 1) {
+                formatted = paragraphs.map(p => {
+                    const trimmed = p.trim();
+                    if (trimmed && !trimmed.includes('<ul') && !trimmed.includes('<li')) {
+                        return `<p class="mb-3">${trimmed}</p>`;
+                    }
+                    return trimmed;
+                }).join('');
+            }
             
             return formatted;
         }
 
-        function toggleSources(sourcesId) {
-            const content = document.getElementById(sourcesId);
-            const chevron = document.getElementById(`chevron-${sourcesId}`);
+        function insertExample(type) {
+            const examples = {
+                summary: "Summarize the main points from all uploaded documents.",
+                compare: "Compare the information across different documents.",
+                find: "Find specific details or statistics about the topic."
+            };
             
-            if (content.classList.contains('expanded')) {
-                content.classList.remove('expanded');
-                chevron.classList.remove('expanded');
-            } else {
-                content.classList.add('expanded');
-                chevron.classList.add('expanded');
+            const input = document.getElementById('chat-input');
+            input.value = examples[type];
+            input.focus();
+            updateTokenCount();
+        }
+
+        function clearChat() {
+            if (confirm('Clear all chat messages?')) {
+                const chatMessages = document.getElementById('chat-messages');
+                chatMessages.innerHTML = '';
+                addWelcomeMessage();
             }
         }
 
         function updateTokenCount() {
             const input = document.getElementById('chat-input');
             const tokenCount = Math.ceil(input.value.length / 4); // Rough estimate
-            document.getElementById('token-count').textContent = `${tokenCount} tokens`;
-        }
-
-        // Session Management Functions
-        async function refreshSessions() {
-            try {
-                // For now, we'll show the current session if available
-                // In a real implementation, you would get all sessions from the backend
-                const sessionsList = document.getElementById('sessions-list');
-                
-                if (!currentSessionId) {
-                    sessionsList.innerHTML = `
-                        <div class="text-center py-8 text-gray-500">
-                            <i class="fas fa-comments text-3xl mb-2"></i>
-                            <p>No active sessions found</p>
-                            <p class="text-sm mt-2">Start chatting to create a session</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                // Show current session
-                sessionsList.innerHTML = `
-                    <div class="session-card active bg-white border border-indigo-200 rounded-lg p-4" onclick="loadSessionDetails('${currentSessionId}')">
-                        <div class="flex justify-between items-center mb-2">
-                            <div class="flex items-center">
-                                <i class="fas fa-comment text-indigo-600 mr-2"></i>
-                                <span class="font-medium">Current Session</span>
-                            </div>
-                            <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">Active</span>
-                        </div>
-                        <div class="text-xs text-gray-500">
-                            <div class="flex justify-between mb-1">
-                                <span>ID:</span>
-                                <span class="font-mono">${currentSessionId.substring(0, 12)}...</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Messages:</span>
-                                <span>${chatMessages.length}</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-            } catch (error) {
-                console.error('Refresh sessions error:', error);
-                showNotification('Failed to load sessions', 'error');
-            }
-        }
-
-        async function loadSessionDetails(sessionId) {
-            try {
-                if (sessionId === currentSessionId) {
-                    // Load current session from memory
-                    const sessionDetails = document.getElementById('session-details');
-                    
-                    sessionDetails.innerHTML = `
-                        <div class="space-y-4">
-                            <div>
-                                <h5 class="font-medium text-gray-700 mb-2">Session Information</h5>
-                                <div class="text-sm space-y-2">
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Session ID:</span>
-                                        <span class="font-mono text-gray-800">${sessionId}</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Status:</span>
-                                        <span class="font-medium text-green-600">Active</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Messages:</span>
-                                        <span>${chatMessages.length}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h5 class="font-medium text-gray-700 mb-2">Actions</h5>
-                                <div class="space-y-2">
-                                    <button onclick="loadConversationHistory()" class="w-full bg-indigo-100 text-indigo-700 px-3 py-2 rounded hover:bg-indigo-200 transition duration-200 text-sm">
-                                        <i class="fas fa-history mr-2"></i>Load into Chat
-                                    </button>
-                                    <button onclick="exportChat('json')" class="w-full bg-blue-100 text-blue-700 px-3 py-2 rounded hover:bg-blue-200 transition duration-200 text-sm">
-                                        <i class="fas fa-download mr-2"></i>Export as JSON
-                                    </button>
-                                    <button onclick="clearCurrentSession()" class="w-full bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 transition duration-200 text-sm">
-                                        <i class="fas fa-trash mr-2"></i>Clear Session
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h5 class="font-medium text-gray-700 mb-2">Recent Messages</h5>
-                                <div class="text-xs space-y-1 max-h-40 overflow-y-auto">
-                                    ${chatMessages.slice(-5).map(msg => `
-                                        <div class="bg-gray-100 p-2 rounded">
-                                            <div class="font-medium">${msg.role === 'user' ? 'You' : 'AI'}:</div>
-                                            <div class="text-gray-600 truncate">${msg.content.substring(0, 50)}${msg.content.length > 50 ? '...' : ''}</div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    // Load from backend
-                    const history = await apiService.getConversationHistory(sessionId);
-                    const sessionDetails = document.getElementById('session-details');
-                    
-                    sessionDetails.innerHTML = `
-                        <div class="space-y-4">
-                            <div>
-                                <h5 class="font-medium text-gray-700 mb-2">Session Information</h5>
-                                <div class="text-sm space-y-2">
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Session ID:</span>
-                                        <span class="font-mono text-gray-800">${sessionId}</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Total Messages:</span>
-                                        <span>${history.total_messages}</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Messages Loaded:</span>
-                                        <span>${history.messages_returned}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h5 class="font-medium mb-2 text-gray-700">Actions</h5>
-                                <div class="space-y-2">
-                                    <button onclick="loadSessionIntoChat('${sessionId}')" class="w-full bg-indigo-100 text-indigo-700 px-3 py-2 rounded hover:bg-indigo-200 transition duration-200 text-sm">
-                                        <i class="fas fa-history mr-2"></i>Load into Chat
-                                    </button>
-                                    <button onclick="exportSession('${sessionId}')" class="w-full bg-blue-100 text-blue-700 px-3 py-2 rounded hover:bg-blue-200 transition duration-200 text-sm">
-                                        <i class="fas fa-download mr-2"></i>Export as JSON
-                                    </button>
-                                    <button onclick="deleteSession('${sessionId}')" class="w-full bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 transition duration-200 text-sm">
-                                        <i class="fas fa-trash mr-2"></i>Delete Session
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-            } catch (error) {
-                console.error('Load session details error:', error);
-                showNotification('Failed to load session details', 'error');
-            }
-        }
-
-        async function loadConversationHistory() {
-            if (!currentSessionId) {
-                showNotification('No active session', 'warning');
-                return;
-            }
-            
-            try {
-                const history = await apiService.getConversationHistory(currentSessionId);
-                
-                // Clear current chat messages
-                const chatMessagesDiv = document.getElementById('chat-messages');
-                chatMessagesDiv.innerHTML = '';
-                
-                // Clear local chat messages array
-                chatMessages = [];
-                
-                // Add history messages
-                history.history.forEach(item => {
-                    addChatMessage('user', item.query, [], {}, {}, item.query_type, item.used_rag);
-                    addChatMessage('assistant', item.response, item.sources || [], item.metrics || {}, item.ragas_metrics || {}, item.query_type, item.used_rag);
-                });
-                
-                showNotification(`Loaded ${history.messages_returned} messages from history`, 'success');
-                
-            } catch (error) {
-                console.error('Load conversation history error:', error);
-                showNotification('Failed to load conversation history', 'error');
-            }
-        }
-
-        async function clearCurrentSession() {
-            if (!currentSessionId) {
-                showNotification('No active session', 'warning');
-                return;
-            }
-            
-            if (!confirm('Are you sure you want to clear the current chat session? This will remove all messages.')) {
-                return;
-            }
-            
-            try {
-                await apiService.clearConversationHistory(currentSessionId);
-                
-                // Clear local chat messages
-                const chatMessagesDiv = document.getElementById('chat-messages');
-                chatMessagesDiv.innerHTML = '';
-                
-                // Reset chat messages array
-                chatMessages = [];
-                
-                // Add welcome message
-                addWelcomeMessage();
-                
-                showNotification('Chat session cleared', 'success');
-                
-            } catch (error) {
-                console.error('Clear session error:', error);
-                showNotification('Failed to clear session', 'error');
-            }
-        }
-
-        // Classification Test Functions
-        async function testClassification() {
-            const queryInput = document.getElementById('test-query-input');
-            const query = queryInput.value.trim();
-            
-            if (!query) {
-                showNotification('Please enter a query to test', 'warning');
-                return;
-            }
-            
-            try {
-                const result = await apiService.testQueryClassification(query);
-                displayClassificationResult(result);
-                
-            } catch (error) {
-                console.error('Classification test error:', error);
-                showNotification(`Classification test failed: ${error.message}`, 'error');
-            }
-        }
-
-        function handleTestQueryKeypress(e) {
-            if (e.key === 'Enter') {
-                testClassification();
-            }
-        }
-
-        function setTestQuery(query) {
-            document.getElementById('test-query-input').value = query;
-            testClassification();
-        }
-
-        function displayClassificationResult(result) {
-            const resultsDiv = document.getElementById('classification-results');
-            
-            // Clear previous results
-            resultsDiv.innerHTML = '';
-            
-            // Create result card
-            const resultCard = document.createElement('div');
-            resultCard.className = 'classification-result bg-gray-50 p-4 rounded-lg border';
-            
-            // Determine classification type and color
-            const classification = result.classification;
-            const isRAG = classification.is_rag_query;
-            const confidence = classification.confidence || 0;
-            const classificationClass = isRAG ? 'classification-rag' : 'classification-general';
-            
-            // Create confidence bar
-            const confidencePercent = Math.round(confidence * 100);
-            const confidenceBar = `
-                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div class="bg-${isRAG ? 'indigo' : 'green'}-600 h-2 rounded-full" style="width: ${confidencePercent}%"></div>
-                </div>
-            `;
-            
-            resultCard.innerHTML = `
-                <div class="mb-4">
-                    <h4 class="font-semibold text-gray-800 mb-2">Test Query</h4>
-                    <p class="text-gray-600 bg-white p-3 rounded border">"${result.query}"</p>
-                </div>
-                
-                <div class="${classificationClass}">
-                    <h4 class="font-semibold text-gray-800 mb-2">Classification Result</h4>
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="font-medium ${isRAG ? 'text-indigo-700' : 'text-green-700'}">
-                            ${isRAG ? '📚 RAG Query (Document-based)' : '💬 General Query'}
-                        </span>
-                        <span class="font-bold ${isRAG ? 'text-indigo-600' : 'text-green-600'}">${confidencePercent}%</span>
-                    </div>
-                    ${confidenceBar}
-                    
-                    <div class="mt-3 text-sm text-gray-600">
-                        <p><strong>Primary Category:</strong> ${classification.primary_category || 'Unknown'}</p>
-                        <p><strong>Query Type:</strong> ${classification.query_type || 'Unknown'}</p>
-                        <p><strong>Requires Context:</strong> ${classification.requires_context ? 'Yes' : 'No'}</p>
-                        
-                        ${classification.categories ? `
-                            <div class="mt-2">
-                                <strong>Category Scores:</strong>
-                                <ul class="mt-1 space-y-1">
-                                    ${Object.entries(classification.categories).map(([category, score]) => `
-                                        <li class="flex justify-between">
-                                            <span>${category}:</span>
-                                            <span>${(score * 100).toFixed(1)}%</span>
-                                        </li>
-                                    `).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-                
-                <div class="mt-4 pt-4 border-t border-gray-200">
-                    <h5 class="font-medium text-gray-700 mb-2">What this means:</h5>
-                    <p class="text-sm text-gray-600">
-                        ${isRAG ? 
-                            'This query will be answered using information from your uploaded documents with source citations.' : 
-                            'This query will be answered using the AI\'s general knowledge without consulting your documents.'
-                        }
-                    </p>
-                </div>
-            `;
-            
-            resultsDiv.appendChild(resultCard);
-            
-            // Add suggestion
-            const suggestion = document.createElement('div');
-            suggestion.className = 'mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg';
-            suggestion.innerHTML = `
-                <div class="flex items-start">
-                    <i class="fas fa-lightbulb text-blue-500 mt-1 mr-2"></i>
-                    <div class="text-sm">
-                        <strong>Tip:</strong> ${isRAG ? 
-                            'For better RAG results, try to be specific and reference document content.' : 
-                            'For general knowledge questions, the AI will use its training data without document references.'
-                        }
-                    </div>
-                </div>
-            `;
-            
-            resultsDiv.appendChild(suggestion);
+            document.getElementById('token-count').textContent = `${tokenCount}`;
         }
 
         // RAGAS Table Functions
@@ -2518,11 +2092,7 @@
                 console.log('Refreshing RAGAS table...');
                 
                 const response = await apiService.getRagasHistory();
-                if (!response.success) {
-                    throw new Error('Failed to fetch RAGAS data');
-                }
-                
-                updateRagasTable(response.history, response.statistics);
+                updateRagasTable(response.history || [], response.statistics || {});
                 showNotification('RAGAS table updated', 'success');
                 
             } catch (error) {
@@ -2549,8 +2119,8 @@
             if (history.length === 0) {
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="12" class="px-4 py-8 text-center text-gray-500">
-                            <i class="fas fa-info-circle text-3xl mb-2"></i>
+                        <td colspan="13" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fas fa-info-circle text-3xl mb-2 text-gray-400"></i>
                             <p>No RAGAS evaluations yet. Start chatting to see quality metrics.</p>
                         </td>
                     </tr>
@@ -2562,10 +2132,22 @@
             tableBody.innerHTML = '';
             
             // Helper function to get RAGAS score class
-            const getRagasScoreClass = (score) => {
+            const getRagasScoreClass = (score, isRAG) => {
+                if (score === null || score === undefined || !isRAG) return 'ragas-na';
                 if (score >= 0.7) return 'ragas-good';
                 if (score >= 0.4) return 'ragas-fair';
                 return 'ragas-poor';
+            };
+            
+            // Helper function to format score value
+            const formatScoreValue = (score, isRAG) => {
+                if (score === null || score === undefined || !isRAG) return 'N/A';
+                return score.toFixed(3);
+            };
+            
+            // Helper function to get query type class
+            const getQueryTypeClass = (queryType) => {
+                return queryType === 'rag' ? 'query-type-rag' : 'query-type-non-rag';
             };
             
             // Helper function to truncate text
@@ -2582,6 +2164,8 @@
                 
                 const timestamp = item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
                 const date = item.timestamp ? new Date(item.timestamp).toLocaleDateString() : '';
+                const isRAG = item.query_type === 'rag';
+                const queryType = item.query_type || (isRAG ? 'rag' : 'non-rag');
                 
                 row.innerHTML = `
                     <td class="px-4 py-3 text-sm text-gray-900">${index + 1}</td>
@@ -2592,21 +2176,32 @@
                     <td class="px-4 py-3 text-sm text-gray-800">${truncateText(item.query, 120)}</td>
                     <td class="px-4 py-3 text-sm text-gray-800">${truncateText(item.answer, 120)}</td>
                     <td class="px-4 py-3 text-center">
-                        <span class="ragas-cell ${getRagasScoreClass(item.answer_relevancy || 0)}">${(item.answer_relevancy || 0).toFixed(3)}</span>
+                        <span class="ragas-cell ${getQueryTypeClass(queryType)}">${queryType.toUpperCase()}</span>
                     </td>
                     <td class="px-4 py-3 text-center">
-                        <span class="ragas-cell ${getRagasScoreClass(item.faithfulness || 0)}">${(item.faithfulness || 0).toFixed(3)}</span>
+                        <span class="ragas-cell ${getRagasScoreClass(item.answer_relevancy, isRAG)}">
+                            ${formatScoreValue(item.answer_relevancy, isRAG)}
+                        </span>
                     </td>
                     <td class="px-4 py-3 text-center">
-                        <span class="ragas-cell ${getRagasScoreClass(item.context_utilization || item.context_precision || 0)}">${((item.context_utilization || item.context_precision) || 0).toFixed(3)}</span>
+                        <span class="ragas-cell ${getRagasScoreClass(item.faithfulness, isRAG)}">
+                            ${formatScoreValue(item.faithfulness, isRAG)}
+                        </span>
                     </td>
                     <td class="px-4 py-3 text-center">
-                        <span class="ragas-cell ${getRagasScoreClass(item.context_relevancy || 0)}">${(item.context_relevancy || 0).toFixed(3)}</span>
+                        <span class="ragas-cell ${getRagasScoreClass(item.context_utilization || item.context_precision, isRAG)}">
+                            ${formatScoreValue(item.context_utilization || item.context_precision, isRAG)}
+                        </span>
                     </td>
-                    <td class="px-4 py-3 text-center text-sm text-gray-600">${item.retrieval_time_ms || 0}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="ragas-cell ${getRagasScoreClass(item.context_relevancy, isRAG)}">
+                            ${formatScoreValue(item.context_relevancy, isRAG)}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-center text-sm text-gray-600">${item.retrieval_time_ms || (isRAG ? '0' : 'N/A')}</td>
                     <td class="px-4 py-3 text-center text-sm text-gray-600">${item.generation_time_ms || 0}</td>
                     <td class="px-4 py-3 text-center text-sm text-gray-600">${item.total_time_ms || 0}</td>
-                    <td class="px-4 py-3 text-center text-sm text-gray-600">${item.chunks_retrieved || 0}</td>
+                    <td class="px-4 py-3 text-center text-sm text-gray-600">${item.chunks_retrieved || (isRAG ? '0' : 'N/A')}</td>
                 `;
                 
                 tableBody.appendChild(row);
@@ -2651,17 +2246,6 @@
             }
         }
 
-        async function loadConfiguration() {
-            try {
-                const config = await apiService.getConfiguration();
-                if (config.configuration) {
-                    systemReady = config.configuration.is_ready || false;
-                }
-            } catch (error) {
-                console.error('Configuration load error:', error);
-            }
-        }
-
         async function loadConfigurationUI() {
             try {
                 const config = await apiService.getConfiguration();
@@ -2671,49 +2255,18 @@
                     // Populate form with current configuration
                     const formElements = document.getElementById('config-form').elements;
                     
-                    // Map backend config names to form field names
-                    const fieldMap = {
-                        'inference_model': 'inference_model',
-                        'embedding_model': 'embedding_model',
-                        'chunking_strategy': 'chunking_strategy',
-                        'chunk_size': 'chunk_size',
-                        'chunk_overlap': 'chunk_overlap',
-                        'retrieval_top_k': 'retrieval_top_k',
-                        'vector_weight': 'vector_weight',
-                        'bm25_weight': 'bm25_weight',
-                        'temperature': 'temperature',
-                        'max_tokens': 'max_tokens',
-                        'enable_reranking': 'enable_reranking'
-                    };
-                    
-                    Object.keys(fieldMap).forEach(backendKey => {
-                        const formKey = fieldMap[backendKey];
-                        const element = formElements[formKey];
-                        if (element && config.configuration[backendKey] !== undefined) {
+                    Object.keys(config.configuration).forEach(key => {
+                        const element = formElements[key];
+                        if (element) {
                             if (element.type === 'checkbox') {
-                                element.checked = config.configuration[backendKey];
+                                element.checked = config.configuration[key];
                             } else if (element.type === 'select-one') {
-                                element.value = config.configuration[backendKey];
+                                element.value = config.configuration[key];
                             } else {
-                                element.value = config.configuration[backendKey];
+                                element.value = config.configuration[key];
                             }
                         }
                     });
-                    
-                    // Also load health status
-                    if (config.health) {
-                        const healthStatus = document.getElementById('system-status');
-                        if (config.health.overall === 'healthy') {
-                            healthStatus.textContent = 'Healthy';
-                            healthStatus.className = 'font-medium text-green-600';
-                        } else if (config.health.overall === 'degraded') {
-                            healthStatus.textContent = 'Degraded';
-                            healthStatus.className = 'font-medium text-yellow-600';
-                        } else {
-                            healthStatus.textContent = 'Unhealthy';
-                            healthStatus.className = 'font-medium text-red-600';
-                        }
-                    }
                 }
                 
                 if (health) {
@@ -2809,15 +2362,18 @@
             }
         }
 
-        async function checkSystemStatus() {
-            try {
-                const systemInfo = await apiService.getSystemInfo();
-                const health = await apiService.getHealth();
-                updateSystemStatus(systemInfo, health);
-            } catch (error) {
-                console.error('System status check error:', error);
-                document.getElementById('system-status').textContent = 'Offline';
-                document.getElementById('system-status').className = 'font-medium text-red-600';
+        function toggleSources(element) {
+            const header = element.closest('.collapsible-header');
+            const content = element.closest('.collapsible-header').nextElementSibling;
+            
+            header.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+            
+            // If we're expanding, set max-height to scrollHeight
+            if (!content.classList.contains('collapsed')) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+            } else {
+                content.style.maxHeight = '0';
             }
         }
 
@@ -2843,12 +2399,12 @@
             `;
             document.body.appendChild(notification);
             
-            // Auto-remove after 30 seconds
+            // Auto-remove after 5 seconds
             setTimeout(() => {
                 if (notification.parentNode) {
                     notification.remove();
                 }
-            }, 30000);
+            }, 5000);
         }
 
         // Initialize when page loads
