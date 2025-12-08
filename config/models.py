@@ -422,31 +422,6 @@ class RetrievalResponse(BaseModel):
     num_candidates    : int                  = Field(..., ge = 0)
 
 
-# Evaluation Models
-class EvaluationRequest(BaseModel):
-    """
-    Request for RAG evaluation
-    """
-    query            : str                  = Field(..., description = "Original user query")
-    reference_answer : Optional[str]        = Field(None, description = "Ground truth answer for evaluation")
-    context_chunks   : List[ChunkWithScore] = Field(..., description = "Retrieved context chunks")
-    generated_answer : str                  = Field(..., description = "LLM-generated answer to evaluate")
-
-
-class EvaluationResult(BaseModel):
-    """
-    RAG evaluation results using Ragas metrics
-    """
-    answer_relevancy   : float           = Field(..., ge = 0.0, le = 1.0, description = "How well answer addresses question")
-    faithfulness       : float           = Field(..., ge = 0.0, le = 1.0, description = "Is answer grounded in context")
-    context_precision  : float           = Field(..., ge = 0.0, le = 1.0, description = "Are relevant chunks ranked high")
-    context_recall     : Optional[float] = Field(None, ge = 0.0, le = 1.0, description = "Was all necessary info retrieved")
-    overall_score      : float           = Field(..., ge = 0.0, le = 1.0, description = "Composite evaluation score")
-    evaluation_time_ms : float           = Field(..., ge=0.0)
-    model_used         : str             = Field(..., description = "Ragas evaluation model")
-    timestamp          : datetime        = Field(default_factory = datetime.now)
-
-
 # System Models
 class HealthCheck(BaseModel):
     """
@@ -604,7 +579,7 @@ class RAGASEvaluationResult(BaseModel):
     generation_time_ms : int             = Field(..., ge = 0, description = "Generation time in milliseconds")
     total_time_ms      : int             = Field(..., ge = 0, description = "Total time in milliseconds")
     chunks_retrieved   : int             = Field(..., ge = 0, description = "Number of chunks retrieved")
-    
+    query_type         : str             = Field("rag", description = "Type of query: 'rag' or 'general'")
 
     def to_dict(self) -> Dict[str, Any]:
         """

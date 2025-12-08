@@ -52,11 +52,11 @@ class Settings(BaseSettings):
     
     # Chunking Settings
     # Fixed chunking
-    FIXED_CHUNK_SIZE              : int                                                      = Field(default = 1024, description = "Fixed chunk size in tokens")
-    FIXED_CHUNK_OVERLAP           : int                                                      = Field(default = 100, description = "Overlap between chunks")
+    FIXED_CHUNK_SIZE              : int                                                      = Field(default = 512, description = "Fixed chunk size in tokens")
+    FIXED_CHUNK_OVERLAP           : int                                                      = Field(default = 25, description = "Overlap between chunks")
     
     # Semantic chunking
-    SEMANTIC_BREAKPOINT_THRESHOLD : float                                                    = Field(default = 0.95, description = "Percentile for semantic breakpoints")
+    SEMANTIC_BREAKPOINT_THRESHOLD : float                                                    = Field(default = 0.80, description = "Percentile for semantic breakpoints")
 
     # Hierarchical chunking
     PARENT_CHUNK_SIZE             : int                                                      = Field(default = 2048, description = "Parent chunk size")
