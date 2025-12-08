@@ -112,7 +112,7 @@ class RAGASEvaluator:
     
     
     def evaluate_single(self, query: str, answer: str, contexts: List[str], ground_truth: Optional[str] = None, retrieval_time_ms: int = 0,
-                        generation_time_ms: int = 0, total_time_ms: int = 0, chunks_retrieved: int = 0) -> RAGASEvaluationResult:
+                        generation_time_ms: int = 0, total_time_ms: int = 0, chunks_retrieved: int = 0, query_type: str = "rag") -> RAGASEvaluationResult:
         """
         Evaluate a single query-answer pair using RAGAS metrics
         
@@ -133,15 +133,40 @@ class RAGASEvaluator:
             total_time_ms      { int }  : Total time in milliseconds
             
             chunks_retrieved   { int }  : Number of chunks retrieved
+
+            query_type         { str }  : Type of the query : RAG or non-RAG
             
         Returns:
         --------
             { RAGASEvaluationResult }   : RAGASEvaluationResult object
         """
         try:
-            logger.info(f"Evaluating query: {query[:100]}...")
+            logger.info(f"Evaluating {query_type.upper()}, query: {query[:100]}...")
+
+            if ((query_type == "general") or (query_type == "non-rag")):
+                logger.info(f"Skipping detailed RAGAS evaluation for {query_type} query")
             
-            # Validate inputs
+                return RAGASEvaluationResult(query               = query,
+                                             answer              = answer,
+                                             contexts            = contexts,
+                                             ground_truth        = ground_truth,
+                                             timestamp           = datetime.now().isoformat(),
+                                             answer_relevancy    = 0.0,  # N/A for non-RAG
+                                             faithfulness        = 0.0,  # N/A for non-RAG
+                                             context_utilization = None,
+                                             context_precision   = None,
+                                             context_relevancy   = 0.0,  # N/A for non-RAG
+                                             context_recall      = None,
+                                             answer_similarity   = None,
+                                             answer_correctness  = None,
+                                             retrieval_time_ms   = retrieval_time_ms,
+                                             generation_time_ms  = generation_time_ms,
+                                             total_time_ms       = total_time_ms,
+                                             chunks_retrieved    = chunks_retrieved,
+                                             query_type          = query_type,
+                                            )
+            
+            # Only for RAG queries : Validate inputs
             if not contexts or not any(c.strip() for c in contexts):
                 logger.warning("No valid contexts provided for RAGAS evaluation")
                 raise ValueError("No valid contexts for evaluation")
@@ -179,16 +204,15 @@ class RAGASEvaluator:
             
             faithfulness            = sanitize_ragas_score(scores.get('faithfulness'), 'faithfulness')
             
-            context_utilization_val = sanitize_ragas_score(scores.get('context_utilization'), 
-                                                          'context_utilization') if not ground_truth else None
+            context_utilization_val = sanitize_ragas_score(scores.get('context_utilization'), 'context_utilization') if not ground_truth else None
             
-            context_relevancy_val = sanitize_ragas_score(scores.get('context_relevancy'), 'context_relevancy')
+            context_relevancy_val   = sanitize_ragas_score(scores.get('context_relevancy'), 'context_relevancy')
             
             # Ground truth metrics (sanitized)
-            context_precision_val  = None
-            context_recall_val     = None
-            answer_similarity_val  = None
-            answer_correctness_val = None
+            context_precision_val   = None
+            context_recall_val      = None
+            answer_similarity_val   = None
+            answer_correctness_val  = None
 
             if (ground_truth and ('context_precision' in scores)):
                 context_precision_val  = sanitize_ragas_score(scores.get('context_precision'), 'context_precision')
@@ -224,6 +248,7 @@ class RAGASEvaluator:
                                            generation_time_ms  = generation_time_ms,
                                            total_time_ms       = total_time_ms,
                                            chunks_retrieved    = chunks_retrieved,
+                                           query_type          = query_type,
                                           )
             
             # Store in history
@@ -239,7 +264,7 @@ class RAGASEvaluator:
             return result
             
         except Exception as e:
-            logger.error(f"RAGAS evaluation failed: {e}", exc_info = True)
+            logger.error(f"RAGAS evaluation failed for {query_type} query: {e}", exc_info = True)
             
             # Return zero metrics on failure (all sanitized)
             return RAGASEvaluationResult(query               = query,
@@ -259,6 +284,7 @@ class RAGASEvaluator:
                                          generation_time_ms  = generation_time_ms,
                                          total_time_ms       = total_time_ms,
                                          chunks_retrieved    = chunks_retrieved,
+                                         query_type          = query_type
                                         )
     
 
@@ -331,6 +357,17 @@ class RAGASEvaluator:
                         "is_rag"    : True,
                        }
             
+            # Try to get query_type from query_response
+            if (hasattr(query_response, 'query_type')):
+                detected_query_type = query_response.query_type
+            
+            elif (hasattr(query_response, 'metrics') and query_response.metrics):
+                detected_query_type = query_response.metrics.get("query_type", "rag")
+            
+            else:
+                # Determine based on contexts
+                detected_query_type = "rag" if (contexts and (len(contexts) > 0)) else "general"
+
             # Now use the existing evaluate_single method
             result                       = self.evaluate_single(query              = query,
                                                                 answer             = answer,
@@ -340,6 +377,7 @@ class RAGASEvaluator:
                                                                 generation_time_ms = getattr(query_response, 'generation_time_ms', 0),
                                                                 total_time_ms      = getattr(query_response, 'total_time_ms', 0),
                                                                 chunks_retrieved   = len(sources) if sources else len(contexts),
+                                                                query_type         = detected_query_type,
                                                                )
             
             # Convert to dict and add metadata
@@ -368,7 +406,8 @@ class RAGASEvaluator:
                    }
 
     
-    def evaluate_batch(self, queries: List[str], answers: List[str], contexts_list: List[List[str]], ground_truths: Optional[List[str]] = None) -> List[RAGASEvaluationResult]:
+    def evaluate_batch(self, queries: List[str], answers: List[str], contexts_list: List[List[str]], ground_truths: Optional[List[str]] = None,
+                       query_types: Optional[List[str]] = None) -> List[RAGASEvaluationResult]:
         """
         Evaluate multiple query-answer pairs in batch
         
@@ -381,6 +420,8 @@ class RAGASEvaluator:
             contexts_list { list } : List of context lists
             
             ground_truths { list } : List of reference answers (optional)
+
+            query_types   { list } : List of query types RAG / non-RAG
             
         Returns:
         --------
@@ -416,6 +457,14 @@ class RAGASEvaluator:
             evaluation_results = list()
 
             for idx, row in results_df.iterrows():
+                # Determine query_type for this item
+                if query_types and idx < len(query_types):
+                    current_query_type = query_types[idx]
+
+                else:
+                    # Default based on whether contexts are available
+                    current_query_type = "rag" if contexts_list[idx] and len(contexts_list[idx]) > 0 else "general"
+            
                 # Sanitize all scores
                 answer_relevancy_val    = sanitize_ragas_score(row.get('answer_relevancy', 0.0), f'answer_relevancy_{idx}')
                 
@@ -423,16 +472,27 @@ class RAGASEvaluator:
                 
                 context_relevancy_val   = sanitize_ragas_score(row.get('context_relevancy', 0.0), f'context_relevancy_{idx}')
                 
+                # Handle context_utilization vs context_precision
                 context_utilization_val = sanitize_ragas_score(row.get('context_utilization'), f'context_utilization_{idx}') if not ground_truths else None
                 
                 context_precision_val   = sanitize_ragas_score(row.get('context_precision'), f'context_precision_{idx}') if (ground_truths and 'context_precision' in row) else None
-                
+            
+                # Ground truth metrics
                 context_recall_val      = sanitize_ragas_score(row.get('context_recall'), f'context_recall_{idx}') if (ground_truths and 'context_recall' in row) else None
                 
                 answer_similarity_val   = sanitize_ragas_score(row.get('answer_similarity'), f'answer_similarity_{idx}') if (ground_truths and 'answer_similarity' in row) else None
                 
                 answer_correctness_val  = sanitize_ragas_score(row.get('answer_correctness'), f'answer_correctness_{idx}') if (ground_truths and 'answer_correctness' in row) else None
                 
+                # For non-RAG queries, set appropriate scores
+                if ((current_query_type == "general") or (current_query_type == "non-rag")):
+                    # Non-RAG queries shouldn't have RAGAS metrics
+                    answer_relevancy_val    = 0.0
+                    faithfulness_val        = 0.0
+                    context_relevancy_val   = 0.0
+                    context_utilization_val = None
+                    context_precision_val   = None
+            
                 result                  = RAGASEvaluationResult(query               = queries[idx],
                                                                 answer              = answers[idx],
                                                                 contexts            = contexts_list[idx],
@@ -450,6 +510,7 @@ class RAGASEvaluator:
                                                                 generation_time_ms  = 0,
                                                                 total_time_ms       = 0,
                                                                 chunks_retrieved    = len(contexts_list[idx]),
+                                                                query_type          = current_query_type,
                                                                )
 
                 evaluation_results.append(result)
@@ -573,7 +634,7 @@ class RAGASEvaluator:
         --------
             { RAGASExportData }    : RAGASExportData object with complete evaluation data
         """
-        return RAGASExportData(export_timestamp     = datetime.now(),
+        return RAGASExportData(export_timestamp     = datetime.now().isoformat(),
                                total_evaluations    = len(self.evaluation_history),
                                statistics           = self.get_session_statistics(),
                                evaluations          = self.evaluation_history,

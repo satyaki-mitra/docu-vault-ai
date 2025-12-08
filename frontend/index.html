@@ -595,41 +595,17 @@
             </div>
         </div>
 
-        <!-- Stats Section -->
-        <div class="bg-gradient-to-b from-gray-50 to-white py-16">
-            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-gray-200">
-                        <div class="text-3xl font-bold text-gray-900 mb-2">40%</div>
-                        <div class="text-sm text-gray-600">Productivity Boost</div>
-                    </div>
-                    <div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-gray-200">
-                        <div class="text-3xl font-bold text-gray-900 mb-2">85%</div>
-                        <div class="text-sm text-gray-600">Enterprise Adoption</div>
-                    </div>
-                    <div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-gray-200">
-                        <div class="text-3xl font-bold text-gray-900 mb-2">0</div>
-                        <div class="text-sm text-gray-600">API Costs</div>
-                    </div>
-                    <div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-gray-200">
-                        <div class="text-3xl font-bold text-gray-900 mb-2">100%</div>
-                        <div class="text-sm text-gray-600">On-Premise Security</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Footer -->
         <footer class="bg-gray-900 text-white py-12">
             <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <div class="flex flex-col items-center mb-8">
-                    <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-4">
+                    <div class="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-4">
                         <i class="fas fa-brain text-gray-900 text-xl"></i>
                     </div>
                     <div class="text-2xl font-bold">AI Knowledge Platform</div>
                     <div class="text-gray-400 mt-2">Enterprise RAG System</div>
                 </div>
-                <p class="text-gray-400 mb-8 max-w-2xl mx-auto">
+                <p class="text-gray-400 mb-8 max-w-4xl mx-auto">
                     Transforming organizational knowledge management with AI-powered search and analytics.
                 </p>
                 <div class="text-gray-400 text-sm">
@@ -973,7 +949,7 @@
                                         <p class="font-semibold mb-2">Metric Descriptions:</p>
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                                             <div>
-                                                <span class="font-medium">Query Type:</span> RAG (uses documents) vs Non-RAG (general knowledge)
+                                                <span class="font-medium">Query Type:</span> RAG (uses documents) vs GENERAL (no documents)
                                             </div>
                                             <div>
                                                 <span class="font-medium">Answer Relevancy:</span> How well the answer addresses the question (0-1)
@@ -2164,8 +2140,13 @@
                 
                 const timestamp = item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
                 const date = item.timestamp ? new Date(item.timestamp).toLocaleDateString() : '';
-                const isRAG = item.query_type === 'rag';
-                const queryType = item.query_type || (isRAG ? 'rag' : 'non-rag');
+                
+                // Use the query_type from backend, don't try to infer it
+                const queryType = item.query_type || 'rag';  // Default to 'rag' if missing
+                const isRAG = queryType === 'rag';
+                
+                // Display RAG or GENERAL (not NON-RAG)
+                const queryTypeDisplay = queryType.toUpperCase();
                 
                 row.innerHTML = `
                     <td class="px-4 py-3 text-sm text-gray-900">${index + 1}</td>
@@ -2176,7 +2157,7 @@
                     <td class="px-4 py-3 text-sm text-gray-800">${truncateText(item.query, 120)}</td>
                     <td class="px-4 py-3 text-sm text-gray-800">${truncateText(item.answer, 120)}</td>
                     <td class="px-4 py-3 text-center">
-                        <span class="ragas-cell ${getQueryTypeClass(queryType)}">${queryType.toUpperCase()}</span>
+                        <span class="ragas-cell ${getQueryTypeClass(queryType)}">${queryTypeDisplay}</span>
                     </td>
                     <td class="px-4 py-3 text-center">
                         <span class="ragas-cell ${getRagasScoreClass(item.answer_relevancy, isRAG)}">

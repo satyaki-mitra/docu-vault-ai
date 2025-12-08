@@ -2,6 +2,7 @@
 import os
 import io
 import csv
+import json
 import time
 import logging
 import uvicorn
@@ -1033,7 +1034,7 @@ async def export_ragas_data():
     try:
         export_data = state.ragas_evaluator.export_to_dict()
         
-        return JSONResponse(content = export_data.model_dump())
+        return JSONResponse(content = json.loads(export_data.model_dump_json()))
         
     except Exception as e:
         logger.error(f"RAGAS export error: {e}", exc_info = True)
@@ -1100,41 +1101,64 @@ async def chat(request: ChatRequest):
                                            })
         
         # Create QueryRequest object
-        query_request  = QueryRequest(query            = message,
-                                      top_k            = settings.TOP_K_RETRIEVE,
-                                      enable_reranking = settings.ENABLE_RERANKING,
-                                      temperature      = settings.DEFAULT_TEMPERATURE,
-                                      top_p            = settings.TOP_P,
-                                      max_tokens       = settings.MAX_TOKENS,
-                                      include_sources  = True,
-                                      include_metrics  = False,
-                                      stream           = False,
-                                     )
+        query_request     = QueryRequest(query            = message,
+                                         top_k            = settings.TOP_K_RETRIEVE,
+                                         enable_reranking = settings.ENABLE_RERANKING,
+                                         temperature      = settings.DEFAULT_TEMPERATURE,
+                                         top_p            = settings.TOP_P,
+                                         max_tokens       = settings.MAX_TOKENS,
+                                         include_sources  = True,
+                                         include_metrics  = False,
+                                         stream           = False,
+                                        )
         
         # Generate response using response generator (with LLM-based routing)
-        start_time     = time.time()
+        start_time        = time.time()
 
-        query_response = await state.response_generator.generate_response(request              = query_request,
-                                                                          conversation_history = conversation_history,
-                                                                          has_documents        = has_documents,  # Pass document availability
-                                                                         )
+        query_response    = await state.response_generator.generate_response(request              = query_request,
+                                                                             conversation_history = conversation_history,
+                                                                             has_documents        = has_documents,  # Pass document availability
+                                                                            )
         
         # Convert to ms
-        total_time     = (time.time() - start_time) * 1000
+        total_time        = (time.time() - start_time) * 1000
         
         # Record timing for analytics
         state.add_query_timing(total_time)
+
+        # Determine query type using response metadata
+        is_general_query  = False
+
+        # Default to rag
+        actual_query_type = "rag"  
+
+        # Check if response has metadata
+        if (hasattr(query_response, 'query_type')):
+            actual_query_type = query_response.query_type
+            is_general_query  = (actual_query_type == "general")
+
+        elif (hasattr(query_response, 'is_general_query')):
+            is_general_query  = query_response.is_general_query
+            actual_query_type = "general" if is_general_query else "rag"
+
+        else:
+            # Method 2: Check sources (fallback)
+            has_sources       = query_response.sources and len(query_response.sources) > 0
+            is_general_query  = not has_sources
+            actual_query_type = "general" if is_general_query else "rag"
         
+        logger.debug(f"Query classification: actual_query_type={actual_query_type}, has_sources={query_response.sources and len(query_response.sources) > 0}")
+    
         # Extract contexts for RAGAS evaluation (only if RAG was used)
-        contexts       = list()
+        contexts          = list()
 
         if query_response.sources:
             contexts = [chunk.chunk.text for chunk in query_response.sources]
         
-        # Run RAGAS evaluation (only if RAGAS enabled AND we have contexts)
+        # Run RAGAS evaluation (only if RAGAS enabled)
         ragas_result   = None
 
-        if (settings.ENABLE_RAGAS and state.ragas_evaluator and contexts):
+        if (settings.ENABLE_RAGAS and state.ragas_evaluator):
             try:
                 logger.info("Running RAGAS evaluation...")
                 
@@ -1146,9 +1170,10 @@ async def chat(request: ChatRequest):
                                                                      generation_time_ms = int(query_response.generation_time_ms),
                                                                      total_time_ms      = int(query_response.total_time_ms),
                                                                      chunks_retrieved   = len(query_response.sources),
+                                                                     query_type         = actual_query_type,
                                                                     )
                 
-                logger.info(f"RAGAS evaluation complete: relevancy={ragas_result.answer_relevancy:.3f}, faithfulness={ragas_result.faithfulness:.3f}, overall={ragas_result.overall_score:.3f}")
+                logger.info(f"RAGAS evaluation complete: type={actual_query_type.upper()}, relevancy={ragas_result.answer_relevancy:.3f}, faithfulness={ragas_result.faithfulness:.3f}, overall={ragas_result.overall_score:.3f}")
             
             except Exception as e:
                 logger.error(f"RAGAS evaluation failed: {e}", exc_info = True)
@@ -1177,7 +1202,7 @@ async def chat(request: ChatRequest):
             session_id = f"session_{datetime.now().timestamp()}"
         
         # Determine query type for response metadata
-        is_general_query = (len(sources) == 0)
+        is_general_query = (actual_query_type == "general")
         
         # Prepare response
         response         = {"session_id"       : session_id,
@@ -1191,7 +1216,7 @@ async def chat(request: ChatRequest):
                                                   "chunks_used"       : len(sources),
                                                   "tokens_used"       : query_response.tokens_used.get("total", 0) if query_response.tokens_used else 0,
                                                   "actual_total_time" : int(total_time),
-                                                  "query_type"        : "general" if is_general_query else "rag",
+                                                  "query_type"        : actual_query_type,
                                                   "llm_classified"    : True,  # Now using LLM for classification
                                                  },
                            }
@@ -1206,6 +1231,7 @@ async def chat(request: ChatRequest):
                                          "context_recall"     : round(ragas_result.context_recall, 3) if ragas_result.context_recall else None,
                                          "answer_similarity"  : round(ragas_result.answer_similarity, 3) if ragas_result.answer_similarity else None,
                                          "answer_correctness" : round(ragas_result.answer_correctness, 3) if ragas_result.answer_correctness else None,
+                                         "query_type"         : ragas_result.query_type, 
                                         }
         else:
             response["ragas_metrics"] = None
@@ -1226,7 +1252,7 @@ async def chat(request: ChatRequest):
         # Clear analytics cache when new data is available
         state.analytics_cache.data = None
         
-        logger.info(f"Chat response generated successfully in {int(total_time)}ms | (type: {'general' if is_general_query else 'RAG'})")
+        logger.info(f"Chat response generated successfully in {int(total_time)}ms | (type: {actual_query_type.upper()})")
         
         return response
         
