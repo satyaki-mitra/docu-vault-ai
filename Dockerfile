@@ -9,12 +9,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     git \
-<<<<<<< HEAD
-    libglx0 \
-    libgl1\
-=======
     libgl1-mesa-glx \
->>>>>>> ed380fc6a1e1412a0795dce69482344521e14120
     libglib2.0-0 \
     libsm6 \
     libxext6 \
@@ -38,27 +33,8 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p data/uploads data/vector_store data/backups logs
 
-# Expose port
-EXPOSE 8000
+# Expose port 
+EXPOSE 7860
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-# Start Ollama in background\n\
-ollama serve &\n\
-OLLAMA_PID=$!\n\
-\n\
-# Wait for Ollama to be ready\n\
-echo "Waiting for Ollama to start..."\n\
-sleep 5\n\
-\n\
-# Pull the model\n\
-echo "Pulling Mistral model..."\n\
-ollama pull mistral:7b\n\
-\n\
-# Start the FastAPI application\n\
-echo "Starting FastAPI application..."\n\
-uvicorn app:app --host 0.0.0.0 --port 8000\n\
-' > /app/start.sh && chmod +x /app/start.sh
-
-# Run the startup script
-CMD ["/app/start.sh"]
+# Start FastAPI app
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
