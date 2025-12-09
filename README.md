@@ -712,7 +712,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 📞 Author
+## 👤 Author
 
 Satyaki Mitra | Data Scientist | Gen-AI Enthusiast
 
