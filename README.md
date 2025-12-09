@@ -39,7 +39,6 @@ A production-ready Retrieval-Augmented Generation (RAG) system that enables orga
 - [API Documentation](#-api-documentation)
 - [Configuration](#-configuration)
 - [RAGAS Evaluation](#-ragas-evaluation)
-- [Performance Benchmarks](#-performance-benchmarks)
 - [Troubleshooting](#-troubleshooting)
 - [License](#-license)
 
@@ -638,38 +637,6 @@ Performance:
 ├─ Generation Time: 3100ms
 └─ Total Time: 3345ms
 ```
-
----
-
-## 📊 Performance Benchmarks
-
-### **Processing Speed**
-
-| Document Size | Processing Time | Chunks Created | Memory Used |
-|--------------|----------------|----------------|-------------|
-| 10 pages | 15-20 seconds | 20-30 | 500 MB |
-| 100 pages | 2-3 minutes | 200-250 | 1.5 GB |
-| 1000 pages | 20-25 minutes | 2000-2500 | 4 GB |
-
-### **Query Performance**
-
-| Operation | Time (p50) | Time (p95) |
-|-----------|-----------|-----------|
-| Vector Search | 50 ms | 120 ms |
-| BM25 Search | 30 ms | 80 ms |
-| Hybrid Retrieval | 80 ms | 200 ms |
-| Reranking | 150 ms | 300 ms |
-| LLM Generation | 3-5 seconds | 8-10 seconds |
-| RAGAS Evaluation | 500-1000 ms | 2-3 seconds |
-| **Total Query** | **4-6 seconds** | **10-13 seconds** |
-
-### **Accuracy Metrics (Tested on MS MARCO)**
-
-| Metric | Vector Only | BM25 Only | Hybrid | Hybrid + Reranking |
-|--------|------------|-----------|--------|-------------------|
-| MRR@10 | 0.32 | 0.28 | 0.38 | **0.45** |
-| Recall@10 | 0.68 | 0.62 | 0.79 | **0.85** |
-| Precision@5 | 0.54 | 0.48 | 0.61 | **0.72** |
 
 ---
 
