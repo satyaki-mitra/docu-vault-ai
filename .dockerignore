@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+
+# Data directories (will be created fresh)
+data/
+*.db
+*.faiss
+*.pkl
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+test*.py
+
+# Documentation
+docs/
+README.md
+LICENSE
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Notebooks
+notebooks/
+*.ipynb
+
+# Build artifacts
+build/
+dist/
