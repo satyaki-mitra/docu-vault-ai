@@ -9,8 +9,12 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     git \
+<<<<<<< HEAD
     libglx0 \
     libgl1\
+=======
+    libgl1-mesa-glx \
+>>>>>>> ed380fc6a1e1412a0795dce69482344521e14120
     libglib2.0-0 \
     libsm6 \
     libxext6 \
