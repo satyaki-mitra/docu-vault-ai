@@ -1136,6 +1136,27 @@
             constructor() {
                 this.baseURL = 'http://localhost:8000'; // Backend server URL
             }
+            
+            async cleanupSession(sessionId) {
+                try {
+                    const response = await fetch(`${this.baseURL}/api/cleanup/session/${sessionId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Cleanup failed: ${response.statusText}`);
+                    }
+                    
+                    return await response.json();
+                    
+                } catch (error) {
+                    console.error('Session cleanup error:', error);
+                    throw error;
+                }
+            }
 
             async uploadFiles(files) {
                 const formData = new FormData();
@@ -1332,6 +1353,11 @@
         let currentSessionId = null;
         let systemReady = false;
         let processingInterval = null;
+       
+        // Add cleanup tracking
+        let cleanupSent = false;
+        let heartbeatInterval = null;
+
 
         // Landing page functions
         function showTab(tabName) {
@@ -1360,6 +1386,21 @@
         }
 
         function backToHome() {
+            // Clean up current session before leaving
+            if (currentSessionId) {
+                try {
+                    apiService.cleanupSession(currentSessionId)
+                        .then(() => console.log('Session cleaned up on home navigation'))
+                        .catch(err => console.error('Session cleanup failed:', err));
+                } catch (error) {
+                    console.log('Session cleanup error:', error);
+                }
+                
+                // Stop heartbeat
+                stopSessionHeartbeat();
+                cleanupSent = false;
+            }
+
             document.getElementById('main-app').classList.add('hidden');
             document.getElementById('landing-page').classList.remove('hidden');
             
@@ -1371,6 +1412,7 @@
             // Clear file list
             document.getElementById('file-list').innerHTML = '<p class="text-center text-gray-500 py-4">No files uploaded yet</p>';
             updateProcessButton();
+            console.log('Returned to home page');
         }
 
         // Main app functions
@@ -1378,6 +1420,37 @@
             setupEventListeners();
             await checkSystemStatus();
             startStatusPolling();
+        }
+
+        function startSessionHeartbeat() {
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+            }
+            
+            // Only start heartbeat if we have a session
+            if (!currentSessionId) {
+                return;
+            }
+            
+            heartbeatInterval = setInterval(() => {
+                if (currentSessionId) {
+                    // Simple ping to keep session alive (optional)
+                    fetch(`${apiService.baseURL}/api/health`)
+                        .catch(() => {
+                            // Silently fail - it's just a heartbeat
+                        });
+                }
+            }, 30000); // Every 30 seconds
+            
+            console.log('Session heartbeat started');
+        }
+
+        function stopSessionHeartbeat() {
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+                console.log('Session heartbeat stopped');
+            }
         }
 
         function setupEventListeners() {
@@ -1837,6 +1910,7 @@
                 if (!currentSessionId) {
                     currentSessionId = response.session_id;
                     console.log('New session ID:', currentSessionId);
+                    startSessionHeartbeat();
                 }
                 
                 // Add AI response
@@ -2049,10 +2123,22 @@
         }
 
         function clearChat() {
-            if (confirm('Clear all chat messages?')) {
+            if (confirm('Clear all chat messages and reset session?')) {
                 const chatMessages = document.getElementById('chat-messages');
                 chatMessages.innerHTML = '';
                 addWelcomeMessage();
+                
+                // Also cleanup the session on backend
+                if (currentSessionId) {
+                    apiService.cleanupSession(currentSessionId)
+                        .then(() => {
+                            console.log('Session cleaned up after chat clear');
+                            currentSessionId = null;
+                            cleanupSent = false;
+                            stopSessionHeartbeat();
+                        })
+                        .catch(err => console.error('Session cleanup failed:', err));
+                }
             }
         }
 
@@ -2390,7 +2476,55 @@
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Set active tab
+            
+            // SESSION CLEANUP ON PAGE UNLOAD
+            window.addEventListener('beforeunload', function(e) {
+                // Only cleanup if we have an active session and haven't sent cleanup yet
+                if (!cleanupSent && currentSessionId) {
+                    cleanupSent = true;
+                    
+                    try {
+                        // Use sendBeacon for reliability (works even during page close)
+                        const data = JSON.stringify({ 
+                            session_id: currentSessionId,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        const blob = new Blob([data], { type: 'application/json' });
+                        
+                        // Send cleanup request
+                        navigator.sendBeacon(
+                            `${apiService.baseURL}/api/cleanup/session/${currentSessionId}`,
+                            blob
+                        );
+                        
+                        console.log('✅ Session cleanup sent via sendBeacon');
+                        
+                    } catch (error) {
+                        console.log('❌ Session cleanup failed:', error);
+                        
+                        // Fallback: try regular fetch (might not work on page close)
+                        try {
+                            apiService.cleanupSession(currentSessionId)
+                                .then(() => console.log('✅ Fallback cleanup succeeded'))
+                                .catch(err => console.log('❌ Fallback cleanup failed:', err));
+                        } catch (fetchError) {
+                            console.log('❌ Both cleanup methods failed');
+                        }
+                    }
+                    
+                    // Stop heartbeat
+                    stopSessionHeartbeat();
+                }
+            });
+
+            // Also cleanup when page becomes hidden (tab switch, minimize)
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'hidden') {
+                    // Page is now hidden (user switched tabs or minimized)
+                    console.log('Page hidden - session may become inactive');
+                }
+            });
             showTab('features');
         });
     </script>

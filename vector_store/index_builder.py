@@ -141,7 +141,7 @@ class IndexBuilder:
         --------
                { np.ndarray } : Embeddings matrix
         """
-        embeddings = []
+        embeddings = list()
         
         for chunk in chunks:
             if (chunk.embedding is not None):
@@ -212,11 +212,10 @@ class IndexBuilder:
         faiss_optimization = self.faiss_manager.optimize_index()
         bm25_optimization  = self.bm25_index.optimize_index()
         
-        optimization_stats = {
-            "faiss"   : faiss_optimization,
-            "bm25"    : bm25_optimization,
-            "message" : "Index optimization completed",
-        }
+        optimization_stats = {"faiss"   : faiss_optimization,
+                              "bm25"    : bm25_optimization,
+                              "message" : "Index optimization completed",
+                             }
         
         return optimization_stats
     
@@ -246,25 +245,16 @@ class IndexBuilder:
         bm25_size     = self.bm25_index.get_index_size()
         metadata_size = self.metadata_store.get_size()
         
-        total_memory = (
-            faiss_size.get("memory_mb", 0) + 
-            bm25_size.get("memory_mb", 0) + 
-            metadata_size.get("memory_mb", 0)
-        )
+        total_memory = (faiss_size.get("memory_mb", 0) + bm25_size.get("memory_mb", 0) + metadata_size.get("memory_mb", 0))
         
-        total_disk = (
-            faiss_size.get("disk_mb", 0) + 
-            bm25_size.get("disk_mb", 0) + 
-            metadata_size.get("disk_mb", 0)
-        )
+        total_disk   = (faiss_size.get("disk_mb", 0) + bm25_size.get("disk_mb", 0) + metadata_size.get("disk_mb", 0))
         
-        return {
-            "total_memory_mb" : total_memory,
-            "total_disk_mb"   : total_disk,
-            "faiss"           : faiss_size,
-            "bm25"            : bm25_size,
-            "metadata"        : metadata_size,
-        }
+        return {"total_memory_mb" : total_memory,
+                "total_disk_mb"   : total_disk,
+                "faiss"           : faiss_size,
+                "bm25"            : bm25_size,
+                "metadata"        : metadata_size,
+               }
 
 
 # Global index builder instance
@@ -298,6 +288,7 @@ def build_indexes(chunks: List[DocumentChunk], **kwargs) -> dict:
     Arguments:
     ----------
         chunks { list } : List of DocumentChunk objects
+
         **kwargs        : Additional arguments
     
     Returns:

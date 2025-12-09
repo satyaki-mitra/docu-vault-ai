@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 class BaseChunker(ABC):
     """
-    Abstract base class for all chunking strategies : Implements Template Method pattern for consistent chunking pipeline
+    Abstract base class for all chunking strategies: Implements Template Method pattern for consistent chunking pipeline
     """
     def __init__(self, strategy_name: ChunkingStrategy):
         """
@@ -26,7 +26,7 @@ class BaseChunker(ABC):
         
         Arguments:
         ----------
-            strategy_name { str } : Name of the chunking strategy
+            strategy_name { ChunkingStrategy } : Chunking strategy enum
         """
         self.strategy_name = strategy_name
         self.logger        = logger
@@ -35,17 +35,17 @@ class BaseChunker(ABC):
     @abstractmethod
     def chunk_text(self, text: str, metadata: Optional[DocumentMetadata] = None) -> List[DocumentChunk]:
         """
-        Chunk text into smaller pieces : must be implemented by subclasses
+        Chunk text into smaller pieces - must be implemented by subclasses
         
         Arguments:
         ----------
-            text            { str }       : Input text to chunk
+            text     { str }                : Input text to chunk
 
-            metadata { DocumentMetaData } : Document metadata
+            metadata { DocumentMetadata }   : Document metadata
         
         Returns:
         --------
-                      { list }            : List of DocumentChunk objects
+                     { list }               : List of DocumentChunk objects
         """
         pass
 
@@ -56,17 +56,16 @@ class BaseChunker(ABC):
         
         Arguments:
         ----------
-            text            { str }       : Document text
+            text     { str }                : Document text
 
-            metadata { DocumentMetaData } : Document metadata
-        
+            metadata { DocumentMetadata }   : Document metadata
         
         Returns:
         --------
-                       { list }           : List of DocumentChunk objects with metadata
+                     { list }               : List of DocumentChunk objects with metadata
         """
         try:
-            self.logger.info(f"Chunking document {metadata.document_id} using {self.strategy_name}")
+            self.logger.info(f"Chunking document {metadata.document_id} using {self.strategy_name.value}")
             
             # Validate input
             if not text or not text.strip():
@@ -74,7 +73,7 @@ class BaseChunker(ABC):
                 return []
             
             # Perform chunking
-            chunks                     = self.chunk_text(text     = text, 
+            chunks                     = self.chunk_text(text     = text,
                                                          metadata = metadata,
                                                         )
             
@@ -103,7 +102,7 @@ class BaseChunker(ABC):
         Arguments:
         ----------
             text          { str }  : Chunk text
-            
+
             chunk_index   { int }  : Index of chunk in document
             
             document_id   { str }  : Parent document ID
@@ -114,7 +113,7 @@ class BaseChunker(ABC):
             
             page_number   { int }  : Page number (if applicable)
             
-            section_title { str }  : Section heading (if applicable)
+            section_title { str }  : Section heading (CRITICAL for retrieval)
             
             metadata      { dict } : Additional metadata
         
@@ -128,7 +127,7 @@ class BaseChunker(ABC):
         # Count tokens
         token_count = count_tokens(text)
         
-        # Create chunk
+        # Create chunk with section context
         chunk       = DocumentChunk(chunk_id      = chunk_id,
                                     document_id   = document_id,
                                     text          = text,
@@ -136,7 +135,7 @@ class BaseChunker(ABC):
                                     start_char    = start_char,
                                     end_char      = end_char,
                                     page_number   = page_number,
-                                    section_title = section_title,
+                                    section_title = section_title,  
                                     token_count   = token_count,
                                     metadata      = metadata or {},
                                    )
@@ -147,16 +146,6 @@ class BaseChunker(ABC):
     def _extract_page_number(self, text: str, full_text: str) -> Optional[int]:
         """
         Try to extract page number from text: Looks for [PAGE N] markers inserted during parsing
-        
-        Arguments:
-        ----------
-            text      { str } : Chunk text
-
-            full_text { str } : Full document text
-        
-        Returns:
-        --------
-                 { int }      : Page number or None
         """
         # Look for page markers in current chunk
         page_match = re.search(r'\[PAGE (\d+)\]', text)
@@ -166,14 +155,12 @@ class BaseChunker(ABC):
         
         # Alternative: try to determine from position in full text
         if full_text:
-            # Find the chunk's approximate position
             chunk_start = full_text.find(text[:min(200, len(text))])
             
             if (chunk_start >= 0):
-                # Count page markers before this position
                 text_before  = full_text[:chunk_start]
                 page_matches = re.findall(r'\[PAGE (\d+)\]', text_before)
-
+                
                 if page_matches:
                     return int(page_matches[-1])
         
@@ -230,7 +217,7 @@ class BaseChunker(ABC):
         # Check chunk indices are sequential
         indices          = [chunk.chunk_index for chunk in chunks]
         expected_indices = list(range(len(chunks)))
-
+        
         if (indices != expected_indices):
             self.logger.warning(f"Non-sequential chunk indices: {indices}")
         
@@ -245,6 +232,12 @@ class BaseChunker(ABC):
         
         if zero_token_chunks:
             self.logger.warning(f"Zero-token chunks at indices: {zero_token_chunks}")
+        
+        # NEW: Check section_title preservation (important for structured documents)
+        chunks_with_sections = [c for c in chunks if c.section_title]
+
+        if chunks_with_sections:
+            self.logger.info(f"{len(chunks_with_sections)}/{len(chunks)} chunks have section titles preserved")
         
         return True
 
@@ -269,32 +262,36 @@ class BaseChunker(ABC):
                     "max_tokens"           : 0,
                     "total_chars"          : 0,
                     "avg_chars_per_chunk"  : 0,
+                    "chunks_with_sections" : 0,
                    }
+            
+        token_counts         = [c.token_count for c in chunks]
+        char_counts          = [len(c.text) for c in chunks]
+        chunks_with_sections = sum(1 for c in chunks if c.section_title)
         
-        token_counts = [c.token_count for c in chunks]
-        char_counts  = [len(c.text) for c in chunks]
-        
-        stats        = {"num_chunks"           : len(chunks),
-                        "total_tokens"         : sum(token_counts),
-                        "avg_tokens_per_chunk" : sum(token_counts) / len(chunks),
-                        "min_tokens"           : min(token_counts),
-                        "max_tokens"           : max(token_counts),
-                        "total_chars"          : sum(char_counts),
-                        "avg_chars_per_chunk"  : sum(char_counts) / len(chunks),
-                        "strategy"             : self.strategy_name.value,
-                       }
+        stats                = {"num_chunks"           : len(chunks),
+                                "total_tokens"         : sum(token_counts),
+                                "avg_tokens_per_chunk" : sum(token_counts) / len(chunks),
+                                "min_tokens"           : min(token_counts),
+                                "max_tokens"           : max(token_counts),
+                                "total_chars"          : sum(char_counts),
+                                "avg_chars_per_chunk"  : sum(char_counts) / len(chunks),
+                                "strategy"             : self.strategy_name.value,
+                                "chunks_with_sections" : chunks_with_sections,
+                                "section_coverage_pct" : (chunks_with_sections / len(chunks)) * 100,
+                               }
         
         return stats
 
     
     def merge_chunks(self, chunks: List[DocumentChunk], max_tokens: int) -> List[DocumentChunk]:
         """
-        Merge small chunks up to max_tokens: useful for optimizing chunk sizes
+        Merge small chunks up to max_tokens: Useful for optimizing chunk sizes
         
         Arguments:
         ----------
             chunks     { list } : List of chunks to merge
-            
+
             max_tokens { int }  : Maximum tokens per merged chunk
         
         Returns:
@@ -305,20 +302,19 @@ class BaseChunker(ABC):
             return []
         
         merged         = list()
-        current_chunks = list()  # Track original chunks for position data
+        current_chunks = list()
         current_tokens = 0
         document_id    = chunks[0].document_id
         
         for chunk in chunks:
-            if (current_tokens + chunk.token_count) <= max_tokens:
+            if ((current_tokens + chunk.token_count) <= max_tokens):
                 current_chunks.append(chunk)
                 current_tokens += chunk.token_count
-            
+
             else:
                 # Save current merged chunk
                 if current_chunks:
                     merged_text  = " ".join(c.text for c in current_chunks)
-                    # Preserve position from first chunk
                     merged_chunk = self._create_chunk(text          = merged_text,
                                                       chunk_index   = len(merged),
                                                       document_id   = document_id,
@@ -355,7 +351,7 @@ class BaseChunker(ABC):
         """
         String representation
         """
-        return f"{self.__class__.__name__}(strategy={self.strategy_name})"
+        return f"{self.__class__.__name__}(strategy={self.strategy_name.value})"
     
 
     def __repr__(self) -> str:
@@ -365,9 +361,10 @@ class BaseChunker(ABC):
         return self.__str__()
 
 
+
 class ChunkerConfig:
     """
-    Configuration for chunking strategies : Provides a way to pass parameters to chunkers
+    Configuration for chunking strategies: Provides a way to pass parameters to chunkers
     """
     def __init__(self, chunk_size: int = 512, overlap: int = 50, respect_boundaries: bool = True, min_chunk_size: int = 100, **kwargs):
         """
@@ -375,15 +372,15 @@ class ChunkerConfig:
         
         Arguments:
         ----------
-            chunk_size          { int }  : Target chunk size in tokens
+            chunk_size         { int }  : Target chunk size in tokens
 
-            overlap             { int }  : Overlap between chunks in tokens
+            overlap            { int }  : Overlap between chunks in tokens
             
-            respect_boundaries  { bool } : Respect sentence/paragraph boundaries
+            respect_boundaries { bool } : Respect sentence/paragraph/section boundaries
             
-            min_chunk_size      { int }  : Minimum chunk size in tokens
+            min_chunk_size     { int }  : Minimum chunk size in tokens
             
-            **kwargs                     : Additional strategy-specific parameters
+            **kwargs                    : Additional strategy-specific parameters
         """
         self.chunk_size         = chunk_size
         self.overlap            = overlap
