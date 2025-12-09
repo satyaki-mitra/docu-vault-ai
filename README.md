@@ -714,7 +714,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👤 Author
 
-Satyaki Mitra | Data Scientist | Gen-AI Enthusiast
+Satyaki Mitra | Data Scientist | Generative-AI Enthusiast
 
 ---
 
