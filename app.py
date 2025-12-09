@@ -1,12 +1,20 @@
 # DEPENDENCIES
 import os
+import gc
 import io
 import csv
 import json
 import time
+import signal
+import atexit
+import shutil
+import asyncio
 import logging
 import uvicorn
+import tempfile
 import traceback
+import threading
+from typing import Set
 from typing import Any
 from typing import List
 from typing import Dict
@@ -14,6 +22,8 @@ from pathlib import Path
 from typing import Tuple
 from fastapi import File
 from fastapi import Form
+from signal import SIGINT
+from signal import SIGTERM
 from pydantic import Field
 from fastapi import FastAPI
 from typing import Optional
@@ -44,6 +54,7 @@ from config.models import RAGASEvaluationResult
 from config.logging_config import setup_logging
 from generation.llm_client import get_llm_client
 from embeddings.bge_embedder import get_embedder
+from concurrent.futures import ThreadPoolExecutor
 from ingestion.router import get_ingestion_router
 from utils.validators import validate_upload_file
 from fastapi.middleware.cors import CORSMiddleware
@@ -69,6 +80,15 @@ logger   = setup_logging(log_level      = settings.LOG_LEVEL,
                          enable_console = True,
                          enable_file    = True,
                         )
+
+
+# Global Cleanup Variables 
+_cleanup_registry : Set[str] = set()
+_cleanup_lock                = threading.RLock()
+_is_cleaning                 = False
+_cleanup_executor            = ThreadPoolExecutor(max_workers        = 2, 
+                                                  thread_name_prefix = "cleanup_",
+                                                 )
 
 
 # Analytics Cache Structure
@@ -109,6 +129,353 @@ class AnalyticsCache:
         """
         return self.data if self.is_valid() else None
 
+
+class CleanupManager:
+    """
+    Centralized cleanup manager with multiple redundancy layers
+    """
+    @staticmethod
+    def register_resource(resource_id: str, cleanup_func, *args, **kwargs):
+        """
+        Register a resource for cleanup
+        """
+        with _cleanup_lock:
+            _cleanup_registry.add(resource_id)
+        
+        # Register with atexit for process termination
+        atexit.register(cleanup_func, *args, **kwargs)
+        
+        return resource_id
+    
+
+    @staticmethod
+    def unregister_resource(resource_id: str):
+        """
+        Unregister a resource (if already cleaned up elsewhere)
+        """
+        with _cleanup_lock:
+            if resource_id in _cleanup_registry:
+                _cleanup_registry.remove(resource_id)
+    
+
+    @staticmethod
+    async def full_cleanup(state: Optional['AppState'] = None) -> bool:
+        """
+        Perform full system cleanup with redundancy
+        """
+        global _is_cleaning
+        
+        with _cleanup_lock:
+            if _is_cleaning:
+                logger.warning("Cleanup already in progress")
+                return False
+            
+            _is_cleaning = True
+        
+        try:
+            logger.info("Starting comprehensive system cleanup...")
+            
+            # Layer 1: Memory cleanup
+            success1 = await CleanupManager._cleanup_memory(state)
+            
+            # Layer 2: Disk cleanup (async to not block)
+            success2 = await CleanupManager._cleanup_disk_async()
+            
+            # Layer 3: Component cleanup
+            success3 = await CleanupManager._cleanup_components(state)
+            
+            # Layer 4: External resources
+            success4 = CleanupManager._cleanup_external_resources()
+            
+            # Clear registry
+            with _cleanup_lock:
+                _cleanup_registry.clear()
+            
+            overall_success = all([success1, success2, success3, success4])
+            
+            if overall_success:
+                logger.info("Comprehensive cleanup completed successfully")
+            
+            else:
+                logger.warning("Cleanup completed with some failures")
+            
+            return overall_success
+            
+        except Exception as e:
+            logger.error(f"Cleanup failed catastrophically: {e}", exc_info=True)
+            return False
+        
+        finally:
+            with _cleanup_lock:
+                _is_cleaning = False
+    
+    @staticmethod
+    async def _cleanup_memory(state: Optional['AppState']) -> bool:
+        """
+        Memory cleanup
+        """
+        try:
+            if not state:
+                logger.warning("No AppState provided for memory cleanup")
+                return True
+            
+            # Session cleanup
+            session_count = len(state.active_sessions)
+            state.active_sessions.clear()
+            state.config_overrides.clear()
+            logger.info(f"Cleared {session_count} sessions from memory")
+            
+            # Document data cleanup
+            doc_count   = len(state.processed_documents)
+            chunk_count = sum(len(chunks) for chunks in state.document_chunks.values())
+
+            state.processed_documents.clear()
+            state.document_chunks.clear()
+            state.uploaded_files.clear()
+            logger.info(f"Cleared {doc_count} documents ({chunk_count} chunks) from memory")
+            
+            # Performance data cleanup
+            state.query_timings.clear()
+            state.chunking_statistics.clear()
+            
+            # State reset
+            state.is_ready          = False
+            state.processing_status = "idle"
+            
+            # Cache cleanup
+            if hasattr(state, 'analytics_cache'):
+                state.analytics_cache.data = None
+            
+            # Force garbage collection
+            collected = gc.collect()
+            logger.debug(f"🧹 Garbage collection freed {collected} objects")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Memory cleanup failed: {e}")
+            return False
+    
+    @staticmethod
+    async def _cleanup_disk_async() -> bool:
+        """
+        Asynchronous disk cleanup
+        """
+        try:
+            # Run in thread pool to avoid blocking
+            loop    = asyncio.get_event_loop()
+            success = await loop.run_in_executor(_cleanup_executor, CleanupManager._cleanup_disk_sync)
+
+            return success
+
+        except Exception as e:
+            logger.error(f"Async disk cleanup failed: {e}")
+            return False
+    
+
+    @staticmethod
+    def _cleanup_disk_sync() -> bool:
+        """
+        Synchronous disk cleanup
+        """
+        try:
+            logger.info("Starting disk cleanup...")
+            
+            # Track what we clean
+            cleaned_paths = list()
+            
+            # Vector store directory
+            if settings.VECTOR_STORE_DIR.exists():
+                vector_files = list(settings.VECTOR_STORE_DIR.glob("*"))
+                for file in vector_files:
+                    try:
+                        if file.is_file():
+                            file.unlink()
+                            cleaned_paths.append(str(file))
+                        
+                        elif file.is_dir():
+                            shutil.rmtree(file)
+                            cleaned_paths.append(str(file))
+                    
+                    except Exception as e:
+                        logger.warning(f"Failed to delete {file}: {e}")
+                
+                logger.info(f"Cleaned {len(cleaned_paths)} vector store files")
+            
+            # Upload directory (preserve directory structure)
+            if settings.UPLOAD_DIR.exists():
+                upload_files = list(settings.UPLOAD_DIR.glob("*"))
+                for file in upload_files:
+                    try:
+                        if file.is_file():
+                            file.unlink()
+                            cleaned_paths.append(str(file))
+                        
+                        elif file.is_dir():
+                            shutil.rmtree(file)
+                            cleaned_paths.append(str(file))
+                    
+                    except Exception as e:
+                        logger.warning(f"Failed to delete {file}: {e}")
+                
+                # Recreate empty directory
+                settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Cleaned {len(upload_files)} uploaded files")
+            
+            # Metadata database
+            metadata_path = Path(settings.METADATA_DB_PATH)
+            if metadata_path.exists():
+                try:
+                    metadata_path.unlink(missing_ok=True)
+                    cleaned_paths.append(str(metadata_path))
+                    logger.info("Cleaned metadata database")
+                
+                except Exception as e:
+                    logger.warning(f"Failed to delete metadata DB: {e}")
+            
+            # Backup directory
+            if settings.BACKUP_DIR.exists():
+                backup_files = list(settings.BACKUP_DIR.glob("*"))
+                for file in backup_files:
+                    try:
+                        if file.is_file():
+                            file.unlink()
+                        
+                        elif file.is_dir():
+                            shutil.rmtree(file)
+                    
+                    except:
+                        pass  # Silently fail for backups
+                logger.info(f"Cleaned {len(backup_files)} backup files")
+            
+            # Temp files cleanup
+            CleanupManager._cleanup_temp_files()
+            
+            logger.info(f"Disk cleanup completed: {len(cleaned_paths)} items cleaned")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Disk cleanup failed: {e}")
+            return False
+    
+
+    @staticmethod
+    def _cleanup_temp_files():
+        """
+        Clean up temporary files
+        """
+        temp_dir = tempfile.gettempdir()
+        
+        # Clean our specific temp files (if any)
+        for pattern in ["rag_*", "faiss_*", "embedding_*"]:
+            for file in Path(temp_dir).glob(pattern):
+                try:
+                    file.unlink(missing_ok=True)
+                except:
+                    pass
+    
+
+    @staticmethod
+    async def _cleanup_components(state: Optional['AppState']) -> bool:
+        """
+        Component-specific cleanup
+        """
+        try:
+            if not state:
+                return True
+            
+            components_cleaned = 0
+            
+            # Vector store components
+            if state.index_builder:
+                try:
+                    state.index_builder.clear_indexes()
+                    components_cleaned += 1
+                
+                except Exception as e:
+                    logger.warning(f"Index builder cleanup failed: {e}")
+            
+            if state.metadata_store and hasattr(state.metadata_store, 'clear_all'):
+                try:
+                    state.metadata_store.clear_all()
+                    components_cleaned += 1
+                
+                except Exception as e:
+                    logger.warning(f"Metadata store cleanup failed: {e}")
+            
+            # RAGAS evaluator
+            if state.ragas_evaluator and hasattr(state.ragas_evaluator, 'clear_history'):
+                try:
+                    state.ragas_evaluator.clear_history()
+                    components_cleaned += 1
+                
+                except Exception as e:
+                    logger.warning(f"RAGAS evaluator cleanup failed: {e}")
+            
+            logger.info(f"Cleaned {components_cleaned} components")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Component cleanup failed: {e}")
+            return False
+    
+
+    @staticmethod
+    def _cleanup_external_resources() -> bool:
+        """
+        External resource cleanup
+        """
+        try:
+            # Close database connections
+            CleanupManager._close_db_connections()
+            
+            # Clean up thread pool
+            _cleanup_executor.shutdown(wait = False)
+            
+            logger.info("External resources cleaned")
+            return True
+            
+        except Exception as e:
+            logger.error(f"External resource cleanup failed: {e}")
+            return False
+    
+
+    @staticmethod
+    def _close_db_connections():
+        """
+        Close any open database connections
+        """
+        try:
+            # SQLite handles this automatically in most cases
+            pass
+        except:
+            pass
+
+    
+    @staticmethod
+    def handle_signal(signum, frame):
+        """
+        Signal handler for graceful shutdown
+        """
+        global _is_cleaning
+        
+        # If already cleaning up, don't raise KeyboardInterrupt
+        with _cleanup_lock:
+            if _is_cleaning:
+                logger.info(f"Signal {signum} received during cleanup - ignoring")
+                return
+            
+        if (signum == SIGINT):
+            logger.info("Ctrl+C received - shutdown initiated")
+            raise KeyboardInterrupt
+        
+        elif (signum == SIGTERM):
+            logger.info("SIGTERM received - shutdown initiated")
+            # Just log, not scheduling anything
+        
+        else:
+            logger.info(f"Signal {signum} received")
 
 
 # Global state manager
@@ -174,6 +541,77 @@ class AppState:
         
         # System start time
         self.start_time          = datetime.now()
+
+        # Add cleanup tracking 
+        self._cleanup_registered = False
+        self._cleanup_resources  = list()
+        
+        # Register with cleanup manager
+        self._register_for_cleanup()
+
+
+    def _register_for_cleanup(self):
+        """
+        Register this AppState instance for cleanup
+        """
+        if not self._cleanup_registered:
+            resource_id              = f"appstate_{id(self)}"
+
+            CleanupManager.register_resource(resource_id, self._emergency_cleanup)
+            self._cleanup_resources.append(resource_id)
+            
+            self._cleanup_registered = True
+    
+
+    def _emergency_cleanup(self):
+        """
+        Emergency cleanup if regular cleanup fails
+        """
+        try:
+            logger.warning("Performing emergency cleanup...")
+            
+            # Brutal but effective memory clearing
+            for attr in ['active_sessions', 'processed_documents', 'document_chunks', 'uploaded_files', 'query_timings', 'chunking_statistics']:
+                if hasattr(self, attr):
+                    getattr(self, attr).clear()
+            
+            # Nullify heavy objects
+            self.index_builder  = None
+            self.metadata_store = None
+            self.embedder       = None
+            
+            logger.warning("Emergency cleanup completed")
+        
+        except:
+            # Last resort - don't crash during emergency cleanup
+            pass  
+    
+
+    async def graceful_shutdown(self):
+        """
+        Graceful shutdown procedure
+        """
+        logger.info("Starting graceful shutdown...")
+        
+        # Notify clients (if any WebSocket connections)
+        await self._notify_clients()
+        
+        # Perform cleanup
+        await CleanupManager.full_cleanup(self)
+        
+        # Unregister from cleanup manager
+        for resource_id in self._cleanup_resources:
+            CleanupManager.unregister_resource(resource_id)
+        
+        logger.info("Graceful shutdown completed")
+    
+
+    async def _notify_clients(self):
+        """
+        Notify connected clients of shutdown
+        """
+        # Placeholder for WebSocket notifications
+        pass
     
 
     def add_query_timing(self, duration_ms: float):
@@ -442,29 +880,122 @@ class AppState:
                }
 
 
+def _setup_signal_handlers():
+    """
+    Setup signal handlers for graceful shutdown
+    """
+    try:
+        signal.signal(signal.SIGINT, CleanupManager.handle_signal)
+        signal.signal(signal.SIGTERM, CleanupManager.handle_signal)
+        logger.debug("Signal handlers registered")
+    
+    except Exception as e:
+        logger.warning(f"Failed to setup signal handlers: {e}")
+
+
+def _atexit_cleanup():
+    """
+    Atexit handler as last resort
+    """
+    logger.info("Atexit cleanup triggered")
+    
+    # Check if it's already in a cleanup process
+    with _cleanup_lock:
+        if _is_cleaning:
+            logger.info("Cleanup already in progress, skipping atexit cleanup")
+            return
+
+    try:
+        # Check if app exists
+        if (('app' in globals()) and (hasattr(app.state, 'app'))):
+            # Run cleanup in background thread
+            cleanup_thread = threading.Thread(target  = lambda: asyncio.run(CleanupManager.full_cleanup(app.state.app)),
+                                              name    = "atexit_cleanup",
+                                              daemon  = True,
+                                             )
+            cleanup_thread.start()
+            cleanup_thread.join(timeout = 5.0)
+    
+    except Exception as e:
+        logger.error(f"Atexit cleanup error: {e}")
+        # Don't crash during atexit
+
+
+async def _brute_force_cleanup_app_state(state: AppState):
+    """
+    Brute force AppState cleanup
+    """
+    try:
+        # Clear all collections
+        for attr_name in dir(state):
+            if not attr_name.startswith('_'):
+                attr = getattr(state, attr_name)
+                
+                if isinstance(attr, (list, dict, set)):
+                    attr.clear()
+        
+        # Nullify heavy components
+        for attr_name in ['index_builder', 'metadata_store', 'embedder', 'llm_client', 'ragas_evaluator']:
+            if hasattr(state, attr_name):
+                setattr(state, attr_name, None)
+        
+    except:
+        pass
+
 
 # Application lifespan manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Manage application startup and shutdown
+    Manage application startup and shutdown with multiple cleanup guarantees
     """
+    # Setup signal handlers FIRST
+    _setup_signal_handlers()
+    
+    # Register atexit cleanup
+    atexit.register(_atexit_cleanup)
+
     logger.info("Starting AI Universal Knowledge Ingestion System...")
     
-    # Initialize application state
-    app.state.app = AppState()
+    try:
+        # Initialize application state
+        app.state.app = AppState()
+        
+        # Initialize core components
+        await initialize_components(app.state.app)
+        
+        logger.info("Application startup complete. System ready.")
+        
+        # Yield control to FastAPI
+        yield
     
-    # Initialize core components
-    await initialize_components(app.state.app)
+    except Exception as e:
+        logger.error(f"Application runtime error: {e}", exc_info = True)
+        raise
     
-    logger.info("Application startup complete. System ready.")
+    finally:
+        # GUARANTEED cleanup (even on crash)
+        logger.info("Beginning guaranteed cleanup sequence...")
+        
+        # Set the cleaning flag
+        with _cleanup_lock:
+            _is_cleaning = True
+        
+        try:
+            # Simple cleanup
+            if (hasattr(app.state, 'app')):
+                # Just clear the state, don't run full cleanup again
+                await _brute_force_cleanup_app_state(app.state.app)
+                
+                # Clean up disk resources
+                await CleanupManager._cleanup_disk_async()
+                
+                # Shutdown the executor
+                _cleanup_executor.shutdown(wait = True)
+        
+        except Exception as e:
+            logger.error(f"Cleanup error in lifespan finally: {e}")
     
-    yield
-    
-    # Cleanup on shutdown
-    logger.info("Shutting down application...")
-    await cleanup_components(app.state.app)
-    logger.info("Application shutdown complete.")
 
 
 # Create FastAPI application
@@ -577,11 +1108,18 @@ async def cleanup_components(state: AppState):
     Cleanup components on shutdown
     """
     try:
-        logger.info("Starting cleanup...")
-        logger.info("Cleanup complete")
+        logger.info("Starting component cleanup...")
+    
+        # Use the cleanup manager
+        await CleanupManager.full_cleanup(state)
+        
+        logger.info("Component cleanup complete")
         
     except Exception as e:
-        logger.error(f"Cleanup error: {e}", exc_info = True)
+        logger.error(f"Component cleanup error: {e}", exc_info = True)
+        
+        # Last-ditch effort
+        await _brute_force_cleanup_app_state(state)
 
 
 def create_directories():
@@ -1544,16 +2082,143 @@ async def export_chat(session_id: str, format: str = "json"):
         raise HTTPException(status_code = 500, 
                             detail      = str(e),
                            )
+                           
+
+@app.post("/api/cleanup/session/{session_id}")
+async def cleanup_session(session_id: str):
+    """
+    Clean up specific session
+    """
+    state = app.state.app
+    
+    if session_id in state.active_sessions:
+        del state.active_sessions[session_id]
+        
+        if session_id in state.config_overrides:
+            del state.config_overrides[session_id]
+        
+        # Check if no sessions left
+        if not state.active_sessions:
+            logger.info("No active sessions, suggesting vector store cleanup")
+            
+            return {"success"    : True, 
+                    "message"    : f"Session {session_id} cleaned up",
+                    "suggestion" : "No active sessions remaining. Consider cleaning vector store.",
+                   }
+        
+        return {"success" : True, 
+                "message" : f"Session {session_id} cleaned up",
+               }
+    
+    return {"success" : False, 
+            "message" : "Session not found",
+           }
+
+
+@app.post("/api/cleanup/vector-store")
+async def cleanup_vector_store():
+    """
+    Manual vector store cleanup
+    """
+    state = app.state.app
+    
+    try:
+        # Use cleanup manager
+        success = await CleanupManager.full_cleanup(state)
+        
+        if success:
+            return {"success" : True, 
+                    "message" : "Vector store and all data cleaned up",
+                   }
+        
+        else:
+            return {"success" : False, 
+                    "message" : "Cleanup completed with errors",
+                   }
+            
+    except Exception as e:
+        logger.error(f"Manual cleanup error: {e}")
+        raise HTTPException(status_code = 500, 
+                            detail      = str(e),
+                           )
+
+
+@app.post("/api/cleanup/full")
+async def full_cleanup_endpoint():
+    """
+    Full system cleanup endpoint
+    """
+    state = app.state.app
+    
+    try:
+        # Also clean up frontend sessions
+        state.active_sessions.clear()
+        state.config_overrides.clear()
+        
+        # Full cleanup
+        success = await CleanupManager.full_cleanup(state)
+        
+        return {"success" : success,
+                "message" : "Full system cleanup completed",
+                "details" : {"sessions_cleaned" : 0,  # Already cleared above
+                             "memory_freed"     : "All application state",
+                             "disk_space_freed" : "All vector store and uploaded files",
+                            }
+               }
+        
+    except Exception as e:
+        logger.error(f"Full cleanup endpoint error: {e}")
+        raise HTTPException(status_code = 500, 
+                            detail      = str(e),
+                           )
+
+
+@app.get("/api/cleanup/status")
+async def get_cleanup_status():
+    """
+    Get cleanup status and statistics
+    """
+    state = app.state.app
+    
+    return {"sessions_active"       : len(state.active_sessions),
+            "documents_processed"   : len(state.processed_documents),
+            "total_chunks"          : sum(len(chunks) for chunks in state.document_chunks.values()),
+            "vector_store_ready"    : state.is_ready,
+            "cleanup_registry_size" : len(_cleanup_registry),
+            "suggested_action"      : "cleanup_vector_store" if state.is_ready else "upload_documents",
+           }
 
 
 # ============================================================================
 # MAIN ENTRY POINT
 # ============================================================================
 if __name__ == "__main__":
+    try:
+        # Run the app
+        uvicorn.run("app:app",
+                    host                      = settings.HOST,
+                    port                      = settings.PORT,
+                    reload                    = settings.DEBUG,
+                    log_level                 = "info",
+                    timeout_graceful_shutdown = 10.0,
+                    access_log                = False,
+                   )
+        
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received - normal shutdown")
     
-    uvicorn.run("app:app",
-                host      = settings.HOST,
-                port      = settings.PORT,
-                reload    = settings.DEBUG,
-                log_level = "info",
-               )
+    except Exception as e:
+        logger.error(f"Application crashed: {e}", exc_info = True)
+    
+    finally:
+        # Simple final cleanup
+        logger.info("Application stopping, final cleanup...")
+        try:
+            # Shutdown executor if it exists
+            if '_cleanup_executor' in globals():
+                _cleanup_executor.shutdown(wait = True)
+
+        except:
+            pass
+        
+        logger.info("Application stopped")

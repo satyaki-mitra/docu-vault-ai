@@ -32,27 +32,44 @@ class QueryClassifier:
         
         # Classification prompt
         self.system_prompt = """
-                                You are a query classification system. Your job is to determine if a user query requires searching through documents (RAG) or 
-                                can be answered with general knowledge.
+                                You are a query classification system for a RAG (Retrieval-Augmented Generation) system. 
+                                Your job is to determine if a user query should be answered using the user's uploaded documents.
+
+                                **IMPORTANT CONTEXT**: The user has uploaded documents to the system. All queries related to the content of those uploaded documents should use RAG.
 
                                 Classify queries into TWO categories:
 
-                                **RAG (Document-based)** - Use when:
-                                - Query explicitly mentions documents, files, PDFs, reports, or uploaded content
-                                - Query asks to find, search, extract, summarize, or analyze specific document content
-                                - Query uses phrases like "in the document", "from the file", "based on the text"
-                                - Query asks about specific data that would only be in user's documents
-                                - Query references "my document", "the report", "uploaded file"
-                                - ANY uncertainty about whether documents are needed (when in doubt, choose RAG)
+                                **RAG (Document-based)** - Use when ANY of these are true:
+                                1. Query asks about ANY content that could be in the uploaded documents
+                                2. Query asks factual questions that could be answered from document content
+                                3. Query asks for lists, summaries, or analysis of information
+                                4. Query mentions specific details, data, statistics, names, dates, or facts
+                                5. Query asks "what", "how", "list", "explain", "summarize", "compare", "analyze" about any topic
+                                6. Query could reasonably be answered by searching through documents
+                                7. **CRITICAL**: When documents are uploaded, DEFAULT TO RAG for most factual/content queries
 
-                                **GENERAL (Conversational)** - Use ONLY when:
-                                - Simple greetings (hi, hello, goodbye)
-                                - Thanks/appreciation
-                                - Questions about the system itself ("what can you do?", "who made you?")
-                                - General knowledge that doesn't need specific documents
-                                - Casual conversation
+                                **GENERAL (Conversational)** - Use ONLY when MOST of these are true:
+                                1. Query is purely conversational (greetings, thanks, casual chat)
+                                2. Query asks about the RAG system itself or its functionality
+                                3. Query asks for general knowledge that is NOT specific to uploaded documents
+                                4. Query is a meta-question about how to use the system
+                                5. Query contains NO request for factual information from documents
 
-                                IMPORTANT: If there's ANY ambiguity or the query COULD benefit from document context, classify as RAG.
+                                **EXAMPLES FOR ANY DOCUMENT TYPE**:
+                                - For business documents: "What sales channels does the company use?" → RAG
+                                - For research papers: "What were the study's findings?" → RAG
+                                - For legal documents: "What are the key clauses?" → RAG
+                                - For technical manuals: "How do I configure the system?" → RAG
+                                - For personal documents: "What dates are mentioned?" → RAG
+                                - "Hi, how are you?" → GENERAL
+                                - "How do I upload a document?" → GENERAL
+                                - "What is the capital of France?" → GENERAL (unless geography documents were uploaded)
+
+                                **KEY RULES**:
+                                1. When documents exist, assume queries are about them unless clearly not
+                                2. When in doubt, classify as RAG (safer to search than hallucinate)
+                                3. If query could be answered from document content, use RAG
+                                4. Only use GENERAL for purely conversational or system-related queries
 
                                 Respond with ONLY a JSON object (no markdown, no extra text):
                                 {
@@ -223,6 +240,8 @@ def get_query_classifier(provider: LLMProvider = None, model_name: str = None) -
     global _query_classifier
     
     if _query_classifier is None:
-        _query_classifier = QueryClassifier(provider=provider, model_name=model_name)
+        _query_classifier = QueryClassifier(provider   = provider, 
+                                            model_name = model_name,
+                                           )
     
     return _query_classifier
