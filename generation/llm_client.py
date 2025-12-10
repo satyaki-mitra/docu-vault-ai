@@ -55,13 +55,13 @@ class LLMClient:
         Initialize provider-specific configurations
         """
         # Auto-detect provider if not explicitly set
-        if (self.settings.IS_HF_SPACE and not self.settings.OLLAMA_ENABLED):
-            if (self.settings.USE_OPENAI and self.settings.OPENAI_API_KEY):
-                self.provider = LLMProvider.OPENAI
-                logger.info("HF Space detected: Using OpenAI API")
+        # if (self.settings.IS_HF_SPACE and not self.settings.OLLAMA_ENABLED):
+        #     if (self.settings.USE_OPENAI and self.settings.OPENAI_API_KEY):
+        #         self.provider = LLMProvider.OPENAI
+        #         logger.info("HF Space detected: Using OpenAI API")
             
-            else:
-                raise LLMClientError("Running in HF Space without Ollama. Set OPENAI_API_KEY in Space secrets.")
+        #     else:
+        #         raise LLMClientError("Running in HF Space without Ollama. Set OPENAI_API_KEY in Space secrets.")
         
         # Provider initialization
         if (self.provider == LLMProvider.OLLAMA):
