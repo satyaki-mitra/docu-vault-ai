@@ -51,8 +51,24 @@ class ResponseGenerator:
         """
         self.logger                 = logger
         self.settings               = get_settings()
-        self.provider               = provider or LLMProvider.OLLAMA
-        self.model_name             = model_name or self.settings.OLLAMA_MODEL
+
+        # Auto-detect provider for HF Spaces
+        if provider is None:
+            if (self.settings.IS_HF_SPACE and not self.settings.OLLAMA_ENABLED):
+                if (self.settings.USE_OPENAI and self.settings.OPENAI_API_KEY):
+                    provider   = LLMProvider.OPENAI
+                    model_name = model_name or self.settings.OPENAI_MODEL
+                    logger.info("Auto-detected: Using OpenAI")
+                
+                else:
+                    raise ValueError("No LLM provider configured for HF Space. Set OPENAI_API_KEY in Space secrets.")
+            
+            else:
+                # Local development - use Ollama
+                provider = LLMProvider.OLLAMA
+
+        self.provider               = provider 
+        self.model_name             = model_name
         
         # Initialize components
         self.llm_client             = get_llm_client(provider   = self.provider, 

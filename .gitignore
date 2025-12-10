@@ -34,9 +34,5 @@ logs/
 Thumbs.db
 
 # Test
-.pytest_cache/
-.coverage
-htmlcov/*.pdf
-*.zip
 notebooks/.ipynb_checkpoints/
 __pycache__/
