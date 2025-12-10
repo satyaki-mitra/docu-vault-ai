@@ -36,13 +36,16 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 # Copy application code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p data/uploads data/vector_store data/backups logs
+# Create directories with proper permissions
+RUN mkdir -p data/uploads data/vector_store data/backups logs && \
+    chmod -R 777 data/ logs/
 
 # Set environment variables
 ENV HOST=0.0.0.0
 ENV PORT=7860
 ENV OLLAMA_ENABLED=false
+ENV USE_OPENAI=true
+ENV LLM_PROVIDER=openai
 ENV PYTHONUNBUFFERED=1
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONPATH=/app:$PYTHONPATH

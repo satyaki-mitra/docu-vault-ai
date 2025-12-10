@@ -11,26 +11,7 @@ transformers==4.37.2
 torch==2.9.1
 tokenizers==0.15.2
 accelerate==0.24.1
-# Core Dependencies
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.12.5
-pydantic-settings==2.12.0
-python-multipart==0.0.6
 
-# AI/ML & NLP
-sentence-transformers==2.2.2
-transformers==4.37.2
-torch==2.9.1
-tokenizers==0.15.2
-accelerate==0.24.1
-
-# Vector Database & Search
-faiss-cpu==1.7.4
-rank-bm25==0.2.2
-
-# Document Processing
-PyMuPDF==1.23.8
 # Vector Database & Search
 faiss-cpu==1.7.4
 rank-bm25==0.2.2
@@ -49,30 +30,10 @@ Pillow==10.0.1
 opencv-python-headless==4.8.1.78
 
 # LLM/Indexing
-llama-index>=0.10.20
-llama-index-core>=0.10.20
-llama-index-embeddings-huggingface>=0.2.0
-llama-index-llms-openai>=0.1.11
-
-# Archive Handling
-py7zr==0.20.6
-rarfile==4.1
-python-magic==0.4.27
-
-# Text Processing & Utilities
-
-# OCR & Image Processing
-paddleocr==2.7.3
-easyocr==1.7.2
-paddlepaddle==3.2.2
-Pillow==10.0.1
-opencv-python-headless==4.8.1.78
-
-# LLM/Indexing
-llama-index>=0.10.20
-llama-index-core>=0.10.20
-llama-index-embeddings-huggingface>=0.2.0
-llama-index-llms-openai>=0.1.11
+llama-index
+llama-index-core
+llama-index-embeddings-huggingface
+llama-index-llms-openai
 
 # Archive Handling
 py7zr==0.20.6
@@ -86,20 +47,14 @@ nltk==3.8.1
 tqdm==4.66.1
 filetype==1.2.0
 sentencepiece==0.2.1
-numpy==1.24.3
-nltk==3.8.1
-tqdm==4.66.1
-filetype==1.2.0
-sentencepiece==0.2.1
 
-# Caching & Performance
 # Caching & Performance
 redis==5.0.1
 psutil==5.9.6
 
-# Ragas Evaluation Framework 
-pyarrow==14.0.2 
-datasets==2.14.6 
+# Ragas Evaluation Framework - FIX VERSIONS TO AVOID CONFLICTS
+pyarrow==14.0.2  # MUST pin this version
+datasets==2.14.6  # Compatible with pyarrow 14.0.2
 evaluate==0.4.1
 ragas==0.1.2
 
@@ -114,9 +69,6 @@ matplotlib==3.10.7
 aiofiles==23.2.1
 
 # System & Utilities
-aiofiles==23.2.1
-
-# System & Utilities
 python-dateutil==2.8.2
 typing-extensions==4.15.0
 protobuf==4.25.8
@@ -128,67 +80,7 @@ async-timeout==4.0.3
 attrs==25.4.0
 click==8.1.7
 colorlog==6.10.1
-typing-extensions==4.15.0
-protobuf==4.25.8
-
-# Additional dependencies
-aiohttp>=3.9.3
-anyio==3.7.1
-async-timeout==4.0.3
-attrs==25.4.0
-click==8.1.7
-colorlog==6.10.1
 cryptography==42.0.2
-filelock==3.20.0
-h11==0.16.0
-huggingface-hub==0.20.0
-httpx==0.25.2
-idna==3.11
-importlib-metadata==6.11.0
-joblib==1.5.2
-jsonpatch==1.33
-jsonschema==4.25.0
-langchain==0.1.7
-langchain-community==0.0.20
-langchain-core==0.1.23
-loguru==0.7.2
-lxml==5.1.0
-MarkupSafe==3.0.2
-msgpack==1.0.7
-networkx==3.4.2
-openai>=1.54.0
-orjson==3.11.4
-packaging==23.2
-pip==25.2
-platformdirs==4.5.0
-pluggy==1.6.0
-pydantic_core==2.41.5
-pygments==2.19.2
-pypdf==4.3.1
-python-dotenv==1.0.1
-PyYAML==6.0.2
-requests==2.32.5
-rich==13.7.0
-scikit-image==0.21.0
-setuptools==80.9.0
-six==1.17.0
-sniffio==1.3.0
-SQLAlchemy==2.0.27
-starlette==0.27.0
-sympy==1.14.0
-tenacity==8.5.0
-threadpoolctl==3.6.0
-tiktoken==0.5.2
-tomli==2.2.1
-torchvision==0.24.1
-typer==0.9.4
-urllib3==2.5.0
-wasabi==1.1.3
-Werkzeug==3.1.4
-wheel==0.45.1
-xxhash==3.6.0
-yarl==1.22.0
-zipp==3.23.0
 filelock==3.20.0
 h11==0.16.0
 huggingface-hub==0.20.0
