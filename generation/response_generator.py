@@ -59,7 +59,7 @@ class ResponseGenerator:
                                                      model_name = self.model_name,
                                                     )
         
-        # Query routing components (NOW USES LLM FOR CLASSIFICATION)
+        # Query routing components
         self.query_classifier       = get_query_classifier(provider   = self.provider,
                                                            model_name = self.model_name,
                                                           )

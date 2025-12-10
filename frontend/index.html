@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Universal Knowledge Ingestion System</title>
+    <title>Docu-Vault RAG</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -306,8 +306,8 @@
                                 </div>
                             </div>
                             <div>
-                                <div class="font-bold text-gray-900 text-lg">AI Knowledge</div>
-                                <div class="text-xs text-gray-500 -mt-1">Enterprise RAG Platform</div>
+                                <div class="font-bold text-gray-900 text-lg">Docu-Vault RAG</div>
+                                <div class="text-xs text-gray-500 -mt-1">Enterprise Document Ingestion RAG Platform</div>
                             </div>
                         </div>
                     </div>
@@ -330,7 +330,7 @@
                         <span class="block text-indigo-200">Silos Instantly</span>
                     </h1>
                     <p class="text-xl text-indigo-100 mb-8 max-w-3xl mx-auto leading-relaxed">
-                        Transform how your organization accesses and utilizes knowledge across documents, websites, and databases with AI-powered search.
+                        Transform how your organization accesses and utilizes knowledge across documents, folders, and archives with AI-powered search.
                     </p>
                     <div class="flex flex-col sm:flex-row justify-center gap-4">
                         <button onclick="startApp()" class="px-8 py-4 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl text-lg">
@@ -602,14 +602,14 @@
                     <div class="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-4">
                         <i class="fas fa-brain text-gray-900 text-xl"></i>
                     </div>
-                    <div class="text-2xl font-bold">AI Knowledge Platform</div>
+                    <div class="text-2xl font-bold">AI Knowledge Ingestion Platform</div>
                     <div class="text-gray-400 mt-2">Enterprise RAG System</div>
                 </div>
                 <p class="text-gray-400 mb-8 max-w-4xl mx-auto">
                     Transforming organizational knowledge management with AI-powered search and analytics.
                 </p>
                 <div class="text-gray-400 text-sm">
-                    © 2024 AI Universal Knowledge Ingestion System. All rights reserved.
+                    © 2025 Docu-Vault RAG. All rights reserved.
                 </div>
             </div>
         </footer>
@@ -1134,7 +1134,22 @@
         // API Service for backend communication
         class APIService {
             constructor() {
-                this.baseURL = 'http://localhost:8000'; // Backend server URL
+                // Auto-detect the correct base URL
+                const currentOrigin = window.location.origin;
+                
+                // Check if we're in HuggingFace Spaces or localhost
+                if (currentOrigin.includes('hf.space') || currentOrigin.includes('huggingface.co')) {
+                    // HuggingFace Spaces
+                    this.baseURL = currentOrigin;
+                } else if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
+                    // Local development
+                    this.baseURL = 'http://localhost:8000';
+                } else {
+                    // Any other deployment (Render, Railway, etc.)
+                    this.baseURL = currentOrigin;
+                }
+                
+                console.log('API Service initialized with baseURL:', this.baseURL);
             }
             
             async cleanupSession(sessionId) {
@@ -1164,17 +1179,42 @@
                     formData.append('files', file);
                 }
 
-                const response = await fetch(`${this.baseURL}/api/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
+                console.log('Uploading files to:', `${this.baseURL}/api/upload`);
                 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || `Upload failed: ${response.statusText}`);
+                try {
+                    const response = await fetch(`${this.baseURL}/api/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    console.log('Upload response status:', response.status);
+                    
+                    if (!response.ok) {
+                        let errorMessage = `Upload failed: ${response.status} ${response.statusText}`;
+                        try {
+                            const errorData = await response.json();
+                            errorMessage = errorData.detail || errorData.message || errorMessage;
+                        } catch (e) {
+                            const text = await response.text();
+                            errorMessage = `${errorMessage} - ${text.substring(0, 100)}`;
+                        }
+                        throw new Error(errorMessage);
+                    }
+                    
+                    const result = await response.json();
+                    console.log('Upload successful:', result);
+                    return result;
+                    
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    
+                    // Better error message for network issues
+                    if (error.message.includes('Failed to fetch')) {
+                        throw new Error(`Cannot connect to server at ${this.baseURL}. Check if backend is running.`);
+                    }
+                    
+                    throw error;
                 }
-                
-                return await response.json();
             }
 
             async startProcessing() {
@@ -1201,7 +1241,7 @@
             }
 
             async sendChatMessage(message, sessionId = null) {
-                console.log('Sending chat message to backend:', message);
+                console.log('Sending chat message to backend:', this.baseURL);
                 
                 try {
                     const response = await fetch(`${this.baseURL}/api/chat`, {
@@ -1215,9 +1255,19 @@
                         })
                     });
                     
+                    console.log('Response status:', response.status);
+                    
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.detail || `Chat failed: ${response.statusText}`);
+                        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                        try {
+                            const errorData = await response.json();
+                            errorMessage = errorData.detail || errorData.message || errorMessage;
+                        } catch (e) {
+                            // If response is not JSON, get text
+                            const text = await response.text();
+                            errorMessage = `${errorMessage} - ${text.substring(0, 100)}`;
+                        }
+                        throw new Error(errorMessage);
                     }
                     
                     const result = await response.json();
@@ -1226,7 +1276,13 @@
                     return result;
                     
                 } catch (error) {
-                    console.error('Chat API error details:', error);
+                    console.error('Chat API error:', error);
+                    
+                    // Better error messages for common issues
+                    if (error.message.includes('Failed to fetch')) {
+                        throw new Error(`Cannot connect to server at ${this.baseURL}. Please make sure the backend is running.`);
+                    }
+                    
                     throw error;
                 }
             }
@@ -1418,6 +1474,22 @@
         // Main app functions
         async function initializeApp() {
             setupEventListeners();
+            
+            // Show current API endpoint in console
+            console.log('Docu-Vault RAG initialized');
+            console.log('Frontend URL:', window.location.origin);
+            console.log('API Base URL:', apiService.baseURL);
+            
+            // Test backend connection
+            try {
+                const health = await apiService.getHealth();
+                console.log('Backend connection successful:', health);
+                showNotification('Connected to backend', 'success');
+            } catch (error) {
+                console.error('Backend connection failed:', error);
+                showNotification(`Cannot connect to backend at ${apiService.baseURL}`, 'error');
+            }
+            
             await checkSystemStatus();
             startStatusPolling();
         }
@@ -1560,6 +1632,27 @@
             try {
                 showNotification('Uploading files...', 'info');
                 
+                // First, check if we can connect to the backend
+                try {
+                    console.log('Testing connection to:', apiService.baseURL);
+                    await fetch(`${apiService.baseURL}/api/health`);
+                } catch (connectionError) {
+                    console.error('Connection test failed:', connectionError);
+                    showNotification(`Cannot connect to backend at ${apiService.baseURL}. Please check if the server is running.`, 'error');
+                    return;
+                }
+                
+                // Check file size limits for HuggingFace Spaces
+                const MAX_SIZE_MB = 50;
+                const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+                
+                for (let file of files) {
+                    if (file.size > MAX_SIZE_BYTES) {
+                        showNotification(`File ${file.name} is too large (max ${MAX_SIZE_MB}MB for HuggingFace Spaces)`, 'error');
+                        return;
+                    }
+                }
+                
                 // Update UI immediately
                 for (let file of files) {
                     addFileToList(file, 'uploading');
@@ -1576,7 +1669,15 @@
                 
             } catch (error) {
                 console.error('Upload error:', error);
-                showNotification(`Upload failed: ${error.message}`, 'error');
+                
+                // More specific error messages
+                if (error.message.includes('Cannot connect to server')) {
+                    showNotification(error.message, 'error');
+                } else if (error.message.includes('Failed to fetch')) {
+                    showNotification(`Network error: Cannot connect to ${apiService.baseURL}`, 'error');
+                } else {
+                    showNotification(`Upload failed: ${error.message}`, 'error');
+                }
                 
                 // Remove failed files from list
                 updateFileList();

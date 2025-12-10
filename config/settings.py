@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     
     # OpenAI Settings
     OPENAI_API_KEY                : Optional[str]                                            = Field(default = os.getenv("OPENAI_API_KEY"), description = "Open AI API secret key")
-    OPENAI_MODEL                  : str                                                      = Field(default = "gpt-3.5-turbo", description = "Ollama model name")
+    OPENAI_MODEL                  : str                                                      = Field(default = "gpt-3.5-turbo", description = "OpenAI model name")
     
     # Embedding Settings
     EMBEDDING_MODEL               : str                                                      = Field(default = "BAAI/bge-small-en-v1.5", description = "HuggingFace embedding model")
