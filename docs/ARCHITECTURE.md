@@ -1,4 +1,4 @@
-# AI Universal Knowledge Ingestion System - Technical Architecture Document
+# DocuVault AI - Technical Architecture Document
 
 ## 1. System Overview
 
@@ -845,7 +845,7 @@ def check_rate_limit(request: Request, limit: int = 100):
 
 ## Conclusion
 
-This architecture document provides a comprehensive technical blueprint for the AI Universal Knowledge Ingestion System. The modular design, clear separation of concerns, and production-ready considerations make this system suitable for enterprise deployment while maintaining flexibility for future enhancements.
+This architecture document provides a comprehensive technical blueprint for the DocuVault AI. The modular design, clear separation of concerns, and production-ready considerations make this system suitable for enterprise deployment while maintaining flexibility for future enhancements.
 
 ### Key Architectural Strengths
 
@@ -874,9 +874,9 @@ This architecture document provides a comprehensive technical blueprint for the 
 ---
 
 Document Version: 1.0
-Last Updated: November 2025
+Last Updated: December 2025
 Author: Satyaki Mitra
 
 ---
 
-> This document is part of the AI Universal Knowledge Ingestion System technical documentation suite.
+> This document is part of the DocuVault AI technical documentation suite.

@@ -16,12 +16,20 @@ class Settings(BaseSettings):
     
     Environment variables take precedence over defaults
     """
+    # Huggingface Space Deployment mode detection
+    IS_HF_SPACE                   : bool                                                     = Field(default = os.getenv("SPACE_ID") is not None, description = "Running in HF Space")
+    
     # Application Settings
-    APP_NAME                      : str                                                      = "AI Universal Knowledge Ingestion System"
+    APP_NAME                      : str                                                      = "DocuVault AI"
     APP_VERSION                   : str                                                      = "1.0.0"
     DEBUG                         : bool                                                     = Field(default = False, description = "Enable debug mode")
     HOST                          : str                                                      = Field(default = "0.0.0.0", description = "API host")
-    PORT                          : int                                                      = Field(default = 8000, description = "API port")
+    PORT                          : int                                                      = Field(default = int(os.getenv("PORT", 8000)), description = "API port (7860 for HF Spaces)")
+    
+    # LLM Provider Selection (ADD THESE)
+    OLLAMA_ENABLED                : bool                                                     = Field(default = os.getenv("OLLAMA_ENABLED", "true").lower() == "true", description = "Enable Ollama (set false for HF Spaces)")
+    USE_OPENAI                    : bool                                                     = Field(default = os.getenv("USE_OPENAI", "false").lower() == "true", description = "Use OpenAI API instead of local LLM")
+    
     
     # File Upload Settings
     MAX_FILE_SIZE_MB              : int                                                      = Field(default = 100, description = "Max file size in MB")
@@ -41,9 +49,9 @@ class Settings(BaseSettings):
     CONTEXT_WINDOW                : int                                                      = Field(default = 8192, description = "Model context window size")
     
     # OpenAI Settings
-    OPENAI_API_KEY                : Optional[str]                                            = Field(default = None, description = "Open AI API secret key")
+    OPENAI_API_KEY                : Optional[str]                                            = Field(default = os.getenv("OPENAI_API_KEY"), description = "Open AI API secret key")
     OPENAI_MODEL                  : str                                                      = Field(default = "gpt-3.5-turbo", description = "Ollama model name")
-   
+    
     # Embedding Settings
     EMBEDDING_MODEL               : str                                                      = Field(default = "BAAI/bge-small-en-v1.5", description = "HuggingFace embedding model")
     EMBEDDING_DIMENSION           : int                                                      = Field(default = 384, description = "Embedding vector dimension")

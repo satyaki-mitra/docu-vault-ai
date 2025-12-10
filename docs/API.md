@@ -1,7 +1,7 @@
-# AI Universal Knowledge Ingestion System - API Documentation
+# DocuVault AI- API Documentation
 
 ## Overview
-The AI Universal Knowledge Ingestion System is a production-grade RAG (Retrieval-Augmented Generation) platform that enables organizations to unlock knowledge from multiple document sources while maintaining complete data privacy and eliminating API costs.
+The DocuVault AI is a production-grade RAG (Retrieval-Augmented Generation) platform that enables organizations to unlock knowledge from multiple document sources while maintaining complete data privacy and eliminating API costs.
 
 **Base URL:** http://localhost:8000 (or your deployed domain)
 

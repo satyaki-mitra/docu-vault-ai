@@ -11,13 +11,13 @@ app_port: 8000
 
 <div align="center">
 
-# AI Universal Knowledge Ingestion System
+# DocuVault AI: RAG platform for document Q&A with Knowledge Ingestion
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **Enterprise-Grade RAG Platform with Multi-Format Document Ingestion, Hybrid Retrieval, and Zero API Costs**
+> **MVP-Grade RAG Platform with Multi-Format Document Ingestion, Hybrid Retrieval, and Zero API Costs**
 
 </div>
 

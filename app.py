@@ -955,7 +955,7 @@ async def lifespan(app: FastAPI):
     # Register atexit cleanup
     atexit.register(_atexit_cleanup)
 
-    logger.info("Starting AI Universal Knowledge Ingestion System...")
+    logger.info("Starting DocuVault AI ...")
     
     try:
         # Initialize application state
@@ -999,8 +999,8 @@ async def lifespan(app: FastAPI):
 
 
 # Create FastAPI application
-app = FastAPI(title       = "AI Universal Knowledge Ingestion System",
-              description = "Enterprise RAG Platform with Multi-Source Ingestion",
+app = FastAPI(title       = "DocuVault AI",
+              description = "RAG Platform with Multi-Source & Multi-Format Document Ingestion Support",
               version     = "1.0.0",
               lifespan    = lifespan,
              )
