@@ -11,13 +11,20 @@ graph TB
         B[File Upload<br/>Drag & Drop]
         C[Chat Interface<br/>Real-time]
         D[Analytics Dashboard<br/>RAGAS Metrics]
+        D[Analytics Dashboard<br/>RAGAS Metrics]
     end
     
     subgraph "API Gateway"
         E[FastAPI Server<br/>Python 3.11+]
+        E[FastAPI Server<br/>Python 3.11+]
     end
     
     subgraph "Core Processing Engine"
+        F[Ingestion Module]
+        G[Processing Module]
+        H[Retrieval Module]
+        I[Generation Module]
+        J[Evaluation Module]
         F[Ingestion Module]
         G[Processing Module]
         H[Retrieval Module]
@@ -29,12 +36,18 @@ graph TB
         K[Ollama LLM<br/>Mistral-7B]
         L[Embedding Model<br/>BGE-small-en]
         M[FAISS Vector DB]
+        K[Ollama LLM<br/>Mistral-7B]
+        L[Embedding Model<br/>BGE-small-en]
+        M[FAISS Vector DB]
     end
     
     subgraph "Quality Assurance"
         N[RAGAS Evaluator<br/>Real-time Metrics]
+    subgraph "Quality Assurance"
+        N[RAGAS Evaluator<br/>Real-time Metrics]
     end
     
+    A --> E
     A --> E
     E --> F
     F --> G
@@ -43,7 +56,12 @@ graph TB
     I --> K
     G --> L
     L --> M
+    I --> K
+    G --> L
+    L --> M
     H --> M
+    I --> N
+    N --> E
     I --> N
     N --> E
 ```
@@ -57,6 +75,8 @@ graph TB
 | **Processing Model** | Async/Event-driven |
 | **Data Flow** | Pipeline-based with Checkpoints |
 | **Scalability** | Horizontal (Stateless API) + Vertical (GPU) |
+| **Caching** | In-Memory LRU Cache |
+| **Evaluation** | Real-time RAGAS Metrics |
 | **Caching** | In-Memory LRU Cache |
 | **Evaluation** | Real-time RAGAS Metrics |
 
@@ -86,6 +106,7 @@ flowchart TD
     end
     
     D --> F[Text Cleaning]
+    D --> F[Text Cleaning]
     E --> F
     
     F --> G[Encoding Normalization]
@@ -100,6 +121,8 @@ flowchart TD
 | **PDF Parser** | PyPDF2 + EasyOCR | OCR: English+Multilingual | 1000 pages max |
 | **Document Parser** | python-docx | Preserve formatting | 50MB per file |
 | **Archive Handler** | zipfile | Recursion depth: 5 | 2GB total, 10k files |
+| **Document Parser** | python-docx | Preserve formatting | 50MB per file |
+| **Archive Handler** | zipfile | Recursion depth: 5 | 2GB total, 10k files |
 
 ### 2.2 Processing Module
 
@@ -111,7 +134,9 @@ flowchart TD
     B --> C{Document Size}
     
     C -->|<50K tokens| D[Fixed-Size Chunking]
+    C -->|<50K tokens| D[Fixed-Size Chunking]
     C -->|50K-500K tokens| E[Semantic Chunking]
+    C -->|>500K tokens| F[Hierarchical Chunking]
     C -->|>500K tokens| F[Hierarchical Chunking]
     
     subgraph D [Strategy 1: Fixed]
@@ -172,6 +197,7 @@ graph TB
         B[BM25 Keyword Index]
         C[SQLite Metadata]
         D[LRU Cache<br/>In-Memory]
+        D[LRU Cache<br/>In-Memory]
     end
     
     subgraph A [Vector Storage Architecture]
@@ -197,6 +223,13 @@ graph TB
         D1[Query Embeddings]
         D2[Frequent Results]
         D3[LRU Eviction]
+        C4[RAGAS Evaluations]
+    end
+    
+    subgraph D [Cache Layer]
+        D1[Query Embeddings]
+        D2[Frequent Results]
+        D3[LRU Eviction]
     end
     
     A --> E[Hybrid Retrieval]
@@ -213,6 +246,26 @@ graph TB
 | **IndexIVFFlat** | 100K-1M vectors | nprobe: 10-20 | O(log n), Balanced |
 | **IndexHNSW** | > 1M vectors | M: 16, efConstruction: 40 | O(log n), Fastest |
 
+#### Caching Strategy
+
+```python
+# LRU Cache Configuration
+CACHE_CONFIG = {
+    "max_size": 1000,        # Maximum cached items
+    "ttl": 3600,             # Time to live (seconds)
+    "eviction": "LRU",       # Least Recently Used
+    "cache_embeddings": True,
+    "cache_results": True
+}
+```
+
+**Benefits:**
+- **Reduced latency**: 80% reduction for repeat queries
+- **Resource efficiency**: Avoid re-computing embeddings
+- **No external dependencies**: Pure Python implementation
+- **Memory efficient**: LRU eviction prevents unbounded growth
+
+---
 #### Caching Strategy
 
 ```python
@@ -266,15 +319,18 @@ flowchart TD
 #### 2.4.2 Retrieval Algorithms
 
 **Hybrid Fusion Formula:**
+**Hybrid Fusion Formula:**
 
 ```text
 RRF_score(doc) = vector_weight * (1 / (60 + vector_rank)) + bm25_weight * (1 / (60 + bm25_rank))
 ```
 
 **Default Weights:**
+**Default Weights:**
 - Vector Similarity: 60%
 - BM25 Keyword: 40%
 
+**BM25 Parameters:**
 **BM25 Parameters:**
 
 ```python
@@ -284,6 +340,8 @@ BM25_CONFIG = {
     "epsilon": 0.25  # Smoothing factor
 }
 ```
+
+---
 
 ---
 
@@ -340,9 +398,12 @@ graph TB
 | **Context Window** | 32K | - | Mistral model capacity |
 
 ---
+---
 
 ### 2.6 RAGAS Evaluation Module
+### 2.6 RAGAS Evaluation Module
 
+#### 2.6.1 RAGAS Evaluation Pipeline
 #### 2.6.1 RAGAS Evaluation Pipeline
 
 ```mermaid
@@ -351,10 +412,13 @@ flowchart LR
     C[Retrieved Context] --> B
     
     B --> D[RAGAS Evaluator]
+    B --> D[RAGAS Evaluator]
     C --> D
     
     D --> E[Answer Relevancy]
     D --> F[Faithfulness]
+    D --> G[Context Utilization]
+    D --> H[Context Relevancy]
     D --> G[Context Utilization]
     D --> H[Context Relevancy]
     
@@ -366,12 +430,51 @@ flowchart LR
     I --> J[Analytics Dashboard]
     I --> K[SQLite Storage]
     I --> L[Session Statistics]
+    I --> J[Analytics Dashboard]
+    I --> K[SQLite Storage]
+    I --> L[Session Statistics]
 ```
 
 #### 2.6.2 Evaluation Metrics
 
 | Metric | Target | Measurement Method | Importance |
 |--------|--------|-------------------|------------|
+| **Answer Relevancy** | > 0.85 | LLM-based evaluation | Core user satisfaction |
+| **Faithfulness** | > 0.90 | Grounded in context check | Prevents hallucinations |
+| **Context Utilization** | > 0.80 | How well context is used | Generation effectiveness |
+| **Context Relevancy** | > 0.85 | Retrieved chunks relevance | Retrieval quality |
+
+**Implementation Details:**
+
+```python
+# RAGAS Configuration
+RAGAS_CONFIG = {
+    "enable_ragas": True,
+    "enable_ground_truth": False,
+    "base_metrics": [
+        "answer_relevancy",
+        "faithfulness",
+        "context_utilization",
+        "context_relevancy"
+    ],
+    "ground_truth_metrics": [
+        "context_precision",
+        "context_recall",
+        "answer_similarity",
+        "answer_correctness"
+    ],
+    "evaluation_timeout": 60,
+    "batch_size": 10
+}
+```
+
+**Evaluation Flow:**
+
+1. **Automatic Trigger**: Every query-response pair is evaluated
+2. **Async Processing**: Evaluation runs in background (non-blocking)
+3. **Storage**: Results stored in SQLite for analytics
+4. **Aggregation**: Session-level statistics computed on-demand
+5. **Export**: Full evaluation data available for download
 | **Answer Relevancy** | > 0.85 | LLM-based evaluation | Core user satisfaction |
 | **Faithfulness** | > 0.90 | Grounded in context check | Prevents hallucinations |
 | **Context Utilization** | > 0.80 | How well context is used | Generation effectiveness |
@@ -426,12 +529,15 @@ sequenceDiagram
     participant R as Retrieval
     participant G as Generation
     participant E as RAGAS Evaluator
+    participant E as RAGAS Evaluator
     
+    U->>F: Upload Documents
     U->>F: Upload Documents
     F->>A: POST /api/upload
     A->>I: Process Input Sources
     
     Note over I: Parallel Processing
+    I->>I: Document Parsing
     I->>I: Document Parsing
     I->>P: Extracted Text + Metadata
     
@@ -454,7 +560,10 @@ sequenceDiagram
     
     G->>E: Auto-evaluation (async)
     E->>E: Compute RAGAS Metrics
+    G->>E: Auto-evaluation (async)
+    E->>E: Compute RAGAS Metrics
     E->>S: Store Evaluation Results
+    E->>F: Return Metrics
     E->>F: Return Metrics
 ```
 
@@ -464,7 +573,11 @@ sequenceDiagram
 flowchart TD
     A[User Query] --> B[Query Understanding]
     B --> C[Check Cache]
+    B --> C[Check Cache]
     
+    C --> D{Cache Hit?}
+    D -->|Yes| E[Return Cached Embedding]
+    D -->|No| F[Generate Embedding]
     C --> D{Cache Hit?}
     D -->|Yes| E[Return Cached Embedding]
     D -->|No| F[Generate Embedding]
@@ -472,10 +585,16 @@ flowchart TD
     F --> G[Store in Cache]
     E --> H[FAISS Vector Search]
     G --> H
+    F --> G[Store in Cache]
+    E --> H[FAISS Vector Search]
+    G --> H
     
     B --> I[Keyword Extraction]
     I --> J[BM25 Keyword Search]
+    B --> I[Keyword Extraction]
+    I --> J[BM25 Keyword Search]
     
+    H --> K[Reciprocal Rank Fusion]
     H --> K[Reciprocal Rank Fusion]
     J --> K
     
@@ -493,6 +612,24 @@ flowchart TD
     S --> T[Response Streaming]
     T --> U[User Display]
     
+    K --> L[Top-20 Candidates]
+    L --> M{Reranking Enabled?}
+    
+    M -->|Yes| N[Cross-Encoder Reranking]
+    M -->|No| O[Select Top-5]
+    
+    N --> O
+    O --> P[Context Assembly]
+    P --> Q[LLM Prompt Construction]
+    Q --> R[Ollama Generation]
+    R --> S[Citation Formatting]
+    S --> T[Response Streaming]
+    T --> U[User Display]
+    
+    R --> V[Async RAGAS Evaluation]
+    V --> W[Compute Metrics]
+    W --> X[Store Results]
+    X --> Y[Update Dashboard]
     R --> V[Async RAGAS Evaluation]
     V --> W[Compute Metrics]
     W --> X[Store Results]
@@ -517,6 +654,9 @@ graph TB
         D[FAISS Indices<br/>Persistent Volume]
         E[SQLite Database<br/>Persistent Volume]
         F[Log Files<br/>Persistent Volume]
+        D[FAISS Indices<br/>Persistent Volume]
+        E[SQLite Database<br/>Persistent Volume]
+        F[Log Files<br/>Persistent Volume]
     end
     
     A --> B
@@ -533,6 +673,7 @@ graph TB
 | Resource | Specification | Purpose |
 |----------|---------------|---------|
 | **CPU** | 4 cores | Document processing, embeddings |
+| **RAM** | 8GB | Model loading, FAISS indices, cache |
 | **RAM** | 8GB | Model loading, FAISS indices, cache |
 | **Storage** | 20GB | Models, indices, documents |
 | **GPU** | Optional | 2-3x speedup for inference |
@@ -578,8 +719,18 @@ graph TB
         L[POST /api/ragas/clear]
         M[GET /api/ragas/export]
         N[GET /api/ragas/config]
+    subgraph "RAGAS Evaluation"
+        J[GET /api/ragas/history]
+        K[GET /api/ragas/statistics]
+        L[POST /api/ragas/clear]
+        M[GET /api/ragas/export]
+        N[GET /api/ragas/config]
     end
     
+    subgraph "Analytics"
+        O[GET /api/analytics]
+        P[GET /api/analytics/refresh]
+        Q[GET /api/analytics/detailed]
     subgraph "Analytics"
         O[GET /api/analytics]
         P[GET /api/analytics/refresh]
@@ -591,11 +742,15 @@ graph TB
 
 ```python
 # Typical Chat Request Flow with RAGAS
+# Typical Chat Request Flow with RAGAS
 REQUEST_FLOW = {
     "authentication": "None (local deployment)",
     "rate_limiting": "100 requests/minute per IP",
     "validation": "Query length, session ID format",
     "processing": "Async with progress tracking",
+    "response": "JSON with citations + metrics + RAGAS scores",
+    "caching": "LRU cache for embeddings",
+    "evaluation": "Automatic RAGAS metrics (async)"
     "response": "JSON with citations + metrics + RAGAS scores",
     "caching": "LRU cache for embeddings",
     "evaluation": "Automatic RAGAS metrics (async)"
@@ -605,11 +760,14 @@ REQUEST_FLOW = {
 ---
 
 ## 6. Monitoring & Quality Assurance
+## 6. Monitoring & Quality Assurance
 
+### 6.1 RAGAS Integration
 ### 6.1 RAGAS Integration
 
 ```mermaid
 graph LR
+    A[API Gateway] --> B[Query Processing]
     A[API Gateway] --> B[Query Processing]
     C[Retrieval Module] --> B
     D[Generation Module] --> B
@@ -617,7 +775,15 @@ graph LR
     B --> E[RAGAS Evaluator]
     
     E --> F[Analytics Dashboard]
+    B --> E[RAGAS Evaluator]
     
+    E --> F[Analytics Dashboard]
+    
+    F --> G[Answer Relevancy]
+    F --> H[Faithfulness]
+    F --> I[Context Utilization]
+    F --> J[Context Relevancy]
+    F --> K[Session Statistics]
     F --> G[Answer Relevancy]
     F --> H[Faithfulness]
     F --> I[Context Utilization]
@@ -634,7 +800,29 @@ graph LR
 | **Quality** | Faithfulness | > 0.90 | < 0.80 |
 | **Quality** | Context Utilization | > 0.80 | < 0.65 |
 | **Quality** | Overall Score | > 0.85 | < 0.70 |
+| **Quality** | Context Utilization | > 0.80 | < 0.65 |
+| **Quality** | Overall Score | > 0.85 | < 0.70 |
 | **Reliability** | Uptime | > 99.5% | < 95% |
+
+### 6.3 Analytics Dashboard Features
+
+**Real-Time Metrics:**
+- RAGAS evaluation table with all query-response pairs
+- Session-level aggregate statistics
+- Performance metrics (latency, throughput)
+- Component health status
+
+**Historical Analysis:**
+- Quality trend over time
+- Performance degradation detection
+- Cache hit rate monitoring
+- Resource utilization tracking
+
+**Export Capabilities:**
+- JSON export of all evaluation data
+- CSV export for external analysis
+- Session-based filtering
+- Time-range queries
 
 ### 6.3 Analytics Dashboard Features
 
@@ -676,13 +864,172 @@ graph LR
 | **Vector DB** | Storage | FAISS | 1.7.4+ | Vector similarity |
 | **Search** | Keyword | rank-bm25 | 0.2.1 | BM25 implementation |
 | **Evaluation** | Quality | Ragas | 0.1.9 | RAG evaluation |
+| **Evaluation** | Quality | Ragas | 0.1.9 | RAG evaluation |
 | **Document** | PDF | PyPDF2 | 3.0+ | PDF text extraction |
 | **Document** | Word | python-docx | 1.1+ | DOCX processing |
 | **OCR** | Text Recognition | EasyOCR | 1.7+ | Scanned documents |
 | **Database** | Metadata | SQLite | 3.35+ | Local storage |
 | **Cache** | In-memory | Python functools | - | LRU caching |
+| **Cache** | In-memory | Python functools | - | LRU caching |
 | **Deployment** | Container | Docker | 24.0+ | Containerization |
 | **Deployment** | Orchestration | Docker Compose | 2.20+ | Multi-container |
+
+---
+
+## 8. Key Architectural Decisions
+
+### 8.1 Why Local Caching Instead of Redis?
+
+**Decision:** Use in-memory LRU cache with Python's `functools.lru_cache`
+
+**Rationale:**
+- **Simplicity**: No external service to manage
+- **Performance**: Faster access (no network overhead)
+- **MVP Focus**: Adequate for initial deployment
+- **Resource Efficient**: No additional memory footprint
+- **Easy Migration**: Can upgrade to Redis later if needed
+
+**Trade-offs:**
+- Cache doesn't persist across restarts
+- Can't share cache across multiple instances
+- Limited by single-process memory
+
+### 8.2 Why RAGAS for Evaluation?
+
+**Decision:** Integrate RAGAS for real-time quality assessment
+
+**Rationale:**
+- **Automated Metrics**: No manual annotation required
+- **Production-Ready**: Quantifiable quality scores
+- **Real-Time**: Evaluate every query-response pair
+- **Comprehensive**: Multiple dimensions of quality
+- **Research-Backed**: Based on academic research
+
+**Implementation Details:**
+- OpenAI API key required for LLM-based metrics
+- Async evaluation to avoid blocking responses
+- SQLite storage for historical analysis
+- Export capability for offline processing
+
+### 8.3 Why No Web Scraping?
+
+**Decision:** Removed web scraping from MVP
+
+**Rationale:**
+- **Complexity**: Anti-scraping mechanisms require maintenance
+- **Reliability**: Website changes break scrapers
+- **Legal**: Potential legal/ethical issues
+- **Scope**: Focus on core RAG functionality first
+
+**Alternative:**
+- Users can save web pages as PDFs
+- Future enhancement if market demands it
+
+---
+
+## 9. Performance Optimization Strategies
+
+### 9.1 Embedding Cache Strategy
+
+```python
+# Cache Implementation
+from functools import lru_cache
+
+@lru_cache(maxsize=1000)
+def get_query_embedding(query: str) -> np.ndarray:
+    """Cache query embeddings for repeat queries"""
+    return embedder.embed(query)
+
+# Benefits:
+# - 80% reduction in latency for repeat queries
+# - No re-computation of identical queries
+# - Automatic LRU eviction
+```
+
+### 9.2 Batch Processing
+
+```python
+# Batch Embedding Generation
+BATCH_SIZE = 32
+
+def embed_chunks_batch(chunks: List[str]) -> List[np.ndarray]:
+    embeddings = []
+    for i in range(0, len(chunks), BATCH_SIZE):
+        batch = chunks[i:i+BATCH_SIZE]
+        batch_embeddings = embedder.embed_batch(batch)
+        embeddings.extend(batch_embeddings)
+    return embeddings
+```
+
+### 9.3 Async Processing
+
+```python
+# Async Document Processing
+import asyncio
+
+async def process_documents_async(documents: List[Path]):
+    tasks = [process_single_document(doc) for doc in documents]
+    results = await asyncio.gather(*tasks)
+    return results
+```
+
+---
+
+## 10. Security Considerations
+
+### 10.1 Data Privacy
+
+- **On-Premise Processing**: All data stays local
+- **No External APIs**: Except OpenAI for RAGAS (configurable)
+- **Local LLM**: Ollama runs entirely on-premise
+- **Encrypted Storage**: Optional SQLite encryption
+
+### 10.2 Input Validation
+
+```python
+# File Upload Validation
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.txt', '.zip'}
+
+def validate_upload(file: UploadFile):
+    # Check extension
+    if Path(file.filename).suffix not in ALLOWED_EXTENSIONS:
+        raise ValueError("Unsupported file type")
+    
+    # Check size
+    if file.size > MAX_FILE_SIZE:
+        raise ValueError("File too large")
+    
+    # Scan for malicious content (optional)
+    # scan_for_malware(file)
+```
+
+### 10.3 Rate Limiting
+
+```python
+# Simple rate limiting
+from fastapi import Request
+from collections import defaultdict
+from datetime import datetime, timedelta
+
+rate_limits = defaultdict(list)
+
+def check_rate_limit(request: Request, limit: int = 100):
+    ip = request.client.host
+    now = datetime.now()
+    
+    # Clean old requests
+    rate_limits[ip] = [
+        ts for ts in rate_limits[ip] 
+        if now - ts < timedelta(minutes=1)
+    ]
+    
+    # Check limit
+    if len(rate_limits[ip]) >= limit:
+        raise HTTPException(429, "Rate limit exceeded")
+    
+    rate_limits[ip].append(now)
+```
 
 ---
 
@@ -847,6 +1194,31 @@ def check_rate_limit(request: Request, limit: int = 100):
 
 This architecture document provides a comprehensive technical blueprint for the DocuVault AI. The modular design, clear separation of concerns, and production-ready considerations make this system suitable for enterprise deployment while maintaining flexibility for future enhancements.
 
+### Key Architectural Strengths
+
+1. **Modularity**: Each component is independent and replaceable
+2. **Scalability**: Horizontal scaling through stateless API design
+3. **Performance**: Intelligent caching and batch processing
+4. **Quality**: Real-time RAGAS evaluation for continuous monitoring
+5. **Privacy**: Complete on-premise processing with local LLM
+6. **Simplicity**: Minimal external dependencies (no Redis, no web scraping)
+
+### Future Enhancements
+
+**Short-term:**
+- Redis cache for multi-instance deployments
+- Advanced monitoring dashboard
+- User authentication and authorization
+- API rate limiting enhancements
+
+**Long-term:**
+- Distributed processing with Celery
+- Web scraping module (optional)
+- Fine-tuned domain-specific embeddings
+- Multi-tenant support
+- Advanced analytics and reporting
+
+---
 ### Key Architectural Strengths
 
 1. **Modularity**: Each component is independent and replaceable

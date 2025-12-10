@@ -2,6 +2,8 @@
 import os
 import time
 import torch
+import time
+import torch
 from pathlib import Path
 from pydantic import Field
 from typing import Literal
@@ -19,11 +21,20 @@ class Settings(BaseSettings):
     # Huggingface Space Deployment mode detection
     IS_HF_SPACE                   : bool                                                     = Field(default = os.getenv("SPACE_ID") is not None, description = "Running in HF Space")
     
+    # Huggingface Space Deployment mode detection
+    IS_HF_SPACE                   : bool                                                     = Field(default = os.getenv("SPACE_ID") is not None, description = "Running in HF Space")
+    
     # Application Settings
     APP_NAME                      : str                                                      = "DocuVault AI"
     APP_VERSION                   : str                                                      = "1.0.0"
     DEBUG                         : bool                                                     = Field(default = False, description = "Enable debug mode")
     HOST                          : str                                                      = Field(default = "0.0.0.0", description = "API host")
+    PORT                          : int                                                      = Field(default = int(os.getenv("PORT", 8000)), description = "API port (7860 for HF Spaces)")
+    
+    # LLM Provider Selection (ADD THESE)
+    OLLAMA_ENABLED                : bool                                                     = Field(default = os.getenv("OLLAMA_ENABLED", "true").lower() == "true", description = "Enable Ollama (set false for HF Spaces)")
+    USE_OPENAI                    : bool                                                     = Field(default = os.getenv("USE_OPENAI", "false").lower() == "true", description = "Use OpenAI API instead of local LLM")
+    
     PORT                          : int                                                      = Field(default = int(os.getenv("PORT", 8000)), description = "API port (7860 for HF Spaces)")
     
     # LLM Provider Selection (ADD THESE)
@@ -40,10 +51,12 @@ class Settings(BaseSettings):
     # Ollama LLM Settings
     OLLAMA_BASE_URL               : str                                                      = Field(default = "http://localhost:11434", description = "Ollama API endpoint")
     OLLAMA_MODEL                  : str                                                      = Field(default = "mistral:7b", description = "Ollama model name")
+    OLLAMA_MODEL                  : str                                                      = Field(default = "mistral:7b", description = "Ollama model name")
     OLLAMA_TIMEOUT                : int                                                      = Field(default = 120, description = "Ollama request timeout (seconds)")
     
     # Generation parameters
     DEFAULT_TEMPERATURE           : float                                                    = Field(default = 0.1, ge = 0.0, le = 1.0, description = "LLM temperature (0=deterministic, 1=creative)")
+    TOP_P                         : float                                                    = Field(default = 0.9, ge = 0.0, le = 1.0, description = "Nucleus sampling threshold")
     TOP_P                         : float                                                    = Field(default = 0.9, ge = 0.0, le = 1.0, description = "Nucleus sampling threshold")
     MAX_TOKENS                    : int                                                      = Field(default = 1000, description = "Max output tokens")
     CONTEXT_WINDOW                : int                                                      = Field(default = 8192, description = "Model context window size")
@@ -62,8 +75,11 @@ class Settings(BaseSettings):
     # Fixed chunking
     FIXED_CHUNK_SIZE              : int                                                      = Field(default = 512, description = "Fixed chunk size in tokens")
     FIXED_CHUNK_OVERLAP           : int                                                      = Field(default = 25, description = "Overlap between chunks")
+    FIXED_CHUNK_OVERLAP           : int                                                      = Field(default = 25, description = "Overlap between chunks")
     
     # Semantic chunking
+    SEMANTIC_BREAKPOINT_THRESHOLD : float                                                    = Field(default = 0.80, description = "Percentile for semantic breakpoints")
+
     SEMANTIC_BREAKPOINT_THRESHOLD : float                                                    = Field(default = 0.80, description = "Percentile for semantic breakpoints")
 
     # Hierarchical chunking
@@ -71,6 +87,8 @@ class Settings(BaseSettings):
     CHILD_CHUNK_SIZE              : int                                                      = Field(default = 512, description = "Child chunk size")
     
     # Adaptive thresholds
+    SMALL_DOC_THRESHOLD           : int                                                      = Field(default = 1000, description = "Token threshold for fixed chunking")
+    LARGE_DOC_THRESHOLD           : int                                                      = Field(default = 500000, description = "Token threshold for hierarchical chunking")
     SMALL_DOC_THRESHOLD           : int                                                      = Field(default = 1000, description = "Token threshold for fixed chunking")
     LARGE_DOC_THRESHOLD           : int                                                      = Field(default = 500000, description = "Token threshold for hierarchical chunking")
     
@@ -89,6 +107,7 @@ class Settings(BaseSettings):
     BM25_B                        : float                                                    = Field(default = 0.75, description = "BM25 length normalization")
     
     # Reranking
+    ENABLE_RERANKING              : bool                                                     = Field(default = True, description = "Enable cross-encoder reranking")
     ENABLE_RERANKING              : bool                                                     = Field(default = True, description = "Enable cross-encoder reranking")
     RERANKER_MODEL                : str                                                      = Field(default = "cross-encoder/ms-marco-MiniLM-L-6-v2", description = "Reranker model")
     
@@ -127,6 +146,13 @@ class Settings(BaseSettings):
     RAGAS_EVALUATION_TIMEOUT      : int                                                      = Field(default = 60, description = "RAGAS evaluation timeout in seconds")
     RAGAS_BATCH_SIZE              : int                                                      = Field(default = 10, description = "Batch size for RAGAS evaluations")
 
+    ENABLE_RAGAS                  : bool                                                     = Field(default = True, description = "Enable Ragas evaluation")
+    RAGAS_ENABLE_GROUND_TRUTH     : bool                                                     = Field(default = False, description = "Enable RAGAS metrics requiring ground truth")
+    RAGAS_METRICS                 : list[str]                                                = Field(default = ["answer_relevancy", "faithfulness", "context_utilization", "context_relevancy"], description = "Ragas metrics to compute (base metrics without ground truth)")
+    RAGAS_GROUND_TRUTH_METRICS    : list[str]                                                = Field(default = ["context_precision", "context_recall", "answer_similarity", "answer_correctness"], description = "Ragas metrics requiring ground truth")
+    RAGAS_EVALUATION_TIMEOUT      : int                                                      = Field(default = 60, description = "RAGAS evaluation timeout in seconds")
+    RAGAS_BATCH_SIZE              : int                                                      = Field(default = 10, description = "Batch size for RAGAS evaluations")
+
     # Web Scraping Settings (for future)
     SCRAPING_ENABLED              : bool                                                     = Field(default = False, description = "Enable web scraping")
     USER_AGENT                    : str                                                      = Field(default = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", description = "User agent for scraping")
@@ -139,6 +165,9 @@ class Settings(BaseSettings):
     
     # Security Settings
     ENABLE_AUTH                   : bool                                                     = Field(default = False, description = "Enable authentication")
+    SECRET_KEY                    : str                                                      = Field(default = os.getenv("SECRET_KEY", "dev-key-change-in-production"))
+    
+    FIXED_CHUNK_STRATEGY          : str                                                      = Field(default = "fixed", description = "Default chunking strategy")
     SECRET_KEY                    : str                                                      = Field(default = os.getenv("SECRET_KEY", "dev-key-change-in-production"))
     
     FIXED_CHUNK_STRATEGY          : str                                                      = Field(default = "fixed", description = "Default chunking strategy")
@@ -160,6 +189,8 @@ class Settings(BaseSettings):
             v.parent.mkdir(parents = True, exist_ok = True)
 
         else:  # It's a directory
+            v.mkdir(parents = True, exist_ok = True)
+
             v.mkdir(parents = True, exist_ok = True)
 
         return v
@@ -217,6 +248,15 @@ class Settings(BaseSettings):
         """
         return int(time.time() * 1000)
 
+    
+
+    @classmethod
+    def get_timestamp_ms(cls) -> int:
+        """
+        Get current timestamp in milliseconds
+        """
+        return int(time.time() * 1000)
+
 
     def summary(self) -> dict:
         """
@@ -231,6 +271,7 @@ class Settings(BaseSettings):
                 "allowed_extensions" : self.ALLOWED_EXTENSIONS,
                 "chunking_strategy"  : {"small_threshold" : self.SMALL_DOC_THRESHOLD, "large_threshold" : self.LARGE_DOC_THRESHOLD},
                 "retrieval"          : {"top_k" : self.TOP_K_RETRIEVE, "hybrid_weights" : {"vector" : self.VECTOR_WEIGHT, "bm25" : self.BM25_WEIGHT}},
+                "evaluation"         : {"ragas_enabled" : self.ENABLE_RAGAS, "ragas_ground_truth" : self.RAGAS_ENABLE_GROUND_TRUTH, "ragas_metrics" : self.RAGAS_METRICS},
                 "evaluation"         : {"ragas_enabled" : self.ENABLE_RAGAS, "ragas_ground_truth" : self.RAGAS_ENABLE_GROUND_TRUTH, "ragas_metrics" : self.RAGAS_METRICS},
                }
 

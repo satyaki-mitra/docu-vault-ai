@@ -17,6 +17,9 @@ data/
 # DB
 sqlite/
 
+# DB
+sqlite/
+
 # Logs
 logs/
 *.log
