@@ -33,6 +33,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
+# Install Ollama
+RUN curl -fsSL https://ollama.ai/install.sh | sh
+
 # Copy application code
 COPY . .
 
@@ -55,6 +58,9 @@ ENV PADDLE_NO_WARN=1
 
 # Expose port for HF Spaces
 EXPOSE 7860
+
+# Start Ollama in background
+CMD ollama serve & sleep 20 && ollama pull mistral:7b
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

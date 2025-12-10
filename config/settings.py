@@ -51,7 +51,6 @@ class Settings(BaseSettings):
     # Ollama LLM Settings
     OLLAMA_BASE_URL               : str                                                      = Field(default = "http://localhost:11434", description = "Ollama API endpoint")
     OLLAMA_MODEL                  : str                                                      = Field(default = "mistral:7b", description = "Ollama model name")
-    OLLAMA_MODEL                  : str                                                      = Field(default = "mistral:7b", description = "Ollama model name")
     OLLAMA_TIMEOUT                : int                                                      = Field(default = 120, description = "Ollama request timeout (seconds)")
     
     # Generation parameters
