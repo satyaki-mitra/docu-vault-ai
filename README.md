@@ -29,7 +29,6 @@ A production-ready Retrieval-Augmented Generation (RAG) system that enables orga
 ---
 
 ## 📋 Table of Contents
-## 📋 Table of Contents
 
 - [Overview](#-overview)
 - [Key Features](#-key-features)
@@ -66,7 +65,6 @@ The AI Universal Knowledge Ingestion System addresses a critical enterprise pain
 
 ### **Market Context**
 
-- **$8.5B** projected enterprise AI search market by 2027
 - **85%** of enterprises actively adopting AI-powered knowledge management
 - **Growing regulatory demands** for on-premise, privacy-compliant solutions
 
@@ -74,7 +72,6 @@ The AI Universal Knowledge Ingestion System addresses a critical enterprise pain
 
 ## ✨ Key Features
 
-### **1. Multi-Format Document Ingestion**
 ### **1. Multi-Format Document Ingestion**
 - **Supported Formats**: PDF, DOCX, TXT
 - **Archive Processing**: ZIP files up to 2GB with recursive extraction
@@ -119,16 +116,9 @@ graph LR
 - **Analytics Dashboard**: Track quality trends over time
 - **Export Capability**: Download evaluation data for analysis
 - **Session Statistics**: Aggregate metrics across conversation sessions
-### **5. RAGAS Quality Assurance**
-- **Real-Time Evaluation**: Answer relevancy, faithfulness, context precision/recall
-- **Automatic Metrics**: Computed for every query-response pair
-- **Analytics Dashboard**: Track quality trends over time
-- **Export Capability**: Download evaluation data for analysis
-- **Session Statistics**: Aggregate metrics across conversation sessions
-
+  
 ---
 
-## 🗂️ System Architecture
 ## 🗂️ System Architecture
 
 ### **High-Level Architecture**
@@ -499,7 +489,6 @@ def hybrid_retrieve(query: str, top_k: int = 10):
 ```
 
 ### **3. Response Generation**
-### **3. Response Generation**
 
 **Temperature Control:**
 
@@ -512,9 +501,6 @@ graph LR
     D -->|Low| F[High Temp<br/>0.6-0.8]
 ```
 
-### **4. RAGAS Evaluation Module**
-
-**Automatic Quality Assessment:**
 ### **4. RAGAS Evaluation Module**
 
 **Automatic Quality Assessment:**
@@ -605,7 +591,6 @@ Content-Type: application/json
 ```
 
 **Response includes RAGAS metrics:**
-**Response includes RAGAS metrics:**
 ```json
 {
   "session_id": "session_123",
@@ -636,7 +621,6 @@ Content-Type: application/json
 }
 ```
 
-#### **5. RAGAS Endpoints**
 #### **5. RAGAS Endpoints**
 
 ```bash
@@ -691,7 +675,6 @@ CONTEXT_WINDOW      = 8192
 ```
 
 #### **RAGAS Settings**
-#### **RAGAS Settings**
 ```python
 ENABLE_RAGAS              = True
 RAGAS_ENABLE_GROUND_TRUTH = False
@@ -733,47 +716,7 @@ CACHE_TTL              = 3600  # Time to live in seconds
 RAGAS (Retrieval-Augmented Generation Assessment) is a framework for evaluating RAG systems using automated metrics. Our implementation provides real-time quality assessment for every query-response pair.
 
 ### **Metrics Explained**
-## 📊 RAGAS Evaluation
 
-### **What is RAGAS?**
-
-RAGAS (Retrieval-Augmented Generation Assessment) is a framework for evaluating RAG systems using automated metrics. Our implementation provides real-time quality assessment for every query-response pair.
-
-### **Metrics Explained**
-
-| Metric | Definition | Target | Interpretation |
-|--------|-----------|--------|----------------|
-| **Answer Relevancy** | How well the answer addresses the question | > 0.85 | Measures usefulness to user |
-| **Faithfulness** | Is the answer grounded in retrieved context? | > 0.90 | Prevents hallucinations |
-| **Context Utilization** | How well the context is used in the answer | > 0.80 | Retrieval effectiveness |
-| **Context Relevancy** | Are retrieved chunks relevant to the query? | > 0.85 | Search quality |
-| **Overall Score** | Weighted average of all metrics | > 0.85 | System performance |
-
-### **Using the Analytics Dashboard**
-
-1. Navigate to **Analytics & Quality** section
-2. View real-time RAGAS metrics table
-3. Monitor session statistics (averages, trends)
-4. Export evaluation data for offline analysis
-
-### **Example Evaluation Output**
-
-```
-Query: "What were the Q3 revenue trends?"
-Answer: "Q3 revenue increased 23% YoY to $45.2M..."
-
-RAGAS Evaluation:
-├─ Answer Relevancy: 0.89 ✓ (Good)
-├─ Faithfulness: 0.94 ✓ (Excellent)
-├─ Context Utilization: 0.87 ✓ (Good)
-├─ Context Relevancy: 0.91 ✓ (Excellent)
-└─ Overall Score: 0.90 ✓ (Excellent)
-
-Performance:
-├─ Retrieval Time: 245ms
-├─ Generation Time: 3100ms
-└─ Total Time: 3345ms
-```
 | Metric | Definition | Target | Interpretation |
 |--------|-----------|--------|----------------|
 | **Answer Relevancy** | How well the answer addresses the question | > 0.85 | Measures usefulness to user |
@@ -810,15 +753,12 @@ Performance:
 
 ---
 
-## 🔧 Troubleshooting
 ## 🔧 Troubleshooting
 
 ### **Common Issues**
 
 #### **1. "RAGAS evaluation failed"**
-#### **1. "RAGAS evaluation failed"**
 
-**Cause:** OpenAI API key not configured
 **Cause:** OpenAI API key not configured
 
 **Solution:**
@@ -840,26 +780,17 @@ ENABLE_RAGAS=False
 **Cause:** Missing token counts in chunks
 
 **Solution:** Already fixed in `context_assembler.py`. Tokens calculated on-the-fly if missing.
-**Solution:** Already fixed in `context_assembler.py`. Tokens calculated on-the-fly if missing.
 
-#### **3. "Slow query responses"**
 #### **3. "Slow query responses"**
 
 **Solutions:**
 - Enable embedding cache : `ENABLE_EMBEDDING_CACHE=True`
 - Reduce retrieval count : `TOP_K_RETRIEVE=5`
 - Disable reranking      : `ENABLE_RERANKING=False`
-
-- Enable embedding cache : `ENABLE_EMBEDDING_CACHE=True`
-- Reduce retrieval count : `TOP_K_RETRIEVE=5`
-- Disable reranking      : `ENABLE_RERANKING=False`
-
 - Use quantized model for faster inference
 
 #### **4. "RAGAS metrics not appearing"**
-#### **4. "RAGAS metrics not appearing"**
 
-**Symptoms:** Chat responses lack quality metrics
 **Symptoms:** Chat responses lack quality metrics
 
 **Solution:**
@@ -906,9 +837,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 👤 Author
-
-Satyaki Mitra | Data Scientist | Generative-AI Enthusiast
 ## 👤 Author
 
 Satyaki Mitra | Data Scientist | Generative-AI Enthusiast
