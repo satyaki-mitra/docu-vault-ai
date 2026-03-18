@@ -425,11 +425,6 @@ RAGAS Metrics:
 - Context Utilization: 0.87
 - Overall Score: 0.90
 
-RAGAS Metrics:
-- Answer Relevancy: 0.89
-- Faithfulness: 0.94
-- Context Utilization: 0.87
-- Overall Score: 0.90
 ```
 
 ---
@@ -521,12 +516,15 @@ ragas_result = ragas_evaluator.evaluate_single(query              = user_query,
 - Overall Score (weighted average)
 ```
 # After each query-response
+
+```python
 ragas_result = ragas_evaluator.evaluate_single(query              = user_query,
                                                answer             = generated_answer,
                                                contexts           = retrieved_chunks,
                                                retrieval_time_ms  = retrieval_time,
                                                generation_time_ms = generation_time,
                                               )
+```
 
 # Metrics computed:
 - Answer Relevancy (0-1)
@@ -534,7 +532,6 @@ ragas_result = ragas_evaluator.evaluate_single(query              = user_query,
 - Context Utilization (0-1)
 - Context Relevancy (0-1)
 - Overall Score (weighted average)
-```
 
 ---
 
