@@ -221,7 +221,6 @@ Each component is independent and replaceable:
 #### **Separation of Concerns**
 ```
 Ingestion → Storage → Retrieval → Generation → Evaluation
-Ingestion → Storage → Retrieval → Generation → Evaluation
 ```
 Each stage has clear inputs/outputs and single responsibility.
 
