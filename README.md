@@ -454,28 +454,17 @@ graph TD
 **Retrieval Flow:**
 
 ```python
-# Pseudocode
-def hybrid_retrieve(query: str, top_k: int = 10):
-    # Dual retrieval
 def hybrid_retrieve(query: str, top_k: int = 10):
     # Dual retrieval
     query_embedding = embedder.embed(query)
     vector_results  = faiss_index.search(query_embedding, top_k * 2)
     bm25_results    = bm25_index.search(query, top_k * 2)
-    vector_results  = faiss_index.search(query_embedding, top_k * 2)
-    bm25_results    = bm25_index.search(query, top_k * 2)
     
     # Fusion (RRF)
     fused_results   = reciprocal_rank_fusion(vector_results, 
                                              bm25_results,
                                              weights = (0.6, 0.4))
-    # Fusion (RRF)
-    fused_results   = reciprocal_rank_fusion(vector_results, 
-                                             bm25_results,
-                                             weights = (0.6, 0.4))
     
-    # Reranking
-    reranked        = cross_encoder.rerank(query, fused_results, top_k)
     # Reranking
     reranked        = cross_encoder.rerank(query, fused_results, top_k)
     
