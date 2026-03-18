@@ -818,7 +818,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Robertson & Zaragoza (2009) - The Probabilistic Relevance Framework: BM25
 - Lewis et al. (2020) - Retrieval-Augmented Generation
 - Es et al. (2023) - RAGAS: Automated Evaluation of RAG
-- Es et al. (2023) - RAGAS: Automated Evaluation of RAG
 
 ---
 
@@ -830,6 +829,6 @@ Satyaki Mitra | Data Scientist | Generative-AI Enthusiast
 
 <div align="center">
 
-**Built with ❤️ for the open-source community**
+**Built for the open-source community**
 
 </div>
